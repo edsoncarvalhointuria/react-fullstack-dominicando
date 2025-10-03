@@ -1,0 +1,69 @@
+.custom-tooltip {
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #e5e7eb;
+    padding: 1rem 1.5rem;
+    border-radius: 0.8rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+
+    &__label {
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        color: #111827;
+    }
+
+    &__item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 2rem;
+        margin-top: 0.8rem;
+    }
+
+    &__item-label {
+        display: flex;
+        flex-direction: column; // <-- A MÁGICA DA QUEBRA DE LINHA
+        align-items: flex-start;
+        font-size: 1.4rem;
+        color: #6b7280;
+    }
+
+    &__item-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+    }
+}
+
+.custom-legend {
+    display: flex;
+    flex-wrap: wrap; // Permite que os itens quebrem para a próxima linha se não houver espaço
+    justify-content: center;
+    gap: 1rem 2.5rem; // Espaçamento vertical e horizontal
+    margin-top: 2rem;
+    padding: 0 1rem;
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    &__swatch {
+        width: 1.4rem;
+        height: 1.4rem;
+        border-radius: 0.4rem;
+        flex-shrink: 0; // Impede que o quadrado encolha
+    }
+
+    &__label {
+        display: flex;
+        flex-direction: column; // A mágica da quebra de linha
+        font-size: 1.4rem;
+        color: #374151; // Um cinza escuro
+        line-height: 1.4;
+    }
+}

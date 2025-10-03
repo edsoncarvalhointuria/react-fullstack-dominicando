@@ -1,0 +1,117 @@
+@use "@/styles/tables";
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.classes-page {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    min-height: 75vh;
+
+    &__header {
+        background-color: v.$cor-secundaria-fundo;
+        padding: 2rem;
+        border-radius: 1.2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+    }
+
+    &__infos {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #f3f4f6;
+        margin-bottom: 2rem;
+
+        @media all and (max-width: 768px) {
+            justify-content: center;
+        }
+    }
+
+    &__title h2 {
+        font-size: 2.4rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+    }
+
+    &__cadastrar button {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 0.8rem;
+        background-color: v.$cor-primaria-itens;
+        color: white;
+        font-size: 1.6rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+
+        &:hover {
+            background-color: color.scale(
+                v.$cor-primaria-itens,
+                $lightness: -10%
+            );
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+    }
+
+    &__vazio {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        padding: 5rem 2rem;
+        text-align: center;
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        border: 2px dashed #e5e7eb;
+
+        &--mensagem {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+        }
+    }
+
+    &__total {
+        width: 100%;
+        text-align: right;
+        font-size: 1.4rem;
+        font-weight: 500;
+        color: v.$cor-secundaria-texto;
+        white-space: nowrap;
+    }
+
+    &__filtros {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    &__filtro {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex: 1;
+
+        p {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+            white-space: nowrap;
+        }
+
+        input {
+            width: 100%;
+        }
+    }
+}

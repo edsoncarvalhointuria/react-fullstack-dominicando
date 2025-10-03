@@ -1,0 +1,99 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.pagina-cadastro {
+    min-height: 100vh;
+    background-color: v.$cor-primaria-fundo;
+    display: grid;
+    place-items: center;
+    padding: 2rem;
+
+    &__card {
+        width: 100%;
+        max-width: 50rem;
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        padding: 3rem;
+        text-align: center;
+    }
+
+    &__header {
+        margin-bottom: 2.5rem;
+
+        h2 {
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        p {
+            font-size: 1.4rem;
+            color: v.$cor-secundaria-texto;
+        }
+    }
+
+    &__icone {
+        font-size: 2.5rem;
+        width: 6rem;
+        height: 6rem;
+        border-radius: 50%;
+        display: inline-grid;
+        place-items: center;
+        background-color: v.$cor-primaria-fundo;
+        color: v.$cor-primaria-itens;
+        border: 4px solid v.$cor-secundaria-fundo;
+    }
+
+    &__actions {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+
+        .button-primary,
+        .button-secondary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            width: 100%;
+            padding: 1.2rem;
+            border-radius: 0.8rem;
+            font-size: 1.6rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+
+        .button-primary {
+            background-color: v.$cor-primaria-itens;
+            color: white;
+        }
+
+        .button-secondary {
+            background-color: v.$cor-primaria-fundo;
+            border: 1px solid #e5e7eb;
+            color: v.$cor-primaria-texto;
+        }
+    }
+
+    &__footer {
+        margin-top: 2.5rem;
+
+        a {
+            font-size: 1.5rem;
+            color: v.$cor-secundaria-texto;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.8rem;
+            transition: color 0.2s;
+
+            &:hover {
+                color: v.$cor-primaria-itens;
+            }
+        }
+    }
+}

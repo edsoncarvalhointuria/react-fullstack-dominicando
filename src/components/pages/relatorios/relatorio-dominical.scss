@@ -1,0 +1,233 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.relatorio-dominical {
+    padding: 3rem;
+    max-width: 90rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    min-height: 75vh;
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    &__title {
+        h2 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin-bottom: 0.5rem;
+        }
+
+        &--domingo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.6rem;
+            color: v.$cor-secundaria-texto;
+            font-weight: 500;
+        }
+    }
+
+    &__input {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+
+        label {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+        }
+
+        input {
+            padding: 1rem 1.5rem;
+            border-radius: 0.8rem;
+            border: 1px solid #d1d5db;
+            font-size: 1.6rem;
+            // min-width: 25rem;
+            width: 100%;
+            display: flex;
+            align-items: start;
+            flex-flow: column wrap;
+        }
+
+        &--erro {
+            border-color: v.$cor-erro;
+            box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+
+            &::after {
+                content: "A data precisa ser um domingo";
+                font-size: 1.1rem;
+                color: v.$cor-erro;
+                font-style: oblique;
+            }
+        }
+    }
+    &__sem-resultados {
+        text-align: center;
+        padding: 5rem 2rem;
+        font-size: 1.8rem;
+        font-weight: 500;
+        color: v.$cor-secundaria-texto;
+        background-color: v.$cor-primaria-fundo;
+        border-radius: 1rem;
+        border: 1px dashed #d1d5db;
+    }
+
+    &__body {
+        h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin-bottom: 2rem;
+        }
+    }
+
+    &__lista {
+        display: flex;
+        align-items: center;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 0.8rem;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+        cursor: grab;
+
+        &:active {
+            cursor: grabbing;
+            background-color: color.scale(
+                v.$cor-primaria-fundo,
+                $lightness: -2%
+            );
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        &:has(#{&}-item--fixo) {
+            background-color: v.$cor-primaria-fundo;
+
+            &:active {
+                cursor: grabbing;
+                background-color: color.scale(
+                    v.$cor-secundaria-fundo,
+                    $lightness: -2%
+                );
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            }
+        }
+
+        &-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+
+            &--number {
+                font-size: 1.6rem;
+                font-weight: 700;
+                color: v.$cor-primaria-itens;
+                margin-right: 1.5rem;
+            }
+
+            &--nome {
+                font-size: 1.6rem;
+                font-weight: 500;
+                color: v.$cor-primaria-texto;
+                flex-grow: 1;
+            }
+
+            &--icon {
+                color: v.$cor-secundaria-texto;
+                font-size: 1.8rem;
+                opacity: 0.7;
+            }
+            &--remover {
+                position: relative;
+                z-index: 50;
+                background: none;
+                border: none;
+                color: v.$cor-secundaria-texto;
+                cursor: pointer;
+                font-size: 1.8rem;
+                transition: color 0.2s, transform 0.2s;
+                margin-right: 1rem;
+                &:hover {
+                    color: v.$cor-erro;
+                    transform: scale(1.2);
+                }
+            }
+
+            &--fixo {
+                cursor: default;
+            }
+        }
+    }
+
+    &__excluidos {
+        margin-top: 2.5rem;
+        padding-top: 2.5rem;
+        border-top: 1px solid #e5e7eb;
+
+        h3 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: v.$cor-secundaria-texto;
+            margin-bottom: 1.5rem;
+            border-bottom: none;
+        }
+
+        .relatorio-dominical__lista {
+            cursor: auto;
+            &-item {
+                opacity: 0.6;
+                background-color: v.$cor-secundaria-fundo;
+                cursor: default;
+                grid-template-columns: auto 1fr auto;
+
+                &--nome {
+                    text-decoration: line-through;
+                }
+
+                &--restaurar {
+                    color: v.$cor-sucesso;
+                    cursor: pointer;
+                    font-size: 1.8rem;
+                    transition: transform 0.2s;
+
+                    &:hover {
+                        transform: scale(1.2);
+                    }
+                }
+            }
+        }
+    }
+
+    &__iniciar-leitura {
+        width: 100%;
+        margin-top: 3rem;
+        padding: 1.2rem 3rem;
+        border: none;
+        border-radius: 0.8rem;
+        background-color: v.$cor-sucesso;
+        color: white;
+        font-size: 1.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+
+        &:hover {
+            background-color: color.scale(v.$cor-sucesso, $lightness: -10%);
+            transform: translateY(-2px);
+        }
+    }
+}

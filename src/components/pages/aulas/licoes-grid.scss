@@ -1,0 +1,154 @@
+@use "sass:color";
+@use "@/styles/variables" as v;
+
+.licoes-grid {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 3rem;
+    min-height: 78vh;
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2rem;
+        margin: 1rem;
+
+        @media all and (max-width: 30em) {
+            gap: 3rem;
+            margin: 1rem 0;
+            justify-content: center;
+            align-items: center;
+        }
+    }
+
+    &__header {
+        &--controls {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            @media all and (max-width: 30em) {
+                justify-content: center;
+                align-items: center;
+            }
+        }
+        &--title {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            text-align: center;
+        }
+
+        &--novo-trimestre {
+            button {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                padding: 1.2rem 2.5rem;
+                border: none;
+                border-radius: 0.8rem;
+                background-color: v.$cor-primaria-itens;
+                color: white;
+                font-size: 1.6rem;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.2s ease-out;
+
+                &:hover {
+                    background-color: color.scale(
+                        v.$cor-primaria-itens,
+                        $lightness: -10%
+                    );
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+                }
+            }
+        }
+    }
+
+    &__grid {
+        z-index: 2;
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
+        gap: 2.5rem;
+        justify-items: center;
+    }
+
+    &__vazia {
+        grid-column: 1 / -1; // Garante que ocupe toda a largura da grade
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2.5rem;
+        padding: 8rem 2rem;
+        text-align: center;
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        border: 2px dashed #e5e7eb;
+        width: 100%;
+
+        p {
+            font-size: 1.8rem;
+            font-weight: 500;
+            font-style: italic;
+            color: v.$cor-secundaria-texto;
+        }
+
+        // Reutiliza o estilo do botão do cabeçalho para manter a consistência
+        .licoes-grid__header--novo-trimestre button {
+            font-size: 1.6rem; // Um pouco maior para dar mais destaque
+        }
+    }
+
+    &__paginacao {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1.5rem;
+        margin-top: 2rem;
+        user-select: none;
+
+        span {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: v.$cor-secundaria-texto;
+            min-width: 12rem;
+            text-align: center;
+        }
+
+        button {
+            display: grid;
+            place-items: center;
+            width: 4rem;
+            height: 4rem;
+            border: 1px solid #d1d5db;
+            border-radius: 50%;
+            background-color: v.$cor-secundaria-fundo;
+            font-size: 1.6rem;
+            color: v.$cor-primaria-texto;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+
+            &:hover:not(:disabled) {
+                border-color: v.$cor-primaria-itens;
+                color: v.$cor-primaria-itens;
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $alpha: -90%
+                );
+            }
+
+            &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                background-color: v.$cor-primaria-fundo;
+            }
+        }
+    }
+}

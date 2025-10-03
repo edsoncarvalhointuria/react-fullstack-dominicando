@@ -1,0 +1,77 @@
+@use "sass:color";
+
+$cor-primaria-itens: #3b82f6;
+$cor-primaria-fundo: #f9fafb;
+$cor-secundaria-fundo: #ffffff;
+$cor-primaria-texto: #111827;
+$cor-secundaria-texto: #6b7280;
+$cor-sucesso: #10b981;
+$cor-aviso: #f59e0b;
+$cor-erro: #ef4444;
+
+@mixin button-new {
+    position: relative;
+    background: none;
+    border: none;
+    transition: all 0.4s ease-out;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    max-width: 5rem;
+    & span {
+        position: absolute;
+        top: -100%;
+        left: 50%;
+        transform: translate(-50%, 0%);
+        font-size: 1.1rem;
+        padding: 0.3rem;
+        background-color: $cor-aviso;
+        border-radius: 0.5rem;
+        opacity: 0;
+        transition: all 0.5s ease-in-out;
+
+        &::after {
+            content: "";
+            width: 0;
+            height: 0;
+            display: block;
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translate(-50%, -10%);
+
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 7px solid $cor-aviso;
+        }
+    }
+
+    &:hover {
+        transform: translateY(-2px);
+
+        & span {
+            opacity: 1;
+        }
+    }
+}
+
+@mixin svg-new {
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 0.8rem;
+    background-color: $cor-sucesso;
+    color: white;
+    font-size: 1.6rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.4s ease-out;
+    position: relative;
+
+    &:hover {
+        background-color: color.scale($cor-sucesso, $lightness: -10%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+}

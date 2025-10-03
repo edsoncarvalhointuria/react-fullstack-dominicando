@@ -1,0 +1,235 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.relatorio-leitura {
+    position: fixed;
+    inset: 0; // Topo, direita, baixo, esquerda = 0
+    z-index: 1000;
+    background-color: v.$cor-primaria-fundo;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 3rem;
+        position: fixed;
+        width: 100%;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        border-bottom: 1px solid #e5e7eb;
+        background-color: v.$cor-secundaria-fundo;
+
+        h2 {
+            display: grid;
+            font-size: 2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            span {
+                font-size: 1.6rem;
+                color: v.$cor-secundaria-texto;
+                font-weight: 400;
+            }
+        }
+    }
+
+    &__sair-btn {
+        background: none;
+        border: none;
+        font-size: 2.5rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s, transform 0.2s;
+
+        &:hover {
+            color: v.$cor-erro;
+            transform: scale(1.2);
+        }
+    }
+
+    &__body {
+        position: relative;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        margin-top: 10rem;
+    }
+
+    &__slide {
+        width: 100%;
+        max-width: 70rem;
+        border-radius: 1.2rem;
+        margin-bottom: 7rem;
+    }
+
+    .relatorio-card {
+        background-color: v.$cor-secundaria-fundo;
+        padding: 3rem;
+        border-radius: 1.2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e7eb;
+
+        h3 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            text-align: center;
+            color: v.$cor-primaria-texto;
+            margin-bottom: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+
+            @media all and (max-width: 30em) {
+                display: block;
+                font-size: 2rem;
+            }
+
+            svg {
+                color: v.$cor-primaria-itens;
+            }
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #f3f4f6;
+            margin: 2rem 0;
+        }
+    }
+
+    .info-linha {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 1.8rem;
+        padding: 1rem 0;
+
+        &__label {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            color: v.$cor-secundaria-texto;
+            font-weight: 500;
+
+            svg {
+                color: v.$cor-primaria-itens;
+                width: 2rem;
+                text-align: center;
+            }
+        }
+
+        &__valor {
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+        }
+    }
+
+    .aniversariantes-lista {
+        list-style: none;
+        padding: 0;
+        text-align: center;
+        font-size: 1.8rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+
+        li {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            justify-content: center;
+        }
+
+        p {
+            text-align: left;
+            padding-left: 1rem;
+            b {
+                font-weight: 600;
+            }
+        }
+    }
+
+    .sem-aniversariantes {
+        text-align: center;
+        font-size: 1.6rem;
+        color: v.$cor-secundaria-texto;
+        padding: 2rem;
+    }
+
+    &__footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 1rem;
+        border-top: 1px solid #e5e7eb;
+        background-color: v.$cor-secundaria-fundo;
+        position: fixed;
+        width: 100%;
+        bottom: 0;
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 0.8rem;
+            background-color: v.$cor-primaria-itens;
+            color: white;
+            font-size: 1.6rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+
+            &:hover:not(:disabled) {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $lightness: -10%
+                );
+                transform: translateY(-2px);
+            }
+
+            &:disabled {
+                background-color: #d1d5db;
+                cursor: not-allowed;
+            }
+        }
+    }
+
+    .progress-indicator {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .progress-text {
+        text-wrap: nowrap;
+        font-size: 1.4rem;
+        color: v.$cor-secundaria-texto;
+        font-weight: 500;
+    }
+
+    .progress-dots {
+        display: flex;
+        gap: 0.8rem;
+
+        .dot {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background-color: #d1d5db;
+            transition: all 0.3s ease-in-out;
+            cursor: pointer;
+
+            &--ativo {
+                background-color: v.$cor-primaria-itens;
+                transform: scale(1.2);
+            }
+        }
+    }
+}

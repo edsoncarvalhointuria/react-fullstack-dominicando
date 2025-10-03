@@ -1,0 +1,158 @@
+@use "sass:color";
+@use "@/styles/variables" as v;
+
+.selection-grid {
+    width: 100%;
+    padding: 5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    min-height: 75vh;
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 5rem;
+        @media all and (max-width: 30em) {
+            justify-content: center;
+        }
+    }
+
+    &__title {
+        font-size: 2.8rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+    }
+
+    &__controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+    }
+
+    &__add-new {
+        @include v.svg-new;
+    }
+
+    &__button-new {
+        @include v.button-new;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
+        gap: 2rem;
+    }
+
+    &__item {
+        background-color: v.$cor-secundaria-fundo;
+        padding: 4rem 2rem;
+        border-radius: 1.2rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        position: relative;
+        overflow: hidden;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 0.4rem;
+            background-color: v.$cor-primaria-itens;
+            transition: height 0.3s ease-out;
+        }
+
+        &:hover::before {
+            height: 0.8rem;
+        }
+
+        h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            text-align: center;
+        }
+    }
+
+    &__item--skeleton {
+        background-color: #e5e7eb;
+        border-radius: 1.2rem;
+        min-height: 15rem;
+        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    &__empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 5rem;
+        font-size: 1.8rem;
+        color: v.$cor-secundaria-texto;
+    }
+
+    &__vazio {
+        grid-column: 1 / -1; // Garante que ocupe toda a largura da grade
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2.5rem;
+        padding: 5rem 2rem;
+        text-align: center;
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        border: 2px dashed #e5e7eb;
+
+        p {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+            margin: 0;
+            font-style: italic;
+        }
+    }
+
+    &__cadastrar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 0.8rem;
+        background-color: v.$cor-primaria-itens;
+        color: white;
+        font-size: 1.6rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+
+        &:hover {
+            background-color: color.scale(
+                v.$cor-primaria-itens,
+                $lightness: -10%
+            );
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+    }
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}

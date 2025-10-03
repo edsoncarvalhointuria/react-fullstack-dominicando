@@ -1,0 +1,504 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.novo-trimestre {
+    position: fixed;
+    top: 50%;
+    z-index: 100;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    max-width: 70rem;
+    min-height: 85vh;
+    max-height: 90vh;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+
+    @media all and (max-width: 30em) {
+        max-height: 100dvh;
+    }
+
+    &__loading {
+        max-width: 20rem;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    &-close {
+        position: absolute;
+        width: 100vw;
+        height: 100vh;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: -2;
+    }
+
+    &__header {
+        flex-shrink: 0;
+        padding: 2rem;
+        border-bottom: 1px solid rgba(v.$cor-secundaria-texto, 0.1);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 2rem;
+        row-gap: 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        border-radius: 1.2rem;
+
+        &--title {
+            h2 {
+                font-size: 2rem;
+                font-weight: 700;
+                color: v.$cor-primaria-texto;
+                margin: 0;
+            }
+        }
+
+        &--infos {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+            gap: 1rem;
+            justify-content: space-between;
+
+            p {
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+                font-size: 1.4rem;
+                color: v.$cor-secundaria-texto;
+                margin: 0;
+            }
+
+            strong {
+                font-weight: 700;
+            }
+
+            svg {
+                color: v.$cor-primaria-itens;
+            }
+        }
+
+        &--close {
+            align-self: self-start;
+            font-size: 2rem;
+            color: v.$cor-secundaria-texto;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.3s ease;
+
+            &:hover {
+                color: v.$cor-primaria-texto;
+                transform: rotate(90deg);
+            }
+        }
+
+        &--aviso {
+            grid-column: 1 / -1;
+            margin-top: 1.5rem;
+            padding: 1rem 1.5rem;
+            background-color: rgba(v.$cor-aviso, 0.1);
+            color: color.scale(v.$cor-aviso, $lightness: -20%);
+            border-radius: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.4rem;
+            font-weight: 500;
+        }
+    }
+
+    &__body {
+        padding: 2.5rem;
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+
+    &__previsao-aulas {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.8rem;
+        overflow: hidden;
+        margin-top: 1rem;
+
+        h3 {
+            padding: 1.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+            margin: 0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none; // Impede que o texto seja selecionado ao clicar
+
+            span {
+                transition: transform 0.3s ease-in-out;
+                display: flex;
+                align-items: center;
+            }
+        }
+
+        &.is-open {
+            h3 span {
+                transform: rotate(180deg);
+            }
+        }
+
+        &--lista {
+            list-style: none;
+            padding: 1.5rem 1.5rem;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background-color: v.$cor-primaria-fundo;
+            overflow: hidden;
+
+            li {
+                display: flex;
+                justify-content: space-between;
+                font-size: 1.4rem;
+                flex: 1;
+                flex-shrink: 0;
+                padding: 0.5rem;
+
+                p {
+                    margin: 0;
+                    font-weight: 500;
+                    color: v.$cor-primaria-texto;
+                }
+                data {
+                    color: v.$cor-secundaria-texto;
+                }
+            }
+        }
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
+    }
+
+    &__input-group {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    &__input {
+        display: flex;
+        flex-direction: column;
+        min-width: 30rem;
+        gap: 0.8rem;
+        flex: 1;
+
+        label {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-primaria-texto;
+        }
+
+        input {
+            width: 100%;
+            padding: 1.2rem 1.5rem;
+            border-radius: 0.8rem;
+            border: 1px solid #d1d5db;
+            font-size: 1.6rem;
+            background-color: v.$cor-secundaria-fundo;
+            transition: all 0.2s ease-out;
+
+            &:focus {
+                outline: none;
+                border-color: v.$cor-primaria-itens;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            }
+
+            &.input-error {
+                border-color: v.$cor-erro;
+                &:focus {
+                    box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+                }
+            }
+        }
+
+        &--file {
+            input[type="file"] {
+                display: none;
+            }
+            label {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 1rem;
+                padding: 1.2rem 1.5rem;
+                border: 2px dashed #d1d5db;
+                border-radius: 0.8rem;
+                cursor: pointer;
+                transition: all 0.2s ease-out;
+                height: 100%;
+                color: v.$cor-secundaria-texto;
+                text-align: center;
+
+                &:hover {
+                    border-color: v.$cor-primaria-itens;
+                    background-color: rgba(v.$cor-primaria-itens, 0.05);
+                    color: v.$cor-primaria-itens;
+                }
+            }
+        }
+
+        &--erro {
+            font-size: 1.3rem;
+            color: v.$cor-erro;
+            margin-top: 0.5rem;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1.5rem;
+        padding-top: 2.5rem;
+        border-top: 1px solid #e5e7eb;
+
+        &--edit {
+            justify-content: space-between;
+        }
+
+        &-btn {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .button-primary,
+        .button-secondary,
+        .button-delete {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 0.8rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+
+            &:hover {
+                transform: translateY(-2px);
+            }
+        }
+
+        .button-primary {
+            background-color: v.$cor-primaria-itens;
+            color: white;
+            &:hover {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $lightness: -10%
+                );
+            }
+        }
+        .button-secondary {
+            background-color: #e5e7eb;
+            color: v.$cor-primaria-texto;
+            &:hover {
+                background-color: #d1d5db;
+            }
+        }
+        .button-delete {
+            background-color: v.$cor-erro;
+            color: white;
+
+            &:hover {
+                background-color: color.scale(v.$cor-erro, $lightness: -10%);
+            }
+        }
+    }
+}
+
+.matriculas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
+    gap: 2.5rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid #e5e7eb;
+    margin-top: 1rem;
+
+    h3 {
+        font-size: 1.6rem;
+        font-weight: 600;
+        color: v.$cor-primaria-texto;
+        margin-bottom: 1.5rem;
+    }
+
+    &-alunos__search {
+        grid-column: 1 / -1;
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    &-disponiveis {
+        // grid-area: disponiveis;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &-matriculados {
+        // grid-area: selecionados;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &-cadastrar,
+    &-importar {
+        width: 100%;
+        margin-bottom: 1.5rem;
+        padding: 1rem 2rem;
+        border: 1px solid #d1d5db;
+        border-radius: 0.8rem;
+        font-size: 1.4rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+        background-color: v.$cor-primaria-fundo;
+        color: v.$cor-secundaria-texto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+
+        &:hover {
+            background-color: #e5e7eb;
+            border-color: #adb5bd;
+            color: v.$cor-primaria-texto;
+        }
+    }
+
+    &--lista {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        height: 25rem;
+        overflow-y: auto;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.8rem;
+        flex-grow: 1;
+
+        &-idade {
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+            white-space: nowrap; // Garante que "(X anos)" não quebre a linha
+        }
+    }
+
+    &--fora-da-faixa {
+        // Adiciona um fundo sutil de "aviso"
+        background-color: color.scale(v.$cor-aviso, $alpha: -90%);
+        border-left: 4px solid v.$cor-aviso; // Uma borda de destaque
+
+        // Destaca o nome e a idade
+        p,
+        .matriculas--lista-idade {
+            color: color.scale(v.$cor-aviso, $lightness: -30%);
+            font-weight: 600;
+        }
+    }
+
+    &--item {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 0.8rem;
+        background-color: v.$cor-primaria-fundo;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        border: 1px solid transparent;
+        flex-shrink: 0;
+
+        &:hover {
+            background-color: #e5e7eb;
+            border-color: #d1d5db;
+        }
+    }
+
+    &-item__nome {
+        flex-grow: 1;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 0.4rem;
+        transition: background-color 0.2s;
+        &:hover {
+            background-color: color.scale(v.$cor-erro, $alpha: -90%);
+        }
+    }
+
+    .matriculas-matriculados .matriculas--lista li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 0.8rem;
+        background-color: v.$cor-primaria-fundo;
+        gap: 0.1rem;
+        flex-shrink: 0;
+
+        .matriculas-item__nome {
+            padding: 1.5rem;
+            flex-grow: 1;
+        }
+
+        .matriculas-item__licao {
+            flex-shrink: 0; // Impede que o toggle encolha
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding-right: 1rem;
+
+            label {
+                font-size: 1.4rem;
+                color: v.$cor-secundaria-texto;
+                font-weight: 500;
+                cursor: pointer;
+            }
+
+            input[type="checkbox"] {
+                // Checkbox customizado
+                appearance: none;
+                -webkit-appearance: none;
+                width: 1.8rem;
+                height: 1.8rem;
+                border: 2px solid #d1d5db;
+                border-radius: 0.5rem;
+                cursor: pointer;
+                position: relative;
+                transition: all 0.2s;
+
+                &:checked {
+                    background-color: v.$cor-primaria-itens;
+                    border-color: v.$cor-primaria-itens;
+
+                    &::after {
+                        content: "✔";
+                        position: absolute;
+                        color: white;
+                        font-size: 1.2rem;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                    }
+                }
+            }
+        }
+    }
+}

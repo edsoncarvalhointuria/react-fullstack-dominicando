@@ -1,0 +1,317 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.licao-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    width: 90vw;
+    max-width: 80rem;
+    height: 85vh;
+    background: linear-gradient(
+        180deg,
+        color.scale(v.$cor-primaria-fundo, $lightness: -2%)
+    );
+    border-radius: 1.2rem;
+
+    border: 1px solid rgba(v.$cor-secundaria-texto, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+
+    @media all and (max-width: 30em) {
+        max-width: 100dvw;
+        max-height: 100dvh;
+        width: 100%;
+        height: 100%;
+    }
+
+    &__header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+        padding: 1.5rem 2.5rem;
+        border-bottom: 1px solid rgba(v.$cor-secundaria-texto, 0.1);
+        flex-shrink: 0;
+        align-items: center;
+
+        @media all and (max-width: 30em) {
+            padding: 1.5rem;
+            padding-right: 0;
+            &--panorama {
+                padding-right: 2rem;
+            }
+        }
+
+        &-infos {
+            display: flex;
+            padding-top: 1.5rem;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+
+            &--panorama {
+                padding: 0;
+            }
+        }
+
+        &-config {
+            grid-column: -1;
+            grid-row: 1/-1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        &-menu {
+            position: relative; // O container do menu precisa ser relativo
+        }
+
+        &--close {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 2rem;
+            transition: color ease 0.3s, transform ease 0.3s;
+            color: v.$cor-erro;
+            &:hover {
+                color: color.scale(v.$cor-erro, $lightness: -50%);
+                transform: rotate(90deg);
+            }
+        }
+
+        &--config {
+            font-size: 2.2rem;
+            color: v.$cor-secundaria-texto;
+            cursor: pointer;
+            padding: 0.8rem;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            transition: color 0.2s, background-color 0.2s, transform 0.3s;
+            aspect-ratio: 1/1;
+
+            &:hover {
+                color: v.$cor-primaria-itens;
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $alpha: -90%
+                );
+                transform: rotate(90deg);
+            }
+        }
+
+        &-options {
+            position: absolute;
+            top: calc(100% + 1rem);
+            right: 0;
+            background-color: v.$cor-secundaria-fundo;
+            border-radius: 0.8rem;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+            border: 1px solid #eee;
+            padding: 0.8rem;
+            width: 22rem; // Largura do dropdown
+            z-index: 10;
+
+            &::before {
+                // A pequena seta que aponta para o ícone
+                content: "";
+                position: absolute;
+                top: -0.8rem;
+                right: 1.2rem;
+                width: 1.5rem;
+                height: 1.5rem;
+                background-color: v.$cor-secundaria-fundo;
+                border-top: 1px solid #eee;
+                border-left: 1px solid #eee;
+                transform: rotate(45deg);
+            }
+        }
+
+        &-option {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            padding: 1rem 1.2rem;
+            border-radius: 0.6rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 1.5rem;
+            color: v.$cor-primaria-texto;
+
+            svg {
+                color: v.$cor-secundaria-texto;
+                width: 1.8rem;
+                text-align: center;
+            }
+
+            &:hover {
+                background-color: v.$cor-primaria-fundo;
+                color: v.$cor-primaria-itens;
+
+                svg {
+                    color: v.$cor-primaria-itens;
+                }
+            }
+        }
+
+        &--title {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-size: 2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+
+            svg {
+                color: v.$cor-primaria-itens;
+            }
+        }
+
+        &--nova-chamada {
+            button {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                padding: 1rem 2rem;
+                border: none;
+                border-radius: 0.8rem;
+                background-color: v.$cor-primaria-itens;
+                color: white;
+                font-size: 1.5rem;
+                font-weight: 600;
+                cursor: pointer;
+                @media all and (max-width: 30em) {
+                    text-align: left;
+                }
+
+                &:hover {
+                    background-color: color.scale(
+                        v.$cor-primaria-itens,
+                        $lightness: -10%
+                    );
+                }
+            }
+        }
+
+        &--voltar {
+            left: 0;
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: v.$cor-primaria-itens;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            border-radius: 0.6rem;
+            transition: background-color 0.2s, transform 0.2s;
+
+            &:hover {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $alpha: -90%
+                );
+                transform: translateX(-2px);
+            }
+        }
+    }
+
+    &__body {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        padding: 1rem 0;
+    }
+
+    &__registros {
+        list-style: none;
+
+        li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem 2.5rem;
+            border-bottom: 1px solid rgba(v.$cor-secundaria-texto, 0.1);
+            transition: background-color 0.2s ease-out;
+
+            &:hover {
+                background-color: rgba(v.$cor-primaria-itens, 0.05);
+            }
+        }
+
+        &-infos {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+
+            p {
+                font-size: 1.6rem;
+                font-weight: 600;
+                color: v.$cor-primaria-texto;
+            }
+
+            data {
+                font-size: 1.4rem;
+                color: v.$cor-secundaria-texto;
+            }
+        }
+
+        &--status {
+            p {
+                display: flex;
+                align-items: center;
+                gap: 0.8rem;
+                font-size: 1.4rem;
+                font-weight: 500;
+                padding: 0.6rem 1.2rem;
+                border-radius: 2rem;
+            }
+
+            .status-concluido {
+                background-color: rgba(v.$cor-sucesso, 0.1);
+                color: color.scale(v.$cor-sucesso, $lightness: -10%);
+            }
+
+            .status-pendente {
+                background-color: rgba(v.$cor-secundaria-texto, 0.1);
+                color: v.$cor-secundaria-texto;
+            }
+        }
+
+        &--acao {
+            button {
+                background: none;
+                border: none;
+                cursor: pointer;
+                color: v.$cor-secundaria-texto;
+                font-size: 2rem;
+                padding: 1rem;
+                border-radius: 50%;
+                width: 4rem;
+                height: 4rem;
+                display: grid;
+                place-items: center;
+                transition: all 0.2s ease-out;
+
+                &:hover {
+                    color: v.$cor-primaria-itens;
+                    background-color: rgba(v.$cor-primaria-itens, 0.1);
+                }
+            }
+        }
+    }
+
+    &--close {
+        position: absolute;
+        z-index: -1;
+        width: 100dvw;
+        height: 100dvh;
+        transform: translate(-50%, -50%);
+        top: 50%;
+        left: 50%;
+    }
+}

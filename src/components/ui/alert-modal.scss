@@ -1,0 +1,115 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.alert-modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background-color: rgba(v.$cor-primaria-texto, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    padding: 2rem;
+}
+
+.alert-modal {
+    width: 100%;
+    max-width: 45rem;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 2rem;
+        border-bottom: 1px solid #e5e7eb;
+
+        h3 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        &-icon {
+            font-size: 2rem;
+            color: v.$cor-primaria-itens;
+        }
+    }
+
+    &__close-btn {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s;
+        &:hover {
+            color: v.$cor-primaria-texto;
+        }
+    }
+
+    &__body {
+        padding: 2.5rem;
+        font-size: 1.5rem;
+        line-height: 1.6;
+        text-align: center;
+        color: v.$cor-secundaria-texto;
+
+        p {
+            margin: 0;
+        }
+        span {
+            display: block;
+        }
+        strong {
+            font-weight: 700;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        padding: 2rem;
+        background-color: v.$cor-primaria-fundo;
+        border-top: 1px solid #e5e7eb;
+        border-bottom-left-radius: 1.2rem;
+        border-bottom-right-radius: 1.2rem;
+    }
+
+    .button-primary,
+    .button-secondary {
+        padding: 1rem 2.5rem;
+        border: none;
+        border-radius: 0.8rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+    }
+
+    .button-primary {
+        background-color: v.$cor-primaria-itens;
+        color: white;
+        &:hover {
+            background-color: color.scale(
+                v.$cor-primaria-itens,
+                $lightness: -10%
+            );
+        }
+    }
+    .button-secondary {
+        background-color: #e5e7eb;
+        color: v.$cor-primaria-texto;
+        &:hover {
+            background-color: #d1d5db;
+        }
+    }
+}

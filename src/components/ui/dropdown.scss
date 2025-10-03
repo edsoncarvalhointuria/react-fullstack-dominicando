@@ -1,0 +1,117 @@
+// No seu dropdown.scss
+
+@use "@/styles/variables" as v;
+
+.dropdown {
+    position: relative;
+    font-family: "Poppins", sans-serif;
+    width: 100%;
+    min-width: 20rem;
+    user-select: none;
+
+    &__current {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        background-color: v.$cor-secundaria-fundo;
+        color: v.$cor-primaria-texto;
+        cursor: pointer;
+        border: 1px solid #d1d5db;
+        border-radius: 0.8rem;
+        transition: all 0.2s ease-out;
+        font-size: 1.6rem;
+
+        &:hover {
+            border-color: v.$cor-primaria-itens;
+        }
+
+        &::after {
+            content: "▼";
+            font-size: 1rem;
+            transition: transform 0.3s ease-out;
+        }
+
+        &--open {
+            &::after {
+                transform: rotate(180deg);
+            }
+        }
+
+        &--erro {
+            border-color: v.$cor-erro;
+            &:focus {
+                box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+            }
+        }
+    }
+
+    &__opcoes {
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        left: 0;
+        width: 100%;
+        z-index: 100;
+
+        background-color: v.$cor-secundaria-fundo;
+        border: 1px solid #d1d5db;
+        border-radius: 1rem;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        padding: 0.8rem;
+
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+
+        &--pesquisa {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+
+            input {
+                max-width: 100%;
+                min-width: auto;
+                padding: 0.8rem 1rem;
+                border: 1px solid #d1d5db;
+                border-radius: 0.5rem;
+                font-size: 1.4rem;
+
+                &:focus {
+                    outline: none;
+                    border-color: v.$cor-primaria-itens;
+                }
+            }
+        }
+
+        &--lista {
+            list-style: none;
+            max-height: 20rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+
+            li {
+                display: flex;
+                align-items: center;
+                padding: 1rem 1.5rem;
+                border-radius: 0.6rem;
+                cursor: pointer;
+                transition: all 0.2s ease-out;
+                font-size: 1.5rem;
+                flex-shrink: 0;
+
+                &:hover {
+                    background-color: v.$cor-primaria-fundo;
+                    color: v.$cor-primaria-itens;
+                }
+            }
+        }
+
+        &--select {
+            background-color: v.$cor-primaria-fundo;
+            font-weight: 600;
+            color: v.$cor-primaria-itens;
+        }
+    }
+}

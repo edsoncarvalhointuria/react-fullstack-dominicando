@@ -1,0 +1,46 @@
+@use "@/styles/variables" as v;
+
+.main-footer {
+    width: 100%;
+    padding: 2rem;
+    text-align: center;
+    margin-top: auto; // Empurra o footer para o final do layout flex
+    background-color: transparent;
+
+    p {
+        font-size: 1.4rem;
+        color: v.$cor-secundaria-texto;
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+
+        a {
+            color: v.$cor-primaria-itens;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.2s;
+
+            &:hover {
+                text-decoration: underline;
+                color: v.$cor-sucesso;
+            }
+        }
+
+        span:first-of-type::after {
+            content: "-";
+            margin-left: 0.5rem;
+            display: inline-block;
+        }
+
+        @media all and (max-width: 35em) {
+            span:first-of-type::after {
+                content: none;
+                margin-left: 0;
+                display: none;
+            }
+        }
+    }
+}

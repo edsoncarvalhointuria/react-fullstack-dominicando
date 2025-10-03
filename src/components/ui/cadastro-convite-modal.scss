@@ -1,0 +1,93 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.cadastro-convite-modal {
+    padding: 2.5rem;
+    text-align: center;
+
+    &__body {
+        overflow: visible;
+    }
+
+    &__header-sucesso {
+        color: v.$cor-sucesso;
+        font-size: 5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    h3 {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+        margin-bottom: 0.5rem;
+    }
+
+    &__data {
+        font-size: 1.4rem;
+        color: v.$cor-secundaria-texto;
+        margin-bottom: 2.5rem;
+    }
+
+    &__infos {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+    }
+
+    &__code,
+    &__link {
+        position: relative;
+        background-color: v.$cor-primaria-fundo;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.8rem;
+        padding: 1.2rem 4rem 1.2rem 2rem;
+        text-align: center;
+        cursor: pointer;
+
+        p {
+            font-size: 1.6rem;
+            font-family: "Courier New", Courier, monospace;
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+            min-width: 0;
+            overflow-wrap: break-word;
+            word-break: break-all;
+        }
+
+        span {
+            // Botão de copiar
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: v.$cor-secundaria-texto;
+            padding: 0.5rem;
+            transition: color 0.2s;
+
+            &:hover {
+                color: v.$cor-primaria-itens;
+            }
+
+            &.copiado {
+                color: v.$cor-sucesso;
+            }
+        }
+    }
+
+    &__fechar button {
+        width: 100%;
+        padding: 1rem;
+        border: none;
+        border-radius: 0.8rem;
+        background-color: #e5e7eb;
+        color: v.$cor-primaria-texto;
+        font-size: 1.5rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+}

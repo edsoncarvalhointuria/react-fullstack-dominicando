@@ -1,0 +1,189 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.cadastro-usuario__overflow {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background-color: rgba(v.$cor-primaria-texto, 0.5);
+    backdrop-filter: blur(1px);
+    z-index: 2000;
+    padding: 1.5rem;
+}
+
+.cadastro-usuario {
+    width: 100%;
+    max-width: 70rem;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        padding: 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        background-color: #f9fafb;
+        border-radius: 1rem;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        svg {
+            color: v.$cor-primaria-itens;
+        }
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s, transform 0.2s;
+
+        &:hover {
+            color: v.$cor-primaria-texto;
+            transform: rotate(90deg);
+        }
+    }
+
+    &__body {
+        padding: 2.5rem;
+        overflow-y: auto;
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    &__form-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
+        gap: 2rem;
+    }
+
+    &__form-input {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+
+        label,
+        p {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-primaria-texto;
+            margin: 0;
+        }
+
+        input {
+            width: 100%;
+            padding: 1.2rem 1.5rem;
+            border-radius: 0.8rem;
+            border: 1px solid #d1d5db;
+            font-size: 1.6rem;
+            background-color: v.$cor-secundaria-fundo;
+            transition: all 0.2s ease-out;
+
+            &:focus {
+                outline: none;
+                border-color: v.$cor-primaria-itens;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            }
+
+            &.input-error {
+                border-color: v.$cor-erro;
+                &:focus {
+                    box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+                }
+            }
+        }
+
+        &--senha {
+            position: relative;
+            display: flex;
+            align-items: center;
+
+            input {
+                padding-right: 5rem;
+            }
+
+            img {
+                position: absolute;
+                width: 2.5rem;
+                height: 2.5rem;
+                top: 50%;
+                right: 1.5rem;
+                transform: translateY(-50%);
+                cursor: pointer;
+                opacity: 0.6;
+                transition: opacity 0.2s;
+
+                &:hover {
+                    opacity: 1;
+                }
+            }
+        }
+    }
+
+    &__form-erro {
+        font-size: 1.3rem;
+        color: v.$cor-erro;
+        margin-top: 0.2rem;
+    }
+
+    &__form-buttons {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 1.5rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e5e7eb;
+        margin-top: 1rem;
+
+        button {
+            text-wrap: nowrap;
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 0.8rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+        }
+
+        .cadastro-usuario__form-cancel button {
+            background-color: #e5e7eb;
+            color: v.$cor-primaria-texto;
+            &:hover {
+                background-color: #d1d5db;
+            }
+        }
+        .cadastro-usuario__form-submit button {
+            background-color: v.$cor-primaria-itens;
+            color: white;
+            &:hover {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $lightness: -10%
+                );
+            }
+        }
+    }
+}

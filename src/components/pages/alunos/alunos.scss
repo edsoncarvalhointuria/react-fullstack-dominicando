@@ -1,0 +1,164 @@
+@use "@/styles/variables" as v;
+@use "@/styles/tables";
+@use "sass:color";
+
+.alunos-page {
+    padding: 3rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    min-height: 75vh;
+
+    @media (max-width: 768px) {
+        padding: 2rem 1.5rem;
+    }
+
+    &__header {
+        background-color: v.$cor-secundaria-fundo;
+        padding: 2rem;
+        border-radius: 1.2rem;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+
+        &-infos {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e5e7eb;
+
+            @media all and (max-width: 768px) {
+                justify-content: center;
+            }
+        }
+
+        &-title {
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+        }
+
+        &-filtros {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 2rem;
+            padding-top: 2rem;
+        }
+
+        &-filtro {
+            flex: 1;
+            position: relative;
+            flex: 1;
+            min-width: 20rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+
+            p {
+                font-size: 1.4rem;
+                font-weight: 500;
+                color: v.$cor-secundaria-texto;
+            }
+
+            input {
+                width: 100%;
+                padding: 1rem 1.5rem 1rem 4rem;
+                border-radius: 0.8rem;
+                border: 1px solid #d1d5db;
+                font-size: 1.6rem;
+                background-color: v.$cor-primaria-fundo;
+
+                &:focus {
+                    outline: none;
+                    border-color: v.$cor-primaria-itens;
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+                }
+            }
+        }
+
+        &-qtd {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+            white-space: nowrap;
+            width: 100%;
+            text-align: right;
+        }
+    }
+
+    &__cadastrar {
+        button {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 0.8rem;
+            background-color: v.$cor-primaria-itens;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+
+            &:hover {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $lightness: -10%
+                );
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            }
+
+            &:disabled {
+                background-color: #d1d5db;
+                cursor: not-allowed;
+
+                &:hover {
+                    background-color: #d1d5db;
+                }
+            }
+        }
+    }
+
+    &__vazio {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        padding: 5rem 2rem;
+        text-align: center;
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        border: 2px dashed #e5e7eb;
+
+        &--mensagem {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+        }
+    }
+
+    &__body {
+        width: 100%;
+    }
+
+    &__table {
+        @extend %table-gestao;
+        &-acao {
+            @extend %table-gestao-acao;
+        }
+        .status--sim {
+            color: v.$cor-sucesso;
+            font-size: 2rem;
+        }
+        .status--nao {
+            color: v.$cor-erro;
+            font-size: 2rem;
+        }
+    }
+}

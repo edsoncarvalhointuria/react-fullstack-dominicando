@@ -1,0 +1,174 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+@use "../../styles/tables" as t; // Importando nosso arquivo de tabelas!
+
+.matricula-modal {
+    &__overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background-color: rgba(v.$cor-primaria-texto, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 2000;
+        padding: 2rem;
+    }
+
+    & {
+        // .matricula-modal
+        width: 100%;
+        max-width: 70rem; // Aumentei um pouco para a tabela
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh;
+    }
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+        background-color: #f9fafb;
+        border-radius: 1rem;
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+        }
+
+        span {
+            font-size: 2.2rem;
+            color: v.$cor-primaria-itens;
+        }
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s, transform 0.2s;
+
+        &:hover {
+            color: v.$cor-primaria-texto;
+            transform: rotate(90deg);
+        }
+    }
+
+    &__body {
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        overflow-y: hidden;
+        flex-grow: 1;
+    }
+
+    &__cadastrar--button {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 1rem;
+        border: 2px dashed #d1d5db;
+        border-radius: 0.8rem;
+        background-color: v.$cor-primaria-fundo;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+
+        &:hover {
+            border-color: v.$cor-primaria-itens;
+            color: v.$cor-primaria-itens;
+            background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
+        }
+    }
+
+    &__lista {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        flex-grow: 1;
+        min-height: 0;
+        margin: 1rem 0;
+
+        @media all and (max-width: 30em) {
+            &-pesquisa {
+                margin: 3rem 0;
+            }
+        }
+    }
+
+    &__alunos {
+        flex-grow: 1;
+        overflow-y: auto;
+        min-height: 0;
+
+        &--title h3 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: v.$cor-secundaria-texto;
+            margin: 1rem;
+        }
+
+        table {
+            @extend %table-gestao;
+
+            tbody tr {
+                cursor: pointer;
+            }
+
+            td {
+                &:last-child {
+                    span {
+                        @extend %table-gestao-acao;
+                    }
+                }
+            }
+
+            box-shadow: none;
+            border-radius: 0;
+        }
+    }
+
+    &__aluno {
+        &--contato {
+            text-wrap: nowrap;
+        }
+    }
+
+    &__vazio-infos {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2rem;
+        padding: 4rem 2rem;
+        text-align: center;
+        border-radius: 1.2rem;
+        border: 2px dashed #e5e7eb;
+        height: 100%;
+
+        p {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+        }
+    }
+}

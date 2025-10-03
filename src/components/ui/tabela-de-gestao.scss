@@ -1,0 +1,20 @@
+@use "@/styles/variables" as v;
+@use "@/styles/tables";
+
+.tabela-gestao {
+    &__table {
+        @extend %table-gestao;
+        &-acao {
+            @extend %table-gestao-acao;
+        }
+
+        .status--sim {
+            color: v.$cor-sucesso;
+            font-size: 2rem;
+        }
+        .status--nao {
+            color: v.$cor-erro;
+            font-size: 2rem;
+        }
+    }
+}

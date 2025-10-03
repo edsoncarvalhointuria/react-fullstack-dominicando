@@ -1,0 +1,203 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.cadastro-igreja-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    backdrop-filter: blur(1px);
+    z-index: 2000;
+    padding: 2rem;
+}
+
+.cadastro-igreja {
+    width: 100%;
+    max-width: 65rem;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    cursor: grab;
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        background-color: v.$cor-primaria-fundo;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+
+        svg {
+            color: v.$cor-primaria-itens;
+        }
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s, transform 0.2s;
+
+        &:hover {
+            transform: rotate(90deg);
+
+            color: v.$cor-primaria-texto;
+        }
+    }
+
+    &__body {
+        padding: 2.5rem;
+    }
+
+    &__form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
+        gap: 2rem;
+        row-gap: 2.5rem;
+
+        &-subtitle {
+            grid-column: 1 / -1;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+            margin-top: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        &-item {
+            &--full {
+                grid-column: 1 / -1;
+            }
+        }
+
+        &-input {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+
+            label {
+                font-size: 1.4rem;
+                font-weight: 500;
+                color: v.$cor-primaria-texto;
+            }
+
+            input {
+                width: 100%;
+                padding: 1rem 1.5rem;
+                border-radius: 0.8rem;
+                border: 1px solid #d1d5db;
+                font-size: 1.6rem;
+                background-color: v.$cor-secundaria-fundo;
+                transition: all 0.2s ease-out;
+
+                &:focus {
+                    outline: none;
+                    border-color: v.$cor-primaria-itens;
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+                }
+
+                &.input-error {
+                    border-color: v.$cor-erro;
+                    &:focus {
+                        box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+                    }
+                }
+            }
+
+            &--password {
+                position: relative;
+
+                input {
+                    padding-right: 4.5rem;
+                }
+
+                button {
+                    position: absolute;
+                    right: 0.5rem;
+                    top: 50%;
+                    transform: translateY(25%);
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    color: v.$cor-secundaria-texto;
+                    font-size: 1.6rem;
+                    padding: 0.5rem;
+
+                    &:hover {
+                        color: v.$cor-primaria-itens;
+                    }
+                }
+            }
+
+            &--erro {
+                font-size: 1.3rem;
+                color: v.$cor-erro;
+                margin-top: 0.5rem;
+            }
+        }
+
+        &--image {
+            position: absolute;
+            right: 0px;
+            width: 3rem;
+            translate: -10% 100%;
+            cursor: pointer;
+        }
+    }
+
+    &__buttons {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1.5rem;
+        padding-top: 1.5rem;
+        margin-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+
+        .button-primary,
+        .button-secondary {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 0.8rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+        }
+
+        .button-primary {
+            background-color: v.$cor-primaria-itens;
+            color: white;
+            &:hover {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $lightness: -10%
+                );
+            }
+        }
+
+        .button-secondary {
+            background-color: #e5e7eb;
+            color: v.$cor-primaria-texto;
+            &:hover {
+                background-color: #d1d5db;
+            }
+        }
+    }
+}

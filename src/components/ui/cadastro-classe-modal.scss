@@ -1,0 +1,166 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.classe-modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background-color: rgba(v.$cor-primaria-texto, 0.5);
+    backdrop-filter: blur(1px);
+    z-index: 2000;
+    padding: 2rem;
+}
+
+.classe-modal {
+    width: 100%;
+    max-width: 50rem;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    cursor: grab;
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        padding: 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        background-color: #f9fafb;
+        border-radius: 1rem;
+
+        h2 {
+            svg {
+                color: v.$cor-primaria-itens;
+            }
+            font-size: 2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+    }
+
+    &__close-btn {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s, transform 0.2s;
+
+        &:hover {
+            color: v.$cor-primaria-texto;
+            transform: rotate(90deg);
+        }
+    }
+
+    &__body {
+        padding: 2.5rem;
+        display: grid;
+        gap: 2rem;
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    &__input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+
+        label {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-primaria-texto;
+        }
+
+        input {
+            width: 100%;
+            padding: 1.2rem 1.5rem;
+            border-radius: 0.8rem;
+            border: 1px solid #d1d5db;
+            font-size: 1.6rem;
+            background-color: v.$cor-secundaria-fundo;
+            transition: all 0.2s ease-out;
+
+            &:focus {
+                outline: none;
+                border-color: v.$cor-primaria-itens;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            }
+
+            &.input-error {
+                border-color: v.$cor-erro;
+                &:focus {
+                    box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+                }
+            }
+        }
+    }
+
+    &__input-erro {
+        font-size: 1.3rem;
+        color: v.$cor-erro;
+        margin-top: 0.5rem;
+    }
+
+    &__inputs {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+
+        & > div {
+            flex: 1;
+            min-width: 20rem;
+        }
+    }
+
+    &__footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1.5rem;
+        padding: 2rem;
+        background-color: v.$cor-primaria-fundo;
+        border-top: 1px solid #e5e7eb;
+        border-bottom-left-radius: 1.2rem;
+        border-bottom-right-radius: 1.2rem;
+
+        button {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 0.8rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+        }
+
+        .button-secondary {
+            background-color: #e5e7eb;
+            color: v.$cor-primaria-texto;
+            &:hover {
+                background-color: #d1d5db;
+            }
+        }
+
+        .button-primary {
+            background-color: v.$cor-primaria-itens;
+            color: white;
+            &:hover {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $lightness: -10%
+                );
+            }
+        }
+    }
+}

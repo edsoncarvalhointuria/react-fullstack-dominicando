@@ -1,0 +1,238 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.panorama-licao {
+    padding: 1rem 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+
+    &__voltar-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: v.$cor-primaria-itens;
+        cursor: pointer;
+        align-self: flex-start;
+        padding: 0.5rem 1rem;
+        border-radius: 0.6rem;
+        transition: background-color 0.2s;
+
+        &:hover {
+            background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
+        }
+    }
+
+    &__cards-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+        gap: 2rem;
+    }
+
+    &__lista-alunos {
+        h3 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+            margin-bottom: 1.5rem;
+        }
+
+        &-header {
+            &--container {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            // Estilo para o seu novo botão de CSV
+            &--btn {
+                background-color: v.$cor-primaria-fundo;
+                border: 1px solid #d1d5db;
+                border-radius: 0.8rem;
+                width: 4.4rem;
+                height: 4.4rem;
+                display: grid;
+                place-items: center;
+                font-size: 1.8rem;
+                color: v.$cor-secundaria-texto;
+                cursor: pointer;
+                transition: all 0.2s ease-out;
+
+                &:hover:not(:disabled) {
+                    border-color: v.$cor-sucesso;
+                    color: v.$cor-sucesso;
+                    background-color: color.scale(v.$cor-sucesso, $alpha: -90%);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+        }
+    }
+}
+
+.card-progresso {
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    padding: 1.5rem;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    @media all and (max-width: 30em) {
+        aspect-ratio: 2/1;
+    }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        h3 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+        }
+    }
+
+    &__icone {
+        font-size: 1.6rem;
+        color: v.$cor-primaria-itens;
+        background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1;
+    }
+
+    &__valor {
+        font-size: 3.2rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+    }
+}
+
+.barra-progresso {
+    width: 100%;
+    height: 0.8rem;
+    background-color: #e5e7eb;
+    border-radius: 0.8rem;
+    overflow: hidden;
+
+    &__preenchimento {
+        height: 100%;
+        background-color: v.$cor-sucesso;
+        border-radius: 0.8rem;
+    }
+    &__texto {
+        margin-top: 0.8rem;
+        font-size: 1.3rem;
+        font-weight: 500;
+        color: v.$cor-secundaria-texto;
+    }
+}
+
+.grafico-rosca {
+    width: 9rem;
+    height: 9rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: conic-gradient(
+        var(--cor-frequencia) calc(var(--porcentagem) * 1%),
+        #e5e7eb 0
+    );
+    position: relative;
+
+    // O "buraco" no meio
+    &::before {
+        content: "";
+        position: absolute;
+        width: 7rem;
+        height: 7rem;
+        background: v.$cor-secundaria-fundo;
+        border-radius: 50%;
+    }
+
+    &__texto {
+        position: relative;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+    }
+}
+
+.acordeao-aluno {
+    border-bottom: 1px solid #f3f4f6;
+
+    &__header {
+        display: grid;
+        grid-template-columns: 1fr 7.5rem;
+        gap: 0.4rem;
+        align-items: center;
+        padding: 1.5rem 1rem;
+        cursor: pointer;
+
+        &:hover {
+            background-color: #f9fafb;
+        }
+    }
+
+    &__nome {
+        font-size: 1.6rem;
+        font-weight: 500;
+        font-style: italic;
+        color: v.$cor-primaria-texto;
+    }
+
+    &__frequencia {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+
+        .grafico-rosca {
+            width: 4rem;
+            height: 4rem;
+            &::before {
+                width: 3.2rem;
+                height: 3.2rem;
+            }
+            &__texto {
+                font-size: 0.8rem;
+            }
+        }
+    }
+
+    &__body {
+        padding: 0 1rem 1.5rem 2rem;
+        overflow: hidden;
+        ul {
+            list-style: none;
+            padding-left: 1rem;
+            border-left: 3px solid v.$cor-primaria-fundo;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            font-size: 1.4rem;
+        }
+
+        li {
+            // width: 100%;
+            display: grid;
+            grid-template-columns: 15rem auto;
+            padding: 1rem 2rem;
+        }
+    }
+}

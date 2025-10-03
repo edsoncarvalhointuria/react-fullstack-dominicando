@@ -1,0 +1,275 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.matricula-aluno {
+    &__overlay {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background-color: rgba(v.$cor-primaria-texto, 0.6);
+        backdrop-filter: blur(1px);
+        z-index: 3000;
+        padding: 2rem;
+    }
+
+    & {
+        width: 100%;
+        max-width: 60rem;
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh;
+    }
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+        }
+
+        span {
+            font-size: 2.2rem;
+            color: v.$cor-primaria-itens;
+        }
+    }
+
+    &__close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s, transform 0.2s;
+
+        &:hover {
+            color: v.$cor-primaria-texto;
+            transform: rotate(90deg);
+        }
+    }
+
+    &__body {
+        padding: 2.5rem;
+        overflow-y: auto;
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
+
+        &-container {
+            padding: 1rem;
+            display: grid;
+            gap: 2rem;
+
+            @media all and (max-width: 30em) {
+                padding: 0.5rem;
+                padding-top: 1rem;
+            }
+        }
+    }
+
+    &__form-infos {
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
+
+        h3 {
+            grid-column: 1 / -1;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #111827;
+            margin-top: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+    }
+
+    &__form-igreja {
+        display: flex;
+        justify-content: space-between;
+        gap: 3rem;
+        padding: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    &__form-label {
+        font-size: 1.4rem;
+        font-weight: 600; // Label mais destacado
+        color: v.$cor-primaria-texto;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+
+        span {
+            // Ícone do label
+            color: v.$cor-primaria-itens;
+        }
+    }
+
+    p:not(.matricula-aluno__form-label) {
+        font-size: 1.3rem;
+        font-weight: 400;
+        color: v.$cor-secundaria-texto;
+    }
+
+    &__form--edita-aluno {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: v.$cor-secundaria-texto;
+        font-size: 1.5rem;
+        padding: 0.5rem;
+        border-radius: 50%;
+        width: 2.8rem;
+        height: 2.8rem;
+        display: grid;
+        place-items: center;
+        transition: all 0.2s;
+
+        &:hover {
+            color: v.$cor-primaria-itens;
+            background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
+        }
+    }
+
+    &__form-aluno--nome,
+    &__form-aluno--nascimento,
+    &__form-aluno--contato {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    &__form-matricula {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2rem;
+        padding-top: 1rem;
+    }
+
+    &__form-input {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+
+        label {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-primaria-texto;
+        }
+
+        input[type="date"] {
+            padding: 1rem 1.5rem;
+            border-radius: 0.8rem;
+            border: 1px solid #d1d5db;
+            font-size: 1.6rem;
+        }
+
+        input[type="checkbox"] {
+            height: 0;
+            width: 0;
+            visibility: hidden;
+        }
+
+        label[for="matricula-aluno-checkbox-input"] {
+            cursor: pointer;
+            font-size: 0px;
+            width: 4.2rem;
+            height: 2.4rem;
+            background: #e5e7eb;
+            display: block;
+            border-radius: 10rem;
+            position: relative;
+            transition: background-color 0.2s;
+
+            &:has(+ input:checked) {
+                background: v.$cor-sucesso;
+
+                &::after {
+                    left: calc(100% - 0.2rem);
+                    transform: translateX(-100%);
+                }
+            }
+
+            &::after {
+                content: "";
+                position: absolute;
+                top: 0.2rem;
+                left: 0.2rem;
+                width: 2rem;
+                height: 2rem;
+                background: #fff;
+                border-radius: 9rem;
+                transition: 0.2s;
+            }
+        }
+    }
+
+    &__form-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1.5rem;
+        padding-top: 2.5rem;
+        border-top: 1px solid #e5e7eb;
+
+        button {
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 0.8rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+
+            &:hover {
+                transform: translateY(-2px);
+            }
+        }
+    }
+
+    &__form-cancelar button {
+        background-color: #e5e7eb;
+        color: v.$cor-primaria-texto;
+        &:hover {
+            background-color: #d1d5db;
+        }
+    }
+
+    &__form-enviar button {
+        background-color: v.$cor-primaria-itens;
+        color: white;
+        &:hover {
+            background-color: color.scale(
+                v.$cor-primaria-itens,
+                $lightness: -10%
+            );
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+    }
+}
