@@ -12,6 +12,11 @@ Ao automatizar tarefas manuais como a chamada, o controle de ofertas e a geraç�
 
 Este projeto é a materialização dessa visão, combinando tecnologia moderna com um propósito de serviço.
 
+📌 **Acesse a versão ao vivo:** [dominicando.web.app](dominicando.web.app)
+
+**Login**: teste@dominicando.teste.com
+**Senha**: 123123
+
 ### ✨ Principais Funcionalidades
 
 -   **Painel de Controle Dinâmico:** Um dashboard inicial (`Início`) que apresenta um resumo visual dos dados mais importantes, com cards e gráficos que se adaptam ao cargo do usuário.
