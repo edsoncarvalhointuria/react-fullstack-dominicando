@@ -20,7 +20,7 @@ Este projeto é a materialização dessa visão, combinando tecnologia moderna c
 
 ---
 
-## ✨ Principais Funcionalidades
+### ✨ Principais Funcionalidades
 
 -   **Painel de Controle Dinâmico:** Um dashboard inicial (`Início`) que apresenta um resumo visual dos dados mais importantes, com cards e gráficos que se adaptam ao cargo do usuário.
 -   **Gestão Completa (CRUD):** Módulos completos para gerenciar Alunos, Membros, Classes, Igrejas e Usuários, com tabelas responsivas, filtros e modais de cadastro/edição.
