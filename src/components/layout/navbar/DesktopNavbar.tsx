@@ -150,7 +150,13 @@ function DesktopNavbar({
                                 className="nav-desktop__conta-container"
                                 initial={{ opacity: 0, scale: 0, y: -10 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0, y: -50, x: 100 }}
+                                exit={{
+                                    opacity: 0,
+                                    scale: 0,
+                                    y: -50,
+                                    x: 100,
+                                    transition: { delay: 0.3 },
+                                }}
                             >
                                 <p className="nav-desktop__conta-container--nome">
                                     Olá, {userName}!
@@ -165,7 +171,7 @@ function DesktopNavbar({
                                 >
                                     Minha Conta
                                 </Link>
-                                <motion.div whileTap={{ scale: 0.8 }}>
+                                <motion.div>
                                     <button
                                         className="nav-mobile__sair"
                                         onClick={logout}

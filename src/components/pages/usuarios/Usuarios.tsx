@@ -168,15 +168,21 @@ function Usuarios() {
 
             if (snap.empty) return [];
 
-            const usuarios = snap.docs.map(
+            let usuarios = snap.docs.map(
                 (v) => ({ id: v.id, ...v.data() } as UsuarioInterface)
             );
 
+            if (!isSuperAdmin.current)
+                usuarios = usuarios.filter(
+                    (v) =>
+                        v.role !== "pastor_presidente" &&
+                        v.role !== "super_admin"
+                );
             if (user?.role === "secretario_congregacao")
                 return usuarios.filter((v) => v.role !== "pastor");
             if (user?.role === "super_admin")
                 return usuarios.filter((v) => v.role !== "pastor_presidente");
-            else return usuarios;
+            return usuarios;
         };
 
         if (user) {

@@ -1524,8 +1524,7 @@ interface Usuario extends Omit<UsuarioFront, "senha"> {
 }
 
 export const salvarUsuario = functions.https.onCall(async (request) => {
-    const { db, isSuperAdmin, isSecretario, user, isAdmin } =
-        await validarUsuario(request);
+    const { db, isSecretario, user } = await validarUsuario(request);
     const { usuarioId } = request.data;
     const dados = request.data.dados as UsuarioFront;
 
@@ -1543,8 +1542,14 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
     }
 
     const podeCriar =
-        isSuperAdmin ||
-        (isAdmin &&
+        user.role === Roles.PASTOR_PRESIDENTE ||
+        (user.role === Roles.SUPER_ADMIN &&
+            dados.role !== Roles.PASTOR_PRESIDENTE) ||
+        (user.role === Roles.PASTOR &&
+            dados.role !== Roles.SUPER_ADMIN &&
+            dados.role !== Roles.PASTOR_PRESIDENTE) ||
+        (user.role === Roles.SECRETARIO_CONGREGACAO &&
+            dados.role !== Roles.PASTOR &&
             dados.role !== Roles.SUPER_ADMIN &&
             dados.role !== Roles.PASTOR_PRESIDENTE) ||
         (isSecretario && dados.role === Roles.SECRETARIO_CLASSE);
