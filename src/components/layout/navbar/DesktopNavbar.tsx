@@ -133,7 +133,6 @@ function DesktopNavbar({
                 <motion.div
                     className="nav-desktop__conta"
                     onTap={() => setShowAccount((v) => !v)}
-                    whileTap={{ scale: 0.9 }}
                     variants={variantsItens}
                 >
                     <FontAwesomeIcon
