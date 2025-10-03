@@ -15,6 +15,7 @@ Este projeto é a materialização dessa visão, combinando tecnologia moderna c
 📌 **Acesse a versão ao vivo:** [dominicando.web.app](dominicando.web.app)
 
 **Login**: teste@dominicando.teste.com
+
 **Senha**: 123123
 
 ### ✨ Principais Funcionalidades
