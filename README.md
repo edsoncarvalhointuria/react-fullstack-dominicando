@@ -1,5 +1,7 @@
 # Dominicando - Gestão Inteligente para Escola Dominical
 
+![Adobe Express - dominicando-gif](https://github.com/user-attachments/assets/9efe7f2a-06cd-41fb-bcb9-c214d0714c82)
+
 ---
 
 ## 📖 Sobre o Projeto
