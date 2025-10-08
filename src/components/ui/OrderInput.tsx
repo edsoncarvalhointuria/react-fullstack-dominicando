@@ -68,7 +68,7 @@ function OrderInput({
                                 {current}
                             </>
                         ) : (
-                            <span>Clique para escolher a ordem</span>
+                            <span>Ordernar por</span>
                         )}
                     </p>
                 </div>

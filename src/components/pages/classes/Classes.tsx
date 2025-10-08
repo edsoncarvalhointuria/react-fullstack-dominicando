@@ -191,7 +191,7 @@ function Classes() {
                         />
 
                         <div className="classes-page__total">
-                            <p>Total de classe ({classesMemo.length})</p>
+                            <p>Total de classes ({classesMemo.length})</p>
                         </div>
                     </div>
                 </div>

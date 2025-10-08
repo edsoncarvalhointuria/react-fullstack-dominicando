@@ -23,12 +23,16 @@ import Cadastrar from "./components/pages/cadastrar/Cadastrar";
 import CadastrarMinisterio from "./components/pages/cadastrar/CadastrarMinisterio";
 import CadastrarUsuario from "./components/pages/cadastrar/CadastrarUsuario";
 import Membros from "./components/pages/membros/Membros";
+import Comprovantes from "./components/pages/comprovantes/Comprovantes";
 
 function App() {
     const { user } = useAuthContext();
     const navigate = useNavigate();
     const location = useLocation();
-
+    const { pathname } = location;
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [pathname]);
     useEffect(() => {
         if (user) {
             const from = location.state?.from;
@@ -101,6 +105,10 @@ function App() {
                         <Route path="/matriculas" element={<Matriculas />} />
                         <Route path="/usuarios" element={<Usuarios />} />
                         <Route path="/visitas" element={<Visitas />} />
+                        <Route
+                            path="/comprovantes"
+                            element={<Comprovantes />}
+                        />
                         <Route path="/relatorios">
                             <Route
                                 path="dominical/:igrejaId"

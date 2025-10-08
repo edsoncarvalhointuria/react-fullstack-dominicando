@@ -21,5 +21,7 @@ export interface RegistroAulaInterface {
     visitas: number;
     visitas_lista: VisitaFront[];
     missoes: { dinheiro: number; pix: number };
+    imgsPixMissoes: string[] | null;
     ofertas: { dinheiro: number; pix: number };
+    imgsPixOfertas: string[] | null;
 }

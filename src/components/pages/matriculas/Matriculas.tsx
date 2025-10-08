@@ -81,6 +81,7 @@ function Matriculas() {
         icon?: any;
     } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingLicoes, setIsLoadingLicoes] = useState(false);
     const [ordemColuna, setOrdemColuna] =
         useState<keyof MatriculasInterface>("alunoNome");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
@@ -121,6 +122,7 @@ function Matriculas() {
     };
 
     const getLicoes = async (classeId: string) => {
+        setIsLoadingLicoes(true);
         const licoesColl = collection(db, "licoes");
         const q = query(
             licoesColl,
@@ -201,7 +203,8 @@ function Matriculas() {
         if (classe)
             getLicoes(classe)
                 .then((v) => setLicoes(v))
-                .catch((err) => console.log("deu esse erro", err));
+                .catch((err) => console.log("deu esse erro", err))
+                .finally(() => setIsLoadingLicoes(false));
     }, [classe]);
 
     useEffect(() => {
@@ -354,6 +357,7 @@ function Matriculas() {
                                                 isAll={false}
                                                 selectId={field.value}
                                                 isErro={!!errors.licao}
+                                                isLoading={isLoadingLicoes}
                                             />
                                         )}
                                     />

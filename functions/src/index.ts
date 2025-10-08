@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { FieldValue, QuerySnapshot, Timestamp } from "firebase-admin/firestore";
+import JSZip from "jszip";
 
 enum Roles {
     PASTOR_PRESIDENTE = "pastor_presidente",
@@ -548,7 +549,7 @@ export const salvarMembro = functions.https.onCall(async (request) => {
             },
             message: `Membro atualizado com sucesso por ${user.uid}`,
         };
-        console.log(notificao);
+        console.log(JSON.stringify(notificao));
 
         return { id: membroId, ...membroSnap.data(), ...dadosParaSalvar };
     }
@@ -569,7 +570,7 @@ export const salvarMembro = functions.https.onCall(async (request) => {
         },
         message: `Membro salvo com sucesso por ${user.uid}`,
     };
-    console.log(notificao);
+    console.log(JSON.stringify(notificao));
     return { id: membroRef.id, ...dadosParaSalvar };
 });
 export const deletarMembro = functions.https.onCall(async (request) => {
@@ -631,7 +632,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
             },
             message: `Aluno deletado com sucesso pelo usuário: ${user.uid}`,
         };
-        console.log(notificao);
+        console.log(JSON.stringify(notificao));
         return { message: "Membro deletado com suscesso." };
     } catch (error) {
         console.log("Ocorreu um erro ao deletar membro", error);
@@ -1767,7 +1768,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
             },
             message: `O usuário ${usuarioId} foi deletado pelo usuário ${user.uid}.`,
         });
-        console.log(notificao);
+        console.log(JSON.stringify(notificao));
         return { message: "O usuário foi deletado com sucesso" };
     } catch (error: any) {
         console.log("Erro ao deletar usuário", error);
@@ -2290,8 +2291,10 @@ interface ChamadaFront {
     visitasLista: VisitaFront[];
     ofertaDinheiro: number;
     ofertaPix: number;
+    imgsPixOfertas: string[];
     missoesDinheiro: number;
     missoesPix: number;
+    imgsPixMissoes: string[];
     descricao: string;
     data_chamada: string;
 }
@@ -2317,7 +2320,9 @@ interface RegistroAulaInterface {
     visitas: number;
     visitas_lista: VisitaFront[];
     missoes: { dinheiro: number; pix: number };
+    imgsPixMissoes: string[] | null;
     ofertas: { dinheiro: number; pix: number };
+    imgsPixOfertas: string[] | null;
 }
 
 export const salvarChamada = functions.https.onCall(async (request) => {
@@ -2379,6 +2384,12 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         ofertas: { dinheiro: dados.ofertaDinheiro, pix: dados.ofertaPix },
         missoes_total: dados.missoesDinheiro + dados.missoesPix,
         ofertas_total: dados.ofertaDinheiro + dados.ofertaPix,
+        imgsPixMissoes: dados?.imgsPixMissoes?.length
+            ? dados.imgsPixMissoes
+            : null,
+        imgsPixOfertas: dados?.imgsPixOfertas?.length
+            ? dados.imgsPixOfertas
+            : null,
         presentes_chamada: dados.totalPresentes,
         total_ausentes: dados.totalAusentes,
         total_matriculados: dados.totalMatriculados,
@@ -2478,6 +2489,54 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         );
     }
 });
+
+export const onSalvarChamadaUpdate = onDocumentUpdated(
+    "registros_aula/{registroId}",
+    async (event) => {
+        const dadosAntigos = event.data?.before.data() as RegistroAulaInterface;
+        const dadosNovos = event.data?.after.data() as RegistroAulaInterface;
+
+        if (!dadosAntigos || !dadosNovos) {
+            console.log("Dados ausentes. Encerrando a trigger.");
+
+            return;
+        }
+
+        const imgsMissoesDeletar = dadosAntigos.imgsPixMissoes?.filter(
+            (v) => !dadosNovos.imgsPixMissoes?.includes(v)
+        );
+        const imgsOfertasDeletar = dadosAntigos.imgsPixOfertas?.filter(
+            (v) => !dadosNovos.imgsPixOfertas?.includes(v)
+        );
+
+        const imgsDeletar = [
+            ...(imgsMissoesDeletar || []),
+            ...(imgsOfertasDeletar || []),
+        ];
+
+        if (!imgsDeletar.length) {
+            console.log("As imagens não mudaram, encerrando trigger");
+            return;
+        }
+
+        const bucket = admin.storage().bucket();
+        const regex = /\/o\/(.*)\?/;
+        const promises = imgsDeletar
+            ?.map((v) => {
+                const caminho = v?.match(regex);
+                if (caminho?.length) {
+                    const url = decodeURIComponent(caminho[1]);
+                    return bucket.file(url).delete();
+                }
+                return;
+            })
+            .filter(Boolean);
+
+        await Promise.all(promises!);
+
+        console.log("Imagens apagadas com sucesso!");
+    }
+);
 
 // Matricula
 
@@ -3826,6 +3885,117 @@ export const limparconvitesexpirados = onSchedule(
             );
         } catch (error) {
             console.error("ERRO na limpeza de convites expirados:", error);
+            return;
+        }
+    }
+);
+
+interface BaixarComprovantesFront {
+    igrejaId: string;
+    dados: string[];
+}
+
+export const baixarTodosComprovantes = functions.https.onCall(
+    async (request) => {
+        const { isSuperAdmin, user, db } = await validarUsuario(request);
+
+        const { igrejaId, dados } = request.data as BaixarComprovantesFront;
+
+        if (!dados || !igrejaId || !dados.length) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "Dados inválidos ou ausentes."
+            );
+        }
+
+        const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+
+        if (!igrejaSnap.exists) {
+            throw new functions.https.HttpsError(
+                "not-found",
+                "Igreja não encontrada."
+            );
+        }
+
+        if (
+            (isSuperAdmin &&
+                igrejaSnap.data()?.ministerioId !== user.ministerioId) ||
+            (!isSuperAdmin && igrejaId !== user.igrejaId)
+        ) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Você não tem permissão para isso."
+            );
+        }
+
+        const fetchs = await Promise.all(dados.map((v) => fetch(v)));
+        const imagens = await Promise.all(fetchs.map((v) => v.arrayBuffer()));
+
+        const zip = new JSZip();
+
+        imagens.forEach((v, i) => {
+            const url = new URL(dados[i]);
+            const path = decodeURIComponent(url.pathname);
+            const nome = path.substring(path.lastIndexOf("/") + 1);
+            zip.file(nome, v);
+        });
+
+        const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+
+        const notificao: Notificacao = {
+            actor: {
+                email: user.email,
+                uid: user.uid,
+                ip: request.rawRequest.ip,
+            },
+            dados: {
+                dados_enviados: request.data,
+                dados_importantes: [],
+            },
+            evento: "BAIXAR_COMPROVANTES",
+            message: `Comprovantes zipados com sucesso pelo usuário: ${user.uid}`,
+        };
+
+        console.log(JSON.stringify(notificao));
+
+        const file = zipBuffer.toString("base64");
+        return { file };
+    }
+);
+
+export const limparimagenscomprovantes = onSchedule(
+    {
+        schedule: "0 3 1 * *",
+        timeZone: "America/Sao_Paulo",
+    },
+    async (event) => {
+        const bucket = admin.storage().bucket();
+        console.log(
+            "INICIANDO TAREFA AGENDADA: Limpeza de imagens com mais de 100 dias..."
+        );
+
+        try {
+            const [files] = await bucket.getFiles({
+                prefix: "comprovantes-pix/",
+            });
+            const dataLimite = new Date();
+            dataLimite.setDate(dataLimite.getDate() - 100);
+            const promises = files
+                .filter((v) => {
+                    if (!v.name.endsWith("/")) {
+                        const dataArquivo = new Date(v.metadata.timeCreated!);
+                        return dataArquivo < dataLimite;
+                    }
+                    return false;
+                })
+                .map((v) => v.delete());
+
+            await Promise.all(promises);
+            console.log(
+                "Limpeza de imagens fora do prazo finalizada com sucesso!"
+            );
+        } catch (error) {
+            console.error("ERRO na limpeza de imagens:", error);
             return;
         }
     }

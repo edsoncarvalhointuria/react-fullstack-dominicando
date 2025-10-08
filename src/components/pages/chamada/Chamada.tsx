@@ -43,6 +43,7 @@ import MatriculaModal from "../../ui/MatriculaModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useAuthContext } from "../../../context/AuthContext";
 import CadastroAlunoModal from "../../ui/CadastroAlunoModal";
+import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 
 interface ChamadaForm {
     chamada: { [alunoId: string]: string };
@@ -58,8 +59,10 @@ interface ChamadaForm {
     visitasLista: VisitaFront[];
     ofertaDinheiro: number;
     ofertaPix: number;
+    imgsPixOfertas: string[];
     missoesDinheiro: number;
     missoesPix: number;
+    imgsPixMissoes: string[];
     descricao: string;
     data_chamada: string;
 }
@@ -86,6 +89,8 @@ function ChamadaPage() {
     const [addVisita, setAddVisita] = useState(false);
     const [visitas, setVisitas] = useState<VisitaFront[]>([]);
     const [openAction, setOpenAction] = useState(false);
+    const [pixOfertas, setPixOfertas] = useState<File[]>([]);
+    const [pixMissoes, setPixMissoes] = useState<File[]>([]);
 
     const matriculasRef = useRef(matriculas);
     const isEdit = useRef(false);
@@ -110,17 +115,20 @@ function ChamadaPage() {
             descricao: "",
             totalAtrasados: 0,
             totalAusentes: 0,
+            imgsPixMissoes: [],
+            imgsPixOfertas: [],
         },
         shouldUnregister: false,
     });
 
     const totalVisitas = methods.watch("visitas");
-    const chamada = methods.watch("chamada");
+    const { chamada } = methods.watch();
 
     const proximo = () => {
         setMatriculas(matriculasRef.current);
         setEtapa((v) => (v == 3 ? v : v + 1));
         window.history.pushState({ etapa: etapa + 1 }, "");
+        window.scrollTo(0, 0);
     };
     const voltar = () => {
         window.history.back();
@@ -159,33 +167,77 @@ function ChamadaPage() {
         setOpenAction(false);
     };
     const navigateChamadaSalva = () => {
-        if (isSuperAdmin)
+        if (isSuperAdmin.current)
             navigate(`/aulas/igreja/${igrejaId}/classe/${classeId}`);
-        else if (isAdmin) navigate(`/aulas/classe/${classeId}`);
+        else if (isAdmin.current) navigate(`/aulas/classe/${classeId}`);
         else navigate("/aulas");
     };
-    const onSubmit = (dados: ChamadaForm) => {
+    const onSubmit = async (dados: ChamadaForm) => {
         setIsEnviando(true);
-        const envio = {
-            dados: {
-                ...dados,
-                data_chamada:
-                    domingo?.toISOString()?.split("T")[0] ||
-                    new Date().toISOString().split("T")[0],
-            },
-            classeId,
-            licaoId,
-            numeroAula,
-        };
-        salvarVisita({ visitas: dados.visitasLista, igrejaId });
-        salvarChamada(envio)
-            .then(({ data }) => {
-                localStorage.removeItem(rascunhoLocalStorage);
-                console.log((data as any).mensagem);
-                setChamadaSalva(true);
-            })
-            .catch((err) => setMensagemErro(err.message))
-            .finally(() => setIsEnviando(false));
+        salvarVisita({ visitas: dados.visitasLista, igrejaId }).catch((v) =>
+            console.log(v)
+        );
+        try {
+            if (pixMissoes.length || pixOfertas.length) {
+                const itens = [
+                    ...pixMissoes.map((v) => ({ file: v, tipo: "missoes" })),
+                    ...pixOfertas.map((v) => ({ file: v, tipo: "ofertas" })),
+                ];
+                const storage = getStorage();
+
+                const arquivosSnap = await Promise.all(
+                    itens.map(async (v) => {
+                        const caminho = `comprovantes-pix/${licaoId}/${numeroAula}/${v.tipo}/${v.file.name}`;
+                        const storageRef = ref(storage, caminho);
+                        const arquivoSnap = await uploadBytes(
+                            storageRef,
+                            v.file
+                        );
+                        return { tipo: v.tipo, arquivo: arquivoSnap };
+                    })
+                );
+
+                const links = await Promise.all(
+                    arquivosSnap.map(async (v) => {
+                        const link = await getDownloadURL(v.arquivo.ref);
+                        return { tipo: v.tipo, link: link };
+                    })
+                );
+
+                dados.imgsPixMissoes = [
+                    ...links
+                        .filter((v) => v.tipo === "missoes")
+                        .map((v) => v.link),
+                    ...(dados?.imgsPixMissoes || []),
+                ];
+                dados.imgsPixOfertas = [
+                    ...links
+                        .filter((v) => v.tipo === "ofertas")
+                        .map((v) => v.link),
+                    ...(dados?.imgsPixOfertas || []),
+                ];
+            }
+
+            const envio = {
+                dados: {
+                    ...dados,
+                    data_chamada:
+                        domingo?.toISOString()?.split("T")[0] ||
+                        new Date().toISOString().split("T")[0],
+                },
+                classeId,
+                licaoId,
+                numeroAula,
+            };
+            const { data } = await salvarChamada(envio);
+            localStorage.removeItem(rascunhoLocalStorage);
+            console.log((data as any).mensagem);
+            setChamadaSalva(true);
+        } catch (err: any) {
+            setMensagemErro(err.message);
+        } finally {
+            setIsEnviando(false);
+        }
     };
     const limparFomulario = () => {
         localStorage.removeItem(rascunhoLocalStorage);
@@ -321,6 +373,12 @@ function ChamadaPage() {
                 ofertaPix: registros.ofertas.pix,
                 missoesDinheiro: registros.missoes.dinheiro,
                 missoesPix: registros.missoes.pix,
+                imgsPixMissoes: registros.imgsPixMissoes
+                    ? registros.imgsPixMissoes!
+                    : [],
+                imgsPixOfertas: registros.imgsPixOfertas
+                    ? registros.imgsPixOfertas!
+                    : [],
                 descricao: registros.descricao,
             };
 
@@ -350,7 +408,11 @@ function ChamadaPage() {
 
                         setVisitas(r.visitas_lista || []);
 
-                        methods.reset(r);
+                        methods.reset({
+                            ...r,
+                            imgsPixMissoes: [],
+                            imgsPixOfertas: [],
+                        });
                     }
 
                     setMatriculas(m);
@@ -673,6 +735,10 @@ function ChamadaPage() {
                                     </>
                                 ) : etapa === 2 ? (
                                     <DadosGeraisChamada
+                                        pixOfertas={pixOfertas}
+                                        pixMissoes={pixMissoes}
+                                        setPixMissoes={setPixMissoes}
+                                        setPixOfertas={setPixOfertas}
                                         setVisitas={setVisitas}
                                         visitas={visitas}
                                         setAddVisita={setAddVisita}

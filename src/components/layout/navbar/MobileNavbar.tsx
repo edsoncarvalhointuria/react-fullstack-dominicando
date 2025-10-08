@@ -83,6 +83,7 @@ function MobileNavbar({
                                 <Link
                                     className="nav-mobile__conta--link"
                                     to="/minha-conta"
+                                    onClick={() => setOpenMenu(false)}
                                 >
                                     Minha Conta
                                 </Link>

@@ -114,4 +114,32 @@
             color: v.$cor-primaria-itens;
         }
     }
+
+    &__lista {
+        &-vazia,
+        &-carregando {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 2rem;
+            color: v.$cor-secundaria-texto;
+            cursor: default;
+            text-align: center;
+            &:hover {
+                background-color: transparent;
+                color: v.$cor-secundaria-texto;
+            }
+        }
+
+        &--spinner {
+            display: inline-block;
+            width: 1.6rem;
+            height: 1.6rem;
+            border: 2px solid rgba(v.$cor-primaria-texto, 0.2);
+            border-radius: 50%;
+            border-top-color: v.$cor-primaria-texto;
+            animation: spin 1s ease-in-out infinite;
+        }
+    }
 }

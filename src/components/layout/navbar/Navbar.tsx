@@ -20,6 +20,10 @@ function Navbar() {
                 { texto: "Matriculas", caminho: "/matriculas" },
                 { texto: "Visitas", caminho: "/visitas" },
                 { texto: "Usuários", caminho: "/usuarios" },
+                {
+                    texto: "Comp. PIX",
+                    caminho: "/comprovantes",
+                },
             ],
         },
     ];

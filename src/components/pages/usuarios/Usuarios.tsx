@@ -286,7 +286,7 @@ function Usuarios() {
                         />
 
                         <div className="usuarios-page__total">
-                            <p>Total Usuário: ({usuariosMemo.length})</p>
+                            <p>Total de Usuários: ({usuariosMemo.length})</p>
                         </div>
                     </div>
                 </motion.div>
