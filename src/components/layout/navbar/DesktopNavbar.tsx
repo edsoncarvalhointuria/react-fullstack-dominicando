@@ -39,7 +39,7 @@ function DesktopNavbar({
             <Link to={"/dashboard"} className="header-desktop__img">
                 <motion.img
                     variants={variantsItens}
-                    src="/logo-cor-oficial-completa.svg"
+                    src="/logo-preenchida.svg"
                     alt="Logo Dominicando"
                 />
             </Link>

@@ -20,6 +20,7 @@ function SelectionGrid({
     opcoes,
     onSelect,
     renderAddModal = undefined,
+    sort = true,
 }: {
     titulo: string;
     opcoes: {
@@ -28,12 +29,14 @@ function SelectionGrid({
     }[];
     onSelect: (id: string) => void;
     renderAddModal?: (onClose: () => void) => React.ReactNode;
+    sort?: boolean;
 }) {
     const [pesquisa, setPesquisa] = useState("");
     const [showModal, setShowModal] = useState(false);
 
     const opcoesMemo = useMemo(() => {
         let o = opcoes.filter((v) => v.nome.toLowerCase().includes(pesquisa));
+        if (sort) o = o.sort((a, b) => a.nome.localeCompare(b.nome));
 
         return o;
     }, [opcoes, pesquisa]);

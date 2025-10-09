@@ -13,6 +13,7 @@ function Relatorios() {
                     { nome: "Relatórios CSV", id: "csv" },
                 ]}
                 onSelect={(retorno: string) => navigate(retorno)}
+                sort={false}
             />
         </>
     );

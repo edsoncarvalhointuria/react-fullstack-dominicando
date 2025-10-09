@@ -45,7 +45,7 @@ function MobileNavbar({
             <Link to={"/dashboard"} className="header-mobile__img">
                 <motion.img
                     variants={variantsItens}
-                    src="/logo-cor-oficial.svg"
+                    src="/logo-atualizada.svg"
                     alt="Logo Domicando"
                 />
             </Link>

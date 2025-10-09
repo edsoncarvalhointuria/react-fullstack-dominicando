@@ -24,6 +24,7 @@ import CadastrarMinisterio from "./components/pages/cadastrar/CadastrarMinisteri
 import CadastrarUsuario from "./components/pages/cadastrar/CadastrarUsuario";
 import Membros from "./components/pages/membros/Membros";
 import Comprovantes from "./components/pages/comprovantes/Comprovantes";
+import PWReloadPrompt from "./components/layout/PWA/PWReloadPrompt";
 
 function App() {
     const { user } = useAuthContext();
@@ -43,6 +44,7 @@ function App() {
     }, [user]);
     return (
         <main>
+            <PWReloadPrompt />
             <AnimatePresence>
                 <Routes>
                     <Route path="/" key={location.key} element={<Login />} />
