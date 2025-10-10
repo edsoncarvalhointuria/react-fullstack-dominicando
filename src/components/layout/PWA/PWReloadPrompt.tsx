@@ -21,22 +21,20 @@ function PWReloadPrompt() {
 
     return (
         <AnimatePresence>
-            {(offlineReady || needRefresh) && (
+            {(offlineReady || needRefresh) && needRefresh && (
                 <motion.div
                     className="pwa-toast"
                     initial={{ y: 50, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 50, opacity: 0 }}
                 >
-                    {needRefresh && (
-                        <button
-                            className="pwa-toast__button"
-                            onClick={() => updateServiceWorker(true)}
-                        >
-                            <FontAwesomeIcon icon={faRotateRight} />
-                            Atualizar
-                        </button>
-                    )}
+                    <button
+                        className="pwa-toast__button"
+                        onClick={() => updateServiceWorker(true)}
+                    >
+                        <FontAwesomeIcon icon={faRotateRight} />
+                        Atualizar
+                    </button>
                 </motion.div>
             )}
         </AnimatePresence>

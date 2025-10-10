@@ -1,0 +1,132 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.install-modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background-color: rgba(v.$cor-primaria-texto, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 5000;
+    padding: 2rem;
+}
+
+.install-modal {
+    width: 100%;
+    max-width: 40rem;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    position: relative;
+
+    &__header {
+        position: relative;
+        height: 5rem; // Espaço para a imagem flutuar
+    }
+
+    &__img {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 8rem;
+        height: 8rem;
+        border-radius: 50%;
+        background-color: v.$cor-secundaria-fundo;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        border: 4px solid v.$cor-secundaria-fundo;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    }
+
+    &__close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        font-size: 2rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: color 0.2s, transform 0.2s;
+
+        &:hover {
+            color: v.$cor-primaria-texto;
+            transform: rotate(90deg);
+        }
+    }
+
+    &__body {
+        padding: 1.5rem 2.5rem 2.5rem 2.5rem;
+    }
+
+    &__mensagem {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2.5rem;
+
+        span {
+            font-size: 3.5rem;
+            color: v.$cor-primaria-itens;
+        }
+
+        h2 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin: 0;
+        }
+
+        p {
+            font-size: 1.5rem;
+            color: v.$cor-secundaria-texto;
+            line-height: 1.6;
+            margin: 0;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: 1rem;
+
+        button {
+            flex: 1;
+            padding: 1.2rem;
+            border: none;
+            border-radius: 0.8rem;
+            font-size: 1.6rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .button-secondary {
+            background-color: #e5e7eb;
+            color: v.$cor-primaria-texto;
+            &:hover {
+                background-color: #d1d5db;
+            }
+        }
+        .button-primary {
+            background-color: v.$cor-primaria-itens;
+            color: white;
+            &:hover {
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $lightness: -10%
+                );
+            }
+        }
+    }
+}

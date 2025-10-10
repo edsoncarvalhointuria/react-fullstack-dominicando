@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Login from "./components/pages/login/Login";
 import { useAuthContext } from "./context/AuthContext";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -25,8 +25,12 @@ import CadastrarUsuario from "./components/pages/cadastrar/CadastrarUsuario";
 import Membros from "./components/pages/membros/Membros";
 import Comprovantes from "./components/pages/comprovantes/Comprovantes";
 import PWReloadPrompt from "./components/layout/PWA/PWReloadPrompt";
+import InstallModal from "./components/ui/InstallModal";
 
 function App() {
+    const [promptInstall, setPromptInstall] = useState<any>(null);
+    const [showModal, setShowModal] = useState(false);
+
     const { user } = useAuthContext();
     const navigate = useNavigate();
     const location = useLocation();
@@ -42,9 +46,49 @@ function App() {
             else navigate("/dashboard");
         }
     }, [user]);
+    useEffect(() => {
+        const event = (evt: Event) => {
+            if (promptInstall) return;
+            evt.preventDefault();
+            setPromptInstall(evt);
+            setShowModal(true);
+        };
+
+        if (!promptInstall)
+            window.addEventListener("beforeinstallprompt", event);
+
+        return () => window.removeEventListener("beforeinstallprompt", event);
+    }, [promptInstall]);
+
     return (
         <main>
             <PWReloadPrompt />
+            <AnimatePresence>
+                {promptInstall && showModal && (
+                    <InstallModal
+                        onConfirm={async () => {
+                            if (!promptInstall) return;
+
+                            promptInstall.prompt();
+
+                            setShowModal(false);
+
+                            const { outcome } = await promptInstall.userChoice;
+                            if (outcome === "accepted") {
+                                console.log("Usuário aceitou a instalação!");
+                            } else {
+                                console.log("Usuário recusou a instalação.");
+                            }
+
+                            setPromptInstall(null);
+                        }}
+                        onClose={() => {
+                            setShowModal(false);
+                        }}
+                        key={"modal-instalar-app"}
+                    />
+                )}
+            </AnimatePresence>
             <AnimatePresence>
                 <Routes>
                     <Route path="/" key={location.key} element={<Login />} />
