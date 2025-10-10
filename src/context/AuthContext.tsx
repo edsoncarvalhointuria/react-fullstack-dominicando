@@ -13,7 +13,7 @@ import {
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { createContext, useContext, useState } from "react";
 import { auth, db } from "../utils/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { ROLES } from "../roles/Roles";
 import type { AppUser } from "../interfaces/AppUser";
 
@@ -99,35 +99,48 @@ function AuthContext({ children }: { children: ReactNode }) {
         const unscrible = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
                 const usuarioDoc = doc(db, "usuarios", currentUser.uid);
-                const usuarioSnap = await getDoc(usuarioDoc);
 
-                // Aqui eu estou vendo se teve algum resultado
-                if (usuarioSnap.exists()) {
-                    const usuario = usuarioSnap.data();
+                const unsubscribeOnSnapshot = onSnapshot(
+                    usuarioDoc,
+                    (usuarioSnap) => {
+                        if (usuarioSnap.exists()) {
+                            const usuario = usuarioSnap.data();
 
-                    const appUser: AppUser = {
-                        uid: currentUser.uid,
-                        email: currentUser.email,
-                        nome: currentUser.displayName || usuario.nome,
-                        igrejaId: usuario.igrejaId,
-                        igrejaNome: usuario.igrejaNome,
-                        ministerioId: usuario.ministerioId,
-                        role: usuario.role,
-                        classeId: usuario.classeId,
-                        classeNome: usuario.classeNome,
-                    };
+                            const appUser: AppUser = {
+                                uid: currentUser.uid,
+                                email: currentUser.email,
+                                nome: currentUser.displayName || usuario.nome,
+                                igrejaId: usuario.igrejaId,
+                                igrejaNome: usuario.igrejaNome,
+                                ministerioId: usuario.ministerioId,
+                                role: usuario.role,
+                                classeId: usuario.classeId,
+                                classeNome: usuario.classeNome,
+                            };
 
-                    isSuperAdmin.current =
-                        appUser.role === ROLES.PASTOR_PRESIDENTE ||
-                        appUser.role === ROLES.SUPER_ADMIN;
-                    isAdmin.current =
-                        appUser.role === ROLES.PASTOR ||
-                        appUser.role === ROLES.SECRETARIO_CONGREGACAO;
-                    isSecretario.current =
-                        appUser.role === ROLES.SECRETARIO_CLASSE;
+                            isSuperAdmin.current =
+                                appUser.role === ROLES.PASTOR_PRESIDENTE ||
+                                appUser.role === ROLES.SUPER_ADMIN;
+                            isAdmin.current =
+                                appUser.role === ROLES.PASTOR ||
+                                appUser.role === ROLES.SECRETARIO_CONGREGACAO;
+                            isSecretario.current =
+                                appUser.role === ROLES.SECRETARIO_CLASSE;
 
-                    setUser(appUser);
-                }
+                            setUser(appUser);
+                        } else {
+                            signOut(auth);
+                        }
+                    },
+                    (error) => {
+                        console.error(
+                            "Erro no listener do perfil do usuário:",
+                            error
+                        );
+                        signOut(auth);
+                    }
+                );
+                return () => unsubscribeOnSnapshot();
             }
         });
 

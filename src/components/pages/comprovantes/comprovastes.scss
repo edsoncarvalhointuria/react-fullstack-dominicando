@@ -54,6 +54,11 @@
         grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr));
         gap: 2rem;
         align-items: start;
+
+        @media all and (max-width: 30em) {
+            grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+        }
+
         input {
             width: 100%;
         }
