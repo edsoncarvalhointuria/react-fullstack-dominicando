@@ -63,6 +63,8 @@
 
         p {
             margin: 0;
+            word-break: break-word;
+            hyphens: auto;
         }
         span {
             display: block;

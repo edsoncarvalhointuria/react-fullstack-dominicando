@@ -26,12 +26,14 @@ import Membros from "./components/pages/membros/Membros";
 import Comprovantes from "./components/pages/comprovantes/Comprovantes";
 import PWReloadPrompt from "./components/layout/PWA/PWReloadPrompt";
 import InstallModal from "./components/ui/InstallModal";
+import Notificacoes from "./components/pages/notificacoes/Notificacoes";
+// import { app } from "./utils/firebase";
 
 function App() {
     const [promptInstall, setPromptInstall] = useState<any>(null);
     const [showModal, setShowModal] = useState(false);
 
-    const { user } = useAuthContext();
+    const { user, mudarPermissaoNotificacao } = useAuthContext();
     const navigate = useNavigate();
     const location = useLocation();
     const { pathname } = location;
@@ -39,12 +41,71 @@ function App() {
         window.scrollTo(0, 0);
     }, [pathname]);
     useEffect(() => {
-        if (user) {
-            const from = location.state?.from;
+        if (!user) return;
 
-            if (from) navigate(from);
-            else navigate("/dashboard");
+        const from = location.state?.from;
+        if (from) navigate(from);
+        else navigate("/dashboard");
+
+        if ("permissions" in navigator) {
+            navigator.permissions
+                .query({
+                    name: "notifications",
+                })
+                .then((v) => {
+                    v.onchange = mudarPermissaoNotificacao;
+                });
         }
+
+        // if ("serviceWorker" in navigator) {
+        //     const setupOnMessageListener = async () => {
+        //         const { getMessaging, onMessage } = await import(
+        //             "firebase/messaging"
+        //         );
+
+        //         const messaging = getMessaging(app);
+        //         return onMessage(messaging, (payload) => {
+        //             new Notification(
+        //                 payload.notification?.title || "Nova Notificação",
+        //                 {
+        //                     body: payload.notification?.body || "",
+        //                     icon:
+        //                         payload.notification?.icon ||
+        //                         "/web-app-manifest-192x192.png",
+        //                 }
+        //             );
+        //         });
+        //     };
+
+        //     let unsubscribe: any;
+        //     setupOnMessageListener().then((v) => (unsubscribe = v));
+
+        //     return () => {
+        //         if (unsubscribe) unsubscribe();
+
+        //         if ("permissions" in navigator) {
+        //             navigator.permissions
+        //                 .query({
+        //                     name: "notifications",
+        //                 })
+        //                 .then((v) => {
+        //                     if (v) v.onchange = null;
+        //                 });
+        //         }
+        //     };
+        // }
+
+        return () => {
+            if ("permissions" in navigator) {
+                navigator.permissions
+                    .query({
+                        name: "notifications",
+                    })
+                    .then((v) => {
+                        if (v) v.onchange = null;
+                    });
+            }
+        };
     }, [user]);
     useEffect(() => {
         const event = (evt: Event) => {
@@ -151,6 +212,10 @@ function App() {
                         <Route path="/matriculas" element={<Matriculas />} />
                         <Route path="/usuarios" element={<Usuarios />} />
                         <Route path="/visitas" element={<Visitas />} />
+                        <Route
+                            path="/notificacoes"
+                            element={<Notificacoes />}
+                        />
                         <Route
                             path="/comprovantes"
                             element={<Comprovantes />}

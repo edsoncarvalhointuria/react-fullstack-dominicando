@@ -1,0 +1,154 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.notificao-modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background-color: rgba(v.$cor-primaria-texto, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 5000;
+    padding: 2rem;
+}
+
+.notificao-modal {
+    width: 100%;
+    max-width: 50rem;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    text-align: center;
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        gap: 0.3rem;
+
+        @media all and (max-width: 33.43em) {
+            flex-flow: column;
+            gap: 1rem;
+        }
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+
+        svg {
+            color: v.$cor-primaria-itens;
+        }
+    }
+
+    &__fechando {
+        font-size: 1.3rem;
+        font-weight: 500;
+        color: v.$cor-secundaria-texto;
+        background-color: v.$cor-primaria-fundo;
+        padding: 0.4rem 0.8rem;
+        border-radius: 2rem;
+
+        span {
+            font-weight: 700;
+        }
+    }
+
+    &__body {
+        padding: 2.5rem;
+    }
+
+    &__mensagem {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 2rem;
+        margin-bottom: 2rem;
+
+        p {
+            font-size: 1.6rem;
+            font-weight: 500;
+            color: v.$cor-primaria-texto;
+            text-align: left;
+            margin: 0;
+        }
+    }
+
+    &__toggle {
+        flex-shrink: 0;
+        position: relative;
+
+        // Reutilizando o estilo do Toggle Switch que já criamos
+        input[type="checkbox"] {
+            height: 0;
+            width: 0;
+            visibility: hidden;
+            position: absolute;
+        }
+
+        label {
+            cursor: pointer;
+            font-size: 0;
+            width: 5rem;
+            height: 2.8rem;
+            background: v.$cor-erro;
+            display: block;
+            border-radius: 10rem;
+            position: relative;
+            transition: background-color 0.2s;
+
+            &::after {
+                content: "";
+                position: absolute;
+                top: 0.3rem;
+                left: 0.3rem;
+                width: 2.2rem;
+                height: 2.2rem;
+                background: #fff;
+                border-radius: 9rem;
+                transition: 0.2s;
+            }
+
+            &:has(+ input:checked) {
+                background: v.$cor-sucesso;
+
+                &::after {
+                    left: calc(100% - 0.3rem);
+                    transform: translateX(-100%);
+                }
+            }
+        }
+    }
+
+    hr {
+        border: none;
+        border-top: 1px solid #e5e7eb;
+        margin: 2rem 0;
+    }
+
+    &__conta {
+        font-size: 1.4rem;
+        color: v.$cor-secundaria-texto;
+        line-height: 1.6;
+        p {
+            text-wrap: pretty;
+        }
+
+        a {
+            color: v.$cor-primaria-itens;
+            font-weight: 600;
+            text-decoration: none;
+            text-wrap: nowrap;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+}

@@ -1,125 +1,191 @@
 @use "@/styles/variables" as v;
 @use "sass:color";
 
-.minha-conta-page {
+.minha-conta {
     max-width: 80rem;
     margin: 3rem auto;
     padding: 0 2rem;
     display: flex;
     flex-direction: column;
     gap: 3rem;
-}
 
-.minha-conta__card {
-    background-color: v.$cor-secundaria-fundo;
-    border-radius: 1.2rem;
-    padding: 2.5rem;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    &__card {
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1.2rem;
+        padding: 2.5rem;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 
-    &-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: v.$cor-primaria-texto;
-        margin: 0 0 2rem 0;
-        padding-bottom: 1.5rem;
-        border-bottom: 1px solid #f3f4f6;
-        display: flex;
-        align-items: center;
-        gap: 1.2rem;
+        &-title {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin: 0 0 2rem 0;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
 
-        svg {
-            color: v.$cor-primaria-itens;
-        }
-    }
-}
-
-.minha-conta__info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
-    gap: 2rem;
-}
-
-.info-item {
-    h3 {
-        font-size: 1.4rem;
-        font-weight: 500;
-        color: v.$cor-secundaria-texto;
-        margin: 0 0 0.5rem 0;
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-    }
-
-    p {
-        font-size: 1.6rem;
-        font-weight: 600;
-        color: v.$cor-primaria-texto;
-        margin: 0;
-        padding-left: 2.2rem; // Alinha com o texto do h3
-    }
-}
-
-.minha-conta__form {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.8rem;
-    }
-
-    label {
-        font-size: 1.5rem;
-        font-weight: 500;
-        color: v.$cor-primaria-texto;
-    }
-
-    input[type="password"] {
-        padding: 1rem 1.5rem;
-        border-radius: 0.8rem;
-        border: 1px solid #d1d5db;
-        font-size: 1.6rem;
-        transition: all 0.2s ease-out;
-
-        &:focus {
-            outline: none;
-            border-color: v.$cor-primaria-itens;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
-        }
-
-        &.input-error {
-            border-color: v.$cor-erro;
-            &:focus {
-                box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+            svg {
+                color: v.$cor-primaria-itens;
             }
         }
     }
 
-    .form-error {
-        color: v.$cor-erro;
-        font-size: 1.3rem;
-        margin: 0;
+    &__info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
+        gap: 2rem;
     }
-}
 
-.minha-conta__submit-btn {
-    align-self: flex-end;
-    padding: 1rem 2.5rem;
-    border: none;
-    border-radius: 0.8rem;
-    background-color: v.$cor-primaria-itens;
-    color: white;
-    font-size: 1.5rem;
-    font-weight: 700;
-    cursor: pointer;
-    margin-top: 1rem;
-    transition: all 0.2s ease-out;
+    .info-item {
+        h3 {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
 
-    &:hover {
-        background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
-        transform: translateY(-2px);
+        p {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+            margin: 0;
+            padding-left: 2.2rem; // Alinha com o texto do h3
+        }
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        label {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: v.$cor-primaria-texto;
+        }
+
+        input[type="password"] {
+            padding: 1rem 1.5rem;
+            border-radius: 0.8rem;
+            border: 1px solid #d1d5db;
+            font-size: 1.6rem;
+            transition: all 0.2s ease-out;
+
+            &:focus {
+                outline: none;
+                border-color: v.$cor-primaria-itens;
+                box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+            }
+
+            &.input-error {
+                border-color: v.$cor-erro;
+                &:focus {
+                    box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+                }
+            }
+        }
+
+        .form-error {
+            color: v.$cor-erro;
+            font-size: 1.3rem;
+            margin: 0;
+        }
+    }
+
+    &__submit-btn {
+        align-self: flex-end;
+        padding: 1rem 2.5rem;
+        border: none;
+        border-radius: 0.8rem;
+        background-color: v.$cor-primaria-itens;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 700;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: all 0.2s ease-out;
+
+        &:hover {
+            background-color: color.scale(
+                v.$cor-primaria-itens,
+                $lightness: -10%
+            );
+            transform: translateY(-2px);
+        }
+    }
+
+    &__notificao {
+        padding: 1rem;
+        &--info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 2rem;
+
+            p {
+                font-size: 1.6rem;
+                font-weight: 500;
+                color: v.$cor-primaria-texto;
+                margin: 0;
+            }
+        }
+
+        &--toggle {
+            flex-shrink: 0;
+            position: relative;
+
+            // Reutilizando o estilo do Toggle Switch que já criamos
+            input[type="checkbox"] {
+                height: 0;
+                width: 0;
+                visibility: hidden;
+                position: absolute;
+            }
+
+            label {
+                cursor: pointer;
+                font-size: 0;
+                width: 5rem;
+                height: 2.8rem;
+                background: v.$cor-erro;
+                display: block;
+                border-radius: 10rem;
+                position: relative;
+                transition: background-color 0.2s;
+
+                &::after {
+                    content: "";
+                    position: absolute;
+                    top: 0.3rem;
+                    left: 0.3rem;
+                    width: 2.2rem;
+                    height: 2.2rem;
+                    background: #fff;
+                    border-radius: 9rem;
+                    transition: 0.2s;
+                }
+
+                &:has(+ input:checked) {
+                    background: v.$cor-sucesso;
+
+                    &::after {
+                        left: calc(100% - 0.3rem);
+                        transform: translateX(-100%);
+                    }
+                }
+            }
+        }
     }
 }

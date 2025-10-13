@@ -31,6 +31,7 @@ interface User {
     ministerioId: string;
     classeId: string;
     classeNome: string;
+    tokens?: number;
 }
 
 interface Notificacao {
@@ -4000,3 +4001,222 @@ export const limparimagenscomprovantes = onSchedule(
         }
     }
 );
+
+interface SalvarNotificacaoFront {
+    usuarioId: string;
+    token?: string;
+    permissao: "granted" | "denied" | "default";
+}
+
+export const salvarNotificacao = functions.https.onCall(async (request) => {
+    const { db, user } = await validarUsuario(request);
+    const { permissao, usuarioId, token } =
+        request.data as SalvarNotificacaoFront;
+
+    const podeEnviar = permissao === "granted";
+
+    if (
+        !permissao ||
+        !usuarioId ||
+        user.uid !== usuarioId ||
+        (podeEnviar && !token)
+    ) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes"
+        );
+    }
+
+    const promises = [];
+
+    const tokensRef = db
+        .collection("usuarios")
+        .doc(user.uid)
+        .collection("tokens");
+    const tokensSnap = await tokensRef.get();
+    const tokens = tokensSnap.docs.map((v) => v.id);
+
+    if (podeEnviar) {
+        if (!tokens.includes(token!)) {
+            promises.push(
+                tokensRef
+                    .doc(token!)
+                    .create({ token, data_criacao: Timestamp.now() })
+            );
+            tokens.push(token!);
+        }
+    } else if (user?.tokens === 1) {
+        if (!tokensSnap.empty) {
+            promises.push(...tokensSnap.docs.map((v) => v.ref.delete()));
+        }
+    }
+
+    await Promise.all([
+        ...promises,
+        db
+            .collection("usuarios")
+            .doc(user.uid)
+            .update({
+                tokens: podeEnviar
+                    ? tokens.length
+                    : user?.tokens
+                    ? FieldValue.increment(-1)
+                    : 0,
+            }),
+    ]);
+
+    const notificao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "SALVAR_NOTIFICACAO",
+        message: `Atualização de notificação realizada por ${user.uid}`,
+    };
+    console.log(JSON.stringify(notificao));
+
+    return { message: "Permissão de notificação atualizado com sucesso" };
+});
+
+export const enviarNotificacao = functions.https.onCall(async (request) => {
+    const { user, isSecretario, isSuperAdmin, db } = await validarUsuario(
+        request
+    );
+    const { destinarios, titulo, mensagem } = request.data as any;
+
+    if (!titulo || !mensagem || !destinarios) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes"
+        );
+    }
+
+    if (
+        (!isSuperAdmin &&
+            (destinarios === "super_admin" ||
+                destinarios === "pastor_presidente")) ||
+        (isSecretario &&
+            destinarios !== "todos" &&
+            destinarios !== "secretario_classe")
+    ) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso"
+        );
+    }
+
+    let q = db.collection("usuarios").where("tokens", ">", 0);
+
+    if (isSecretario) q = q.where("classeId", "==", user.classeId);
+    else {
+        const key = isSuperAdmin ? "ministerioId" : "igrejaId";
+        q = q.where(key, "==", user[key]);
+        if (destinarios !== "todos") q = q.where("role", "==", destinarios);
+    }
+
+    try {
+        const usuariosSnap = await q.get();
+
+        if (usuariosSnap.empty)
+            return {
+                message: "Nenhum usuário localizado para enviar a mensagem",
+            };
+
+        const tokensMap = new Map();
+        const listaTokensMap = new Map();
+        await Promise.all(
+            usuariosSnap.docs.map(async (v) => {
+                const token = await v.ref.collection("tokens").get();
+
+                if (token.empty) await v.ref.update({ tokens: 0 });
+                else
+                    token.docs.forEach((t) => {
+                        const listaTokens = listaTokensMap.get(v.id) || [];
+                        listaTokens.push(t.id);
+                        listaTokensMap.set(v.id, listaTokens);
+
+                        tokensMap.set(t.id, v.id);
+                    });
+            })
+        );
+
+        const tokens = [...tokensMap.keys()] as string[];
+
+        const payload = {
+            notification: {
+                title: titulo,
+                body: mensagem,
+            },
+            webpush: {
+                notification: {
+                    icon: "https://dominicando.web.app/web-app-manifest-192x192.png",
+                },
+            },
+            tokens,
+        };
+
+        const resultado = await admin.messaging().sendEachForMulticast(payload);
+
+        if (!resultado.failureCount) {
+            console.log(
+                `Notificação enviada com sucesso por ${user.uid}. Total de envio:${resultado.successCount}. Não Houve falhas`
+            );
+            return { message: "Notificação enviada com sucesso" };
+        }
+
+        const usuariosComErro = new Set();
+        await Promise.all(
+            resultado.responses.map((v, i) => {
+                console.log("erro", v.error);
+                console.log("stack", v.error?.stack);
+
+                if (
+                    v.error &&
+                    v!.error.code.includes(
+                        "messaging/registration-token-not-registered"
+                    )
+                ) {
+                    const token = tokens[i];
+                    const userId = tokensMap.get(token);
+                    usuariosComErro.add(userId);
+
+                    const listaTokens = listaTokensMap.get(userId) as any[];
+                    listaTokens.splice(
+                        listaTokens.findIndex((v) => v === token),
+                        1
+                    );
+
+                    return db
+                        .collection("usuarios")
+                        .doc(userId)
+                        .collection("tokens")
+                        .doc(token)
+                        .delete();
+                }
+
+                return;
+            })
+        );
+
+        if (usuariosComErro.size) {
+            usuariosComErro.forEach((v: any) => {
+                db.collection("usuarios")
+                    .doc(v)
+                    .update({ tokens: listaTokensMap.get(v).length });
+            });
+        }
+
+        console.log(
+            `Notificação enviada com sucesso por ${user.uid}. Total de envio: ${resultado.successCount}. Total de erros: ${resultado.failureCount}. Limpeza realizada com sucesso!`
+        );
+        return { message: "Notificação enviada com sucesso." };
+    } catch (Error: any) {
+        console.log("Houve um ao enviar a notificação", Error);
+        throw new functions.https.HttpsError("internal", Error.message);
+    }
+});

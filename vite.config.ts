@@ -9,6 +9,11 @@ export default defineConfig({
         VitePWA({
             registerType: "autoUpdate",
             includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+            // strategies: "injectManifest",
+            // srcDir: "src",
+            // filename: "firebase-messaging-sw.ts",
+            filename: "firebase-messaging-sw.js",
+
             manifest: {
                 name: "Dominicando",
                 short_name: "Dominicando",
@@ -38,6 +43,9 @@ export default defineConfig({
                         purpose: "any maskable",
                     },
                 ],
+            },
+            workbox: {
+                importScripts: ["teste-firebase-messaging-sw.js"],
             },
         }),
     ],

@@ -7,7 +7,7 @@
         "dev": "vite --open --host",
         "build": "tsc -b && vite build",
         "lint": "eslint .",
-        "preview": "vite preview"
+        "preview": "vite preview --open --host"
     },
     "dependencies": {
         "@fortawesome/free-brands-svg-icons": "^7.0.0",

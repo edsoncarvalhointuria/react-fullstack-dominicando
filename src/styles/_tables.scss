@@ -4,7 +4,6 @@
 %table-gestao {
     width: 100%;
     border-collapse: collapse;
-    background-color: v.$cor-secundaria-fundo;
     border-radius: 1.2rem;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -82,6 +81,7 @@
 
     tbody tr {
         transition: background-color 0.2s ease-out;
+        background-color: v.$cor-secundaria-fundo;
         &:last-child td {
             border-bottom: none;
         }
@@ -100,6 +100,7 @@
     }
 
     @media all and (max-width: 768px) {
+        box-shadow: none;
         thead {
             display: none;
         }

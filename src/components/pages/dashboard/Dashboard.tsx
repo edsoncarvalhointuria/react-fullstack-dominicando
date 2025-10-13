@@ -20,6 +20,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { useDataContext } from "../../../context/DataContext";
 import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton ";
 import { ROLES } from "../../../roles/Roles";
+import NotificacaoModal from "../../ui/NotificacaoModal";
 
 const functions = getFunctions();
 const getDashboard = httpsCallable(functions, "getDashboard");
@@ -53,6 +54,7 @@ function Dashboard() {
         };
     } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [showNotificacao, setShowNotificacao] = useState(false);
 
     const matriculasRef = useRef<DashboardInterface[]>([]);
     const membrosRef = useRef<{
@@ -213,6 +215,16 @@ function Dashboard() {
         if (options.length === 1)
             setCurrentOption({ id: options[0].id, nome: options[0].nome });
     }, [options]);
+    useEffect(() => {
+        const jaViuNotificacao = JSON.parse(
+            localStorage.getItem("jaViuNotificao") || "false"
+        );
+        const notificaStatus = Notification.permission;
+        if (!jaViuNotificacao && notificaStatus === "default") {
+            setShowNotificacao(true);
+            localStorage.setItem("jaViuNotificao", "true");
+        }
+    }, []);
     return (
         <motion.section className="dashboard-page">
             <motion.h1
@@ -222,6 +234,17 @@ function Dashboard() {
             >
                 Relatório Geral Trimestral
             </motion.h1>
+
+            <AnimatePresence>
+                {showNotificacao && (
+                    <NotificacaoModal
+                        key={"notifica-modal"}
+                        close={() => {
+                            setShowNotificacao(false);
+                        }}
+                    />
+                )}
+            </AnimatePresence>
 
             <div className="dashboard-page__filters">
                 <div className="dashboard-page__filters-container">

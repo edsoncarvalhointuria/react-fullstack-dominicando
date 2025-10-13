@@ -12,10 +12,12 @@ import {
 } from "firebase/auth";
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { createContext, useContext, useState } from "react";
-import { auth, db } from "../utils/firebase";
+import { app, auth, db } from "../utils/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { ROLES } from "../roles/Roles";
+
 import type { AppUser } from "../interfaces/AppUser";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export interface AuthType {
     user: AppUser | null;
@@ -27,13 +29,18 @@ export interface AuthType {
     isSecretario: React.RefObject<boolean>;
     alterarSenha: (senhaAntiga: string, senhaNova: string) => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
+    mudarPermissaoNotificacao: () => Promise<void>;
 }
 
 const context = createContext({});
 export const useAuthContext = () => useContext(context) as AuthType;
 
+const functions = getFunctions();
+const salvarNotificacao = httpsCallable(functions, "salvarNotificacao");
+
 function AuthContext({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
+
     const isSuperAdmin = useRef(false);
     const isAdmin = useRef(false);
     const isSecretario = useRef(false);
@@ -95,6 +102,30 @@ function AuthContext({ children }: { children: ReactNode }) {
         },
         [user]
     );
+
+    const mudarPermissaoNotificacao = async () => {
+        await Notification.requestPermission();
+        const permissao = Notification.permission;
+
+        if (permissao !== "granted") {
+            salvarNotificacao({ usuarioId: user!.uid, permissao });
+            return console.log("Permissão não concedida");
+        }
+        const { getMessaging, getToken } = await import("firebase/messaging");
+        await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+
+        const registration = await navigator.serviceWorker.ready;
+
+        const messaging = getMessaging(app);
+
+        const token = await getToken(messaging, {
+            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: registration,
+        });
+
+        salvarNotificacao({ usuarioId: user!.uid, token, permissao });
+    };
+
     useEffect(() => {
         const unscrible = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
@@ -158,6 +189,7 @@ function AuthContext({ children }: { children: ReactNode }) {
                 isSecretario,
                 alterarSenha,
                 resetPassword,
+                mudarPermissaoNotificacao,
             }}
         >
             {children}
