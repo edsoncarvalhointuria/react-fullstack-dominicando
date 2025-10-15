@@ -1,0 +1,149 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.ajuda-page {
+    padding: 3rem 4rem;
+    max-width: 90rem;
+    margin: 0 auto;
+
+    @media (max-width: 768px) {
+        padding: 2rem 1.5rem;
+    }
+
+    &__header {
+        text-align: center;
+        margin-bottom: 4rem;
+
+        h2 {
+            font-size: 3rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin-bottom: 1.5rem;
+        }
+    }
+
+    &__itens {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+
+        &--vazio {
+            padding: 4rem 2rem;
+            text-align: center;
+            background-color: v.$cor-primaria-fundo;
+            border-radius: 1.2rem;
+            border: 2px dashed #e5e7eb;
+
+            p {
+                margin: 0;
+                font-size: 1.6rem;
+                color: v.$cor-secundaria-texto;
+                line-height: 1.6;
+
+                &:first-child {
+                    font-size: 1.8rem;
+                    font-weight: 600;
+                    color: v.$cor-primaria-texto;
+                    margin-bottom: 0.5rem;
+                }
+            }
+        }
+    }
+
+    &__paginacao {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1.5rem;
+        margin-top: 3rem;
+        user-select: none;
+
+        &--arrow {
+            background: none;
+            border: 1px solid #d1d5db;
+            border-radius: 50%;
+            width: 4rem;
+            height: 4rem;
+            font-size: 1.6rem;
+            color: v.$cor-secundaria-texto;
+            cursor: pointer;
+            transition: all 0.2s;
+
+            &:hover:not(:disabled) {
+                border-color: v.$cor-primaria-itens;
+                color: v.$cor-primaria-itens;
+            }
+            &:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+        }
+
+        &--page {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            font-weight: 600;
+
+            &-anterior,
+            &-proximo {
+                font-size: 1.6rem;
+                color: v.$cor-secundaria-texto;
+            }
+            &-atual {
+                font-size: 2rem;
+                color: v.$cor-primaria-texto;
+            }
+        }
+    }
+}
+
+.ajuda-item {
+    a {
+        color: inherit;
+        border: none;
+        text-decoration: none;
+
+        display: flex;
+        gap: 2rem;
+        background-color: v.$cor-secundaria-fundo;
+        padding: 2rem;
+        border-radius: 1.2rem;
+        border: 1px solid #e5e7eb;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+
+        &:hover {
+            border-color: v.$cor-primaria-itens;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.07);
+        }
+    }
+
+    &__icon {
+        font-size: 2rem;
+        color: v.$cor-primaria-itens;
+        flex-shrink: 0;
+        margin-top: 0.5rem;
+    }
+
+    &__infos {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    &__title h3 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: v.$cor-primaria-texto;
+        margin: 0;
+    }
+
+    &__desc p {
+        font-size: 1.5rem;
+        color: v.$cor-secundaria-texto;
+        line-height: 1.6;
+        margin: 0;
+    }
+}

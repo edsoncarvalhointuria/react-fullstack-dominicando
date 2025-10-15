@@ -24,6 +24,7 @@ function Navbar() {
                 { texto: "Comp. PIX", caminho: "/comprovantes" },
             ],
         },
+        { texto: "Ajuda", caminho: "/ajuda" },
     ];
     const TAMANHO_MOBILE = 991;
     const [isMobile, setIsMobile] = useState(

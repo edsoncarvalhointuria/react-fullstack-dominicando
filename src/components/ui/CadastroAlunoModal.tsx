@@ -83,6 +83,7 @@ function CadastroAlunoModal({
     const [currentMembro, setCurrentMembro] = useState<MembroInterface | null>(
         null
     );
+    const [isLoadingMembros, setIsLoadingMembros] = useState(false);
 
     const onSubmit = (dados: CadastroAluno) => {
         if (type === "aluno") {
@@ -196,11 +197,13 @@ function CadastroAlunoModal({
             );
             return m;
         };
-        if (isMembro)
+        if (isMembro) {
+            setIsLoadingMembros(true);
             getMembros(igrejaId)
                 .then((v) => setMembros(v))
-                .catch((err) => console.log("deu esse erro", err));
-        else setCurrentMembro(null);
+                .catch((err) => console.log("deu esse erro", err))
+                .finally(() => setIsLoadingMembros(false));
+        } else setCurrentMembro(null);
     }, [isMembro]);
     useEffect(() => {
         if (membros.length && currentMembro)
@@ -319,6 +322,9 @@ function CadastroAlunoModal({
                                                                 v?.id
                                                             );
                                                         }}
+                                                        isLoading={
+                                                            isLoadingMembros
+                                                        }
                                                     />
                                                 )}
                                             />

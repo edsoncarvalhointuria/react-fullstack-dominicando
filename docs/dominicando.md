@@ -13,16 +13,128 @@ A arquitetura foi projetada para ser **multi-inquilino**, permitindo que múltip
 
 ## Coleções Principais
 
--   **ministerios**
+-   **alunos** (Cadastro geral de todos os alunos)
 
-    -   `id`: string
-    -   `nome`: string (Ex: `"Ministério Exemplo"`)
+    -   `nome_completo`: string
+    -   `data_nascimento`: timestamp (Para o relatório de aniversariantes)
+    -   `igrejaId`: string (A qual igreja este aluno pertence)
+    -   `igrejaNome`: string
+    -   `ministerioId` : string
+    -   `contato` : string
+
+-   **classes**
+
+    -   `nome`: string (Ex: `"Classe de Jovens"`)
+    -   `igrejaId`: string (A qual igreja esta classe pertence)
+    -   `igrejaNome`: string
+    -   `ministerioId` : string
+    -   `idade_maxima` : number | null
+    -   `idade_minima` : number | null
+
+-   **convites**
+
+    -   `classeId`: string (Referência a **classes**)
+    -   `classeNome`: string
+    -   `criadoEm`: timestamp
+    -   `criadoPorUid`: string
+    -   `dataExpiracao`: timestamp
+    -   `igrejaId`: string (A qual igreja esta lição pertence)
+    -   `igrejaNome`: string
+    -   `ministerioId` : string
+    -   `role` : string
+    -   `usado`: boolean
+    -   `usadoPor`: string | null
 
 -   **igrejas**
 
     -   `id`: string
     -   `nome`: string (Ex: `"Congregação Central"`)
     -   `ministerioId`: string (Referência a **ministerios**)
+
+-   **licoes** (As revistas/trimestres)
+
+    -   `ativo`: boolean
+    -   `classeId`: string (Referência a **classes**)
+    -   `classeNome`: string
+    -   `data_fim`: timestamp
+    -   `data_inicio`: timestamp
+    -   `igrejaId`: string (A qual igreja esta lição pertence)
+    -   `igrejaNome`: string
+    -   `img`: string | null
+    -   `ministerioId` : string
+    -   `numero_aulas`: number (Padrão: 13)
+    -   `numero_trimestre`: number
+    -   `titulo`: string (Ex: `"A Jornada da Fé"`)
+    -   `total_matriculados` : number
+    -   **Subcoleção `chamada`**
+        -   **Document ID:** `numero_aula`
+        -   `data_prevista`: Timestamp
+        -   `numero_aula`: number
+        -   `realizada`: boolean
+        -   `registroRef`: Reference | null
+
+-   **matriculas** (A "ponte" entre alunos e lições)
+
+    -   `alunoId`: string (Referência a **alunos**)
+    -   `alunoNome`: string
+    -   `classeId`: string
+    -   `classeNome`: string
+    -   `classeRef`: Reference
+    -   `data_matricula`: timestamp
+    -   `igrejaId`: string (A qual igreja esta matrícula pertence)
+    -   `igrejaNome`: string
+    -   `licaoId`: string (Referência a **licoes**)
+    -   `licaoNome`: string (Referência a **licoes**)
+    -   `licaoRef`: Rerence
+    -   `ministerioId` : string
+    -   `possui_revista`: boolean
+
+-   **membros** (A "ponte" entre alunos e lições)
+
+    -   `alunoId`: string (Referência a **alunos**)
+    -   `contato`: string
+    -   `data_nascimento`: timestamp
+    -   `igrejaId`: string (A qual igreja esta matrícula pertence)
+    -   `igrejaNome`: string
+    -   `ministerioId` : string
+    -   `nome_completo` : string
+    -   `registro` : string
+    -   `validade`: timestamp
+
+-   **ministerios**
+
+    -   `id`: string
+    -   `nome`: string (Ex: `"Ministério Exemplo"`)
+
+-   **registros_aula** (O coração da aplicação, um documento por aula)
+
+    -   `atrasados`: number
+    -   `biblias`: number
+    -   `classeId`: string (Referência a **classes**)
+    -   `classeNome`: string
+    -   `data`: timestamp
+    -   `descricao`: string (Opcional, para notas)
+    -   `igrejaId`: string (A qual igreja este registro pertence)
+    -   `igrejaNome`: string
+    -   `licaoId`: string (Referência a **licoes**)
+    -   `licoes_trazidas`: number
+    -   `ministerioId` : string
+    -   `missoes`: map : {pix: number, dinheiro: number}
+    -   `missoes_total`: number (Calculado)
+    -   `ofertas`: map : {pix: number, dinheiro: number}
+    -   `oferta_total`: number (Calculado)
+    -   `presentes_chamada`: number
+    -   `total_ausentes`: number
+    -   `total_matriculados`: number
+    -   `total_presentes`: number
+    -   `visitas`: number
+    -   `visitas_lista`: [{nome_completo:string, data_nascimento:Timestamp | null, contato:string| null}]
+    -   **Subcoleção `chamada`**
+        -   **Document ID:** `alunoId`
+        -   `status`: string (`'Presente'`, `'Falta'`, `'Falta Justificada'`, `'Atrasado'`)
+        -   `nome`: string
+        -   `trouxe_biblia`: boolean
+        -   `trouxe_licao`: boolean
 
 -   **usuarios** (Sincronizado com o Firebase Authentication)
 
@@ -35,88 +147,25 @@ A arquitetura foi projetada para ser **multi-inquilino**, permitindo que múltip
     -   `igrejaNome`: string
     -   `role`: string (Ex: `'pastor_presidente'`, `'secretario_geral'`, `'secretario_classe'`)
     -   `ministerioId` : string
+    -   `tokens` : number
 
--   **classes**
+    -   **Subcoleção `tokens`**
 
-    -   `nome`: string (Ex: `"Classe de Jovens"`)
-    -   `igrejaId`: string (A qual igreja esta classe pertence)
-    -   `igrejaNome`: string
-    -   `ministerioId` : string
+        -   **Document ID:** `token_notification`
+        -   `data_criacao`: Timestamp
+        -   `token`: string
 
--   **alunos** (Cadastro geral de todos os alunos)
+-   **visitantes** (Cadastro geral de todos os alunos)
 
-    -   `nome_completo`: string
-    -   `data_nascimento`: timestamp (Para o relatório de aniversariantes)
+    -   `contato` : string | null
+    -   `data_nascimento`: timestamp | null
     -   `igrejaId`: string (A qual igreja este aluno pertence)
     -   `igrejaNome`: string
     -   `ministerioId` : string
-
--   **licoes** (As revistas/trimestres)
-
-    -   `titulo`: string (Ex: `"A Jornada da Fé - 3º Trimestre 2025"`)
-    -   `classeId`: string (Referência a **classes**)
-    -   `classeNome`: string
-    -   `data_inicio`: timestamp
-    -   `data_fim`: timestamp
-    -   `numero_aulas`: number (Padrão: 13)
-    -   `ativo`: boolean
-    -   `igrejaId`: string (A qual igreja esta lição pertence)
-    -   `igrejaNome`: string
-    -   `ministerioId` : string
-    -   `total_matriculados` : number
-
--   **matriculas** (A "ponte" entre alunos e lições)
-
-    -   `alunoId`: string (Referência a **alunos**)
-    -   `alunoNome`: string
-    -   `licaoId`: string (Referência a **licoes**)
-    -   `licaoNome`: string (Referência a **licoes**)
-    -   `licaoRef`: Rerence
-    -   `classeId`: string
-    -   `classeNome`: string
-    -   `classeRef`: Reference
-    -   `possui_revista`: boolean
-    -   `data_matricula`: timestamp
-    -   `igrejaId`: string (A qual igreja esta matrícula pertence)
-    -   `igrejaNome`: string
-    -   `ministerioId` : string
-
--   **registros_aula** (O coração da aplicação, um documento por aula)
-
-    -   `data`: timestamp
-    -   `licaoId`: string (Referência a **licoes**)
-    -   `classeId`: string (Referência a **classes**)
-    -   `classeNome`: string
-    -   `descricao`: string (Opcional, para notas)
-    -   `igrejaId`: string (A qual igreja este registro pertence)
-    -   `igrejaNome`: string
-    -   `ministerioId` : string
-    -   `visitas`: number
-    -   `atrasados`: number
-    -   `total_presentes`: number
-    -   `presentes_chamada`: number
-    -   `biblias`: number
-    -   `licoes_trazidas`: number
-    -   `oferta_total`: number (Calculado)
-    -   `ofertas`: map : {pix: number, dinheiro: number}
-    -   `missoes_total`: number (Calculado)
-    -   `missoes`: map : {pix: number, dinheiro: number}
-    -   **Subcoleção `chamada`**
-        -   **Document ID:** `alunoId`
-        -   `status`: string (`'Presente'`, `'Falta'`, `'Falta Justificada'`, `'Atrasado'`)
-        -   `nome`: string
-        -   `trouxe_biblia`: boolean
-        -   `trouxe_licao`: boolean
-
--   **log_alteracoes** (Para auditoria)
-
-    -   `usuarioId`: string
-    -   `acao`: string (Ex: `"Editou oferta da aula X"`)
-    -   `timestamp`: timestamp
-    -   `dados_antigos`: map
-    -   `dados_novos`: map
-    -   `igrejaId` : string
-    -   `ministerioId` : string
+    -   `nome_completo`: string
+    -   `primeira_visita`: timestamp
+    -   `quantidade_visitas`: number
+    -   `ultima_visita`: timestamp
 
 ---
 

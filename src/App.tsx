@@ -27,6 +27,8 @@ import Comprovantes from "./components/pages/comprovantes/Comprovantes";
 import PWReloadPrompt from "./components/layout/PWA/PWReloadPrompt";
 import InstallModal from "./components/ui/InstallModal";
 import Notificacoes from "./components/pages/notificacoes/Notificacoes";
+import Ajuda from "./components/pages/ajuda/Ajuda";
+import AjudaArtigo from "./components/pages/ajuda/AjudaArtigo";
 // import { app } from "./utils/firebase";
 
 function App() {
@@ -235,6 +237,14 @@ function App() {
                             />
                             <Route path="csv" element={<RelatorioCSV />} />
                             <Route path="" element={<Relatorios />} />
+                        </Route>
+
+                        <Route path="/ajuda">
+                            <Route element={<Ajuda />} path="" />
+                            <Route
+                                element={<AjudaArtigo key={location.key} />}
+                                path=":ajudaId"
+                            />
                         </Route>
                     </Route>
                 </Routes>

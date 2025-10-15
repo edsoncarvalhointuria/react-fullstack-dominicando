@@ -18,7 +18,7 @@ import { db } from "../../../utils/firebase";
 import { useAuthContext } from "../../../context/AuthContext";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { useDataContext } from "../../../context/DataContext";
-import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton ";
+import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
 import { ROLES } from "../../../roles/Roles";
 import NotificacaoModal from "../../ui/NotificacaoModal";
 
@@ -217,12 +217,12 @@ function Dashboard() {
     }, [options]);
     useEffect(() => {
         const jaViuNotificacao = JSON.parse(
-            localStorage.getItem("jaViuNotificao") || "false"
+            localStorage.getItem("jaViuNotificacao") || "false"
         );
-        const notificaStatus = Notification.permission;
-        if (!jaViuNotificacao && notificaStatus === "default") {
+        const isDefault = Notification.permission === "default";
+        if (!jaViuNotificacao && isDefault) {
             setShowNotificacao(true);
-            localStorage.setItem("jaViuNotificao", "true");
+            localStorage.setItem("jaViuNotificacao", "true");
         }
     }, []);
     return (

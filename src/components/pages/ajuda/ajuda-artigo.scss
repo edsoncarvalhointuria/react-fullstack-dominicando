@@ -1,0 +1,203 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.ajuda-artigo {
+    max-width: 90rem;
+    margin: 3rem auto;
+    padding: 4rem;
+    background-color: v.$cor-secundaria-fundo;
+    border-radius: 1.2rem;
+    border: 1px solid #e5e7eb;
+
+    @media (max-width: 768px) {
+        margin: 1.5rem;
+        padding: 1.5rem;
+    }
+
+    @media all and (max-width: 30em) {
+        margin: 0;
+        padding: 2rem 4.5rem;
+    }
+
+    &__titulo {
+        font-size: 3.2rem;
+        font-weight: 700;
+        color: v.$cor-primaria-texto;
+        margin-bottom: 2.5rem;
+        line-height: 1.3;
+    }
+
+    &__conteudo {
+        font-size: 1.6rem;
+        line-height: 1.7;
+        color: v.$cor-secundaria-texto;
+
+        h1,
+        h2,
+        h3 {
+            color: v.$cor-primaria-texto;
+            font-weight: 600;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.4rem;
+        }
+        h2 {
+            font-size: 2rem;
+        }
+        h3 {
+            font-size: 1.8rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+        }
+
+        ul,
+        ol {
+            padding-left: 2.5rem;
+            margin-bottom: 1.5rem;
+
+            li {
+                margin-bottom: 2rem;
+            }
+        }
+
+        strong {
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+        }
+
+        a {
+            color: v.$cor-primaria-itens;
+            font-weight: 500;
+            text-decoration: none;
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 60rem;
+            height: auto;
+            border-radius: 0.8rem;
+            margin: 2rem 0;
+        }
+
+        code {
+            background-color: #656c7633;
+            border-radius: 3px;
+            padding: 0.2rem 0.3rem;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 3rem 0;
+        }
+
+        table {
+            display: block; // Permite que a tabela tenha propriedades de overflow
+            overflow-x: auto; // A mágica para o scroll horizontal
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2.5rem 0;
+            -webkit-overflow-scrolling: touch; // Melhora a experiência de scroll no iOS
+            border: 1px solid #e5e7eb;
+            border-radius: 0.8rem;
+        }
+
+        th,
+        td {
+            padding: 1.2rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            min-width: 20rem;
+        }
+
+        th {
+            font-weight: 600;
+            background-color: v.$cor-primaria-fundo;
+            color: v.$cor-secundaria-texto;
+            // Garante que o cabeçalho fique visível durante o scroll vertical
+            position: sticky;
+            top: 0;
+        }
+
+        tbody tr:nth-of-type(even) {
+            background-color: v.$cor-primaria-fundo;
+        }
+
+        tbody tr:hover {
+            background-color: rgba(v.$cor-primaria-itens, 0.05);
+        }
+    }
+
+    &__videos {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e5e7eb;
+
+        h2 {
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+            margin-bottom: 1.5rem;
+        }
+
+        &-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+    }
+
+    &__videos--dispositivos {
+        display: flex;
+        background-color: v.$cor-primaria-fundo;
+
+        &.videoMobile .ajuda-artigo__videos--dispositivo:first-child,
+        &.videoDesktop .ajuda-artigo__videos--dispositivo:last-child {
+            background-color: v.$cor-secundaria-fundo;
+            color: v.$cor-primaria-itens;
+            font-weight: 600;
+        }
+    }
+
+    &__videos--dispositivo {
+        flex: 1;
+        padding: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        font-size: 1.5rem;
+        color: v.$cor-secundaria-texto;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-bottom: 1px solid #e5e7eb;
+
+        &:hover {
+            background-color: #f3f4f6;
+        }
+    }
+
+    &__videos--video {
+        position: relative;
+        padding-top: 56.25%;
+        height: 0;
+        background-color: #000;
+
+        iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    }
+}

@@ -23,7 +23,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Form, useSearchParams } from "react-router-dom";
 import GraficoDinamico from "../../ui/GraficoDinamico";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton ";
+import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
 
 const METRICAS = [
     { nome: "Ofertas (Detalhado)", id: "ofertas" }, //ok
@@ -145,7 +145,7 @@ function RelatoriosGraficos() {
         const form = Object.fromEntries(params.entries());
         reset({
             ...form,
-            grafico: "bar",
+            grafico: tipoGrafico || "bar",
             igrejas: !igs.includes("undefined") ? igs : undefined,
             classes: !classes.includes("undefined") ? classes : undefined,
         });
