@@ -127,6 +127,8 @@ Você verá um botão super útil acima da lista de matriculados: **"Importar do
 
 *Precisa cadastrar um aluno que ainda não existe no sistema? Dê uma olhada no nosso guia sobre [Como Cadastrar um Novo Aluno](/ajuda/como-cadastrar-um-aluno)!*
 `,
+        videoMobile:
+            "https://www.youtube.com/embed/9a1LVS8_66Y?si=Ia1r7FErSnys65qV",
     },
     {
         id: "o-que-e-o-dominicando",
@@ -138,7 +140,7 @@ Você verá um botão super útil acima da lista de matriculados: **"Importar do
 
 Pense no Dominicando como a sua **caderneta de chamada, só que com superpoderes**. Ele foi criado com um único propósito: **servir e abençoar a igreja**.
 
-Nós sabemos que o trabalho de um professor ou secretário é uma bênção, mas que a parte administrativa (a chamada, o controle de ofertas, os relatórios) pode tomar um tempo precioso. O Dominicando nasceu para automatizar essas tarefas, liberando você para focar no que realmente importa: **o ensino da Palavra e o cuidado com os alunos**.
+Eu sei que o trabalho de um professor ou secretário é uma bênção, mas que a parte administrativa (a chamada, o controle de ofertas, os relatórios) pode tomar um tempo precioso. O Dominicando nasceu para automatizar essas tarefas, liberando você para focar no que realmente importa: **o ensino da Palavra e o cuidado com os alunos**.
 
 ## O que eu consigo fazer aqui?
 
@@ -288,6 +290,8 @@ Não se preocupe, acontece com todo mundo! O processo para recuperar o acesso é
 
 Depois de redefinir, você já pode voltar para a tela de login e acessar sua conta com a nova senha.
 `,
+        videoMobile:
+            "https://youtube.com/embed/77RSIjIW14M?si=LP4VeExPfiDI2G6c",
     },
     {
         id: "como-fazer-a-chamada",
@@ -349,6 +353,8 @@ E pronto! A chamada do dia está registrada com segurança.
 
 **💡 Dica de Ouro:** Não se preocupe se a internet cair ou se você precisar fechar o navegador no meio da chamada. O Dominicando **salva um rascunho automaticamente** para você. Da próxima vez que você abrir a chamada daquele dia, seus dados estarão lá, esperando por você!
 `,
+        videoMobile:
+            "https://www.youtube.com/embed/aH1Uv34nwzs?si=w37SJ5nUXttYTIJb",
     },
     {
         id: "como-usar-acoes-rapidas",
@@ -395,6 +401,8 @@ O menu é dividido em duas seções para facilitar:
 
 **💡 Dica de Ouro:** Você pode combinar as ações! Por exemplo, você pode primeiro clicar em "Todos com Bíblia" e depois ajustar manualmente apenas aquele aluno que esqueceu. É uma ferramenta para te dar um ponto de partida rápido!
 `,
+        videoMobile:
+            "https://youtube.com/embed/pDEjoi2SSKA?si=BGg4AZYZ8k5B3udk",
     },
     {
         id: "como-registrar-visitantes",
@@ -440,6 +448,8 @@ Esta é a melhor opção para criar um relacionamento com quem visita sua classe
 
 Para entender melhor a diferença entre um Aluno e um Visitante, confira nosso artigo: **[Qual a diferença entre Aluno, Membro e Visitante?](/ajuda/diferenca-aluno-membro-visitante)**
 `,
+        videoMobile:
+            "https://www.youtube.com/embed/TRmhfVTl8j8?si=sEzdqyzqIGmoaCGC",
     },
     {
         id: "como-anexar-comprovantes-pix",
@@ -474,6 +484,8 @@ Você encontrará a opção de anexar comprovantes na **Etapa 2 da Chamada ("Dad
 
 **💡 Dica de Ouro:** Depois de salvar a chamada, os administradores podem visualizar e baixar todos os comprovantes enviados em um só lugar! Para saber como, confira nosso artigo: **[Onde eu encontro os comprovantes de PIX que foram enviados?](/ajuda/onde-encontrar-comprovantes-pix)**
 `,
+        videoMobile:
+            "https://www.youtube.com/embed/kwrptriYJKw?si=QnDYAcDy2NZuQ1g7",
     },
     {
         id: "o-que-e-panorama-licao",
@@ -530,6 +542,8 @@ Logo abaixo dos cards, você encontrará a lista de todos os alunos matriculados
 
 Com o Panorama da Lição, você tem controle total e uma visão clara do engajamento e do progresso da sua classe a cada trimestre!
 `,
+        videoMobile:
+            "https://youtube.com/embed/Kd8pKKNK-zc?si=4DDfusXrCG-PMCjN",
     },
     {
         id: "onde-encontrar-comprovantes-pix",
@@ -586,6 +600,8 @@ Se houver comprovantes para a aula selecionada, eles aparecerão abaixo dos filt
 
 **💡 Dica de Ouro:** Lembre-se que, para manter o sistema rápido e economizar espaço, todos os comprovantes são **deletados automaticamente 90 dias** após a data da aula. Por isso, é uma boa prática fazer a conciliação e o download dos arquivos regularmente!
 `,
+        videoMobile:
+            "https://youtube.com/embed/WX1cb8wc7Vc?si=8Bzkll4gywfqE5LU",
     },
     {
         id: "como-cadastrar-uma-classe",
@@ -623,6 +639,8 @@ Uma **Classe** é um grupo de alunos. Pode ser "Classe de Crianças", "Classe de
 
 **💡 Dica de Ouro:** Quer saber mais sobre como a faixa etária funciona? Dê uma olhada no nosso guia sobre **[Como eu defino uma faixa etária para a minha Classe?](/ajuda/como-definir-faixa-etaria)**.
 `,
+        videoMobile:
+            "https://www.youtube.com/embed/rnCPhgszTfs?si=EC221ULqBX2aMDx1",
     },
     {
         id: "como-definir-faixa-etaria",
@@ -681,6 +699,8 @@ Ao adicionar alunos à lista de matriculados, se algum deles estiver fora da ida
 
 É uma ajuda, não uma barreira, para garantir que sua Escola Dominical fique sempre bem organizada!
 `,
+        videoMobile:
+            "https://youtube.com/embed/QJ_oFUglTLM?si=hsiZ3Doi42_cQtnZ",
     },
     {
         id: "como-cadastrar-um-aluno",
@@ -736,6 +756,8 @@ Imagina que um aluno novo chegou no meio do trimestre e você precisa adicioná-
 
 É isso! Com esses dois caminhos, você tem total flexibilidade para manter sua lista de alunos sempre atualizada.
 `,
+        videoMobile:
+            "https://www.youtube.com/embed/v_Eu6Y6rOh8?si=t3sOmFRUfJsh6XzG",
     },
     {
         id: "como-vincular-aluno-a-membro",
@@ -775,6 +797,8 @@ E é isso! Imediatamente, os campos de "Nome Completo", "Data de Nascimento" e "
 
 **💡 Dica de Ouro:** Não está seguro sobre a diferença entre os cadastros? Nosso guia [Qual a diferença entre Aluno, Membro e Visitante?](/ajuda/diferenca-aluno-membro-visitante) explica tudo em detalhes!
 `,
+        videoMobile:
+            "https://www.youtube.com/embed/LJqh8bN3BTQ?si=V9ZKPgtQ4raGkO0K",
     },
     {
         id: "como-gerar-codigo-convite",
@@ -834,7 +858,7 @@ Basta copiar uma das duas opções e enviar para o novo usuário por WhatsApp, e
     },
     {
         id: "como-gerar-um-grafico",
-        titulo: "Como gerar um gráfico no sistema? (Explicando a página de Relatórios Gráficos)",
+        titulo: "Como gerar gráficos no sistema? (Explicando a página de Relatórios Gráficos)",
         conteudo: `
 # Como eu gero um gráfico no sistema?
 
@@ -908,6 +932,8 @@ O sistema irá processar sua solicitação e exibir o gráfico logo abaixo. Voc�
 
 Com essa ferramenta, você pode criar visualizações poderosas para suas reuniões e tomar decisões baseadas em dados concretos para abençoar ainda mais sua Escola Dominical!
 `,
+        videoMobile:
+            "https://youtube.com/embed/7aU8N8qOEsU?si=G5WhWy1hFu3ErRX3",
     },
     {
         id: "como-exportar-dados-csv",
@@ -966,6 +992,8 @@ Quando estiver tudo certo, clique no botão verde **"Gerar Relatório"**. O sist
 
 Depois, é só abrir o arquivo no Excel ou na sua ferramenta de planilhas preferida!
 `,
+        videoMobile:
+            "https://youtube.com/embed/cDYM51QGnVs?si=NkCqKYf_9oxeukSz",
     },
     {
         id: "como-ativar-desativar-notificacoes",
@@ -1019,6 +1047,8 @@ Geralmente, o caminho é:
 
 Depois de ajustar no navegador, o interruptor no site passará a refletir sua escolha corretamente!
 `,
+        videoMobile:
+            "https://youtube.com/embed/wVri7C1Csew?si=XquvRkzgrrbZJw86",
     },
     {
         id: "como-gerenciar-usuarios",
@@ -1073,6 +1103,8 @@ Este é o método mais seguro e prático para adicionar novos usuários no dia a
 
 **💡 Dica de Ouro:** O código do convite só pode ser usado uma vez e expira em 48 horas, garantindo a segurança do processo!
 `,
+        videoMobile:
+            "https://youtube.com/embed/qtcsPtuXfF0?si=GB3hJlN-S0QVSP_V",
     },
     {
         id: "entendendo-a-tela-de-inicio",
@@ -1174,5 +1206,7 @@ Excluir dados é uma ação permanente, por isso o Dominicando toma um cuidado e
 
 **Importante:** A exclusão de certos itens, como uma **Lição**, pode apagar em cascata todos os dados associados a ela (aulas, matrículas, registros de chamada). O sistema sempre te avisará sobre isso no modal de confirmação. **Leia com atenção antes de confirmar!**
 `,
+        videoMobile:
+            "https://youtube.com/embed/jXk7JIOWN7Q?si=7dKdyrbVMxQxSoTd",
     },
 ];

@@ -45,6 +45,9 @@
     gap: 1rem 2.5rem;
     margin-top: 2rem;
     padding: 0 1rem;
+    max-height: 15rem;
+    overflow-y: auto;
+    overflow-x: none;
 
     &__item {
         display: flex;

@@ -15,8 +15,8 @@ import AlertModal from "./AlertModal";
 interface Form {
     igrejaId: string;
     nome: string;
-    idade_minima: number;
-    idade_maxima: number;
+    idade_minima?: number;
+    idade_maxima?: number;
 }
 const functions = getFunctions();
 const salvarClasse = httpsCallable(functions, "salvarClasse");
@@ -50,6 +50,12 @@ function CadastroClasseModal({
     const [mensagemErro, setMensagemErro] = useState("");
 
     const onSubmit = (dados: Form) => {
+        dados.idade_minima = Number.isNaN(dados.idade_minima)
+            ? undefined
+            : dados.idade_minima;
+        dados.idade_maxima = Number.isNaN(dados.idade_maxima)
+            ? undefined
+            : dados.idade_maxima;
         setIsEnviando(true);
         const envio = { dados, classeId };
         salvarClasse(envio)
@@ -133,6 +139,46 @@ function CadastroClasseModal({
                     <FormProvider {...methods}>
                         <form onSubmit={handleSubmit(onSubmit)}>
                             <div className="classe-modal__body">
+                                <div
+                                    className={`classe-modal__input-group ${
+                                        errors.igrejaId && "input-error"
+                                    }`}
+                                >
+                                    <label htmlFor="igreja-classe">
+                                        Igreja*
+                                    </label>
+                                    <Controller
+                                        name="igrejaId"
+                                        control={control}
+                                        rules={{
+                                            required: "A igreja é obrigatória.",
+                                        }}
+                                        render={({ field }) => (
+                                            <Dropdown
+                                                lista={igrejas}
+                                                current={
+                                                    igrejas.find(
+                                                        (v) =>
+                                                            v.id === field.value
+                                                    )?.nome || null
+                                                }
+                                                isAll={false}
+                                                isErro={!!errors.igrejaId}
+                                                onSelect={(response) =>
+                                                    field.onChange(
+                                                        response?.id || null
+                                                    )
+                                                }
+                                            />
+                                        )}
+                                    />
+                                    {errors.igrejaId && (
+                                        <p className="classe-modal__input-erro">
+                                            {errors.igrejaId.message}
+                                        </p>
+                                    )}
+                                </div>
+
                                 <div className="classe-modal__input-group">
                                     <label htmlFor="nome-classe">
                                         Nome da Classe*
@@ -204,7 +250,7 @@ function CadastroClasseModal({
                                             type="number"
                                             {...register("idade_maxima", {
                                                 min: {
-                                                    value: idade_minima,
+                                                    value: idade_minima || 0,
                                                     message:
                                                         "Idade máxima inválida",
                                                 },
@@ -220,46 +266,6 @@ function CadastroClasseModal({
                                             </p>
                                         )}
                                     </div>
-                                </div>
-
-                                <div
-                                    className={`classe-modal__input-group ${
-                                        errors.igrejaId && "input-error"
-                                    }`}
-                                >
-                                    <label htmlFor="igreja-classe">
-                                        Igreja*
-                                    </label>
-                                    <Controller
-                                        name="igrejaId"
-                                        control={control}
-                                        rules={{
-                                            required: "A igreja é obrigatória.",
-                                        }}
-                                        render={({ field }) => (
-                                            <Dropdown
-                                                lista={igrejas}
-                                                current={
-                                                    igrejas.find(
-                                                        (v) =>
-                                                            v.id === field.value
-                                                    )?.nome || null
-                                                }
-                                                isAll={false}
-                                                isErro={!!errors.igrejaId}
-                                                onSelect={(response) =>
-                                                    field.onChange(
-                                                        response?.id || null
-                                                    )
-                                                }
-                                            />
-                                        )}
-                                    />
-                                    {errors.igrejaId && (
-                                        <p className="classe-modal__input-erro">
-                                            {errors.igrejaId.message}
-                                        </p>
-                                    )}
                                 </div>
                             </div>
 

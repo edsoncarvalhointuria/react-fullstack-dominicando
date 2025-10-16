@@ -231,119 +231,6 @@ function CadastroUsuarioModal({
                                 <motion.div
                                     variants={variantsItem}
                                     className="cadastro-usuario__form-input"
-                                >
-                                    <label htmlFor="cadastro-usuario-nome">
-                                        Nome Completo*
-                                    </label>
-                                    <input
-                                        className={errors.nome && "input-error"}
-                                        type="text"
-                                        id="cadastro-usuario-nome"
-                                        {...register("nome", {
-                                            required: "O nome é obrigatório",
-                                            minLength: {
-                                                value: 3,
-                                                message:
-                                                    "O nome deve ter pelo menos 3 caracteres.",
-                                            },
-                                        })}
-                                    />
-
-                                    {errors.nome && ErroMenssage(errors.nome)}
-                                </motion.div>
-
-                                {(!usuarioId || !isSecretario.current) && (
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-usuario__form-group"
-                                    >
-                                        <div className="cadastro-usuario__form-input">
-                                            <label htmlFor="cadastro-usuario-email">
-                                                E-mail*
-                                            </label>
-                                            <input
-                                                type="email"
-                                                className={
-                                                    errors.email &&
-                                                    "input-error"
-                                                }
-                                                placeholder="email@dominio.com"
-                                                id="cadastro-usuario-email"
-                                                {...register("email", {
-                                                    required:
-                                                        "O email é obrigatório",
-                                                    validate: (value) => {
-                                                        const regex =
-                                                            /^[A-Za-z0-9][A-Za-z0-9._+-]+@[A-Za-z0-9][A-Za-z0-9._-]+\.[A-Za-z]{2,}$/u;
-                                                        return (
-                                                            regex.test(value) ||
-                                                            "Formato de email invalido;"
-                                                        );
-                                                    },
-                                                })}
-                                            />
-                                            {errors.email &&
-                                                ErroMenssage(errors.email)}
-                                        </div>
-                                        <div className="cadastro-usuario__form-input">
-                                            <label htmlFor="cadastro-usuario-senha">
-                                                Senha*
-                                            </label>
-                                            <div className="cadastro-usuario__form-input--senha">
-                                                <input
-                                                    type={
-                                                        showSenha
-                                                            ? "text"
-                                                            : "password"
-                                                    }
-                                                    className={
-                                                        errors.senha &&
-                                                        "input-error"
-                                                    }
-                                                    id="cadastro-usuario-senha"
-                                                    {...register("senha", {
-                                                        required: {
-                                                            value: usuarioId
-                                                                ? false
-                                                                : true,
-                                                            message:
-                                                                "A senha é obrigatória",
-                                                        },
-                                                        minLength: {
-                                                            value: 6,
-                                                            message:
-                                                                "A senha deve ter pelo menos 6 caracteres.",
-                                                        },
-                                                    })}
-                                                />
-                                                <motion.div
-                                                    className="cadastro-usuario__form-input--image"
-                                                    onMouseOver={() =>
-                                                        setKey((v) => v + 1)
-                                                    }
-                                                    onTap={() =>
-                                                        setShowSenha((v) => !v)
-                                                    }
-                                                >
-                                                    <img
-                                                        src={`/eye${
-                                                            showSenha
-                                                                ? "-close"
-                                                                : ""
-                                                        }.gif?key=${key}`}
-                                                        alt="Ver senha"
-                                                    />
-                                                </motion.div>
-                                            </div>
-                                            {errors.senha &&
-                                                ErroMenssage(errors.senha)}
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="cadastro-usuario__form-input"
                                     style={{ zIndex: 9 }}
                                 >
                                     <p>Cargo*</p>
@@ -459,6 +346,118 @@ function CadastroUsuarioModal({
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
+                                <motion.div
+                                    variants={variantsItem}
+                                    className="cadastro-usuario__form-input"
+                                >
+                                    <label htmlFor="cadastro-usuario-nome">
+                                        Nome Completo*
+                                    </label>
+                                    <input
+                                        className={errors.nome && "input-error"}
+                                        type="text"
+                                        id="cadastro-usuario-nome"
+                                        {...register("nome", {
+                                            required: "O nome é obrigatório",
+                                            minLength: {
+                                                value: 3,
+                                                message:
+                                                    "O nome deve ter pelo menos 3 caracteres.",
+                                            },
+                                        })}
+                                    />
+
+                                    {errors.nome && ErroMenssage(errors.nome)}
+                                </motion.div>
+
+                                {(!usuarioId || !isSecretario.current) && (
+                                    <motion.div
+                                        variants={variantsItem}
+                                        className="cadastro-usuario__form-group"
+                                    >
+                                        <div className="cadastro-usuario__form-input">
+                                            <label htmlFor="cadastro-usuario-email">
+                                                E-mail*
+                                            </label>
+                                            <input
+                                                type="email"
+                                                className={
+                                                    errors.email &&
+                                                    "input-error"
+                                                }
+                                                placeholder="email@dominio.com"
+                                                id="cadastro-usuario-email"
+                                                {...register("email", {
+                                                    required:
+                                                        "O email é obrigatório",
+                                                    validate: (value) => {
+                                                        const regex =
+                                                            /^[A-Za-z0-9][A-Za-z0-9._+-]+@[A-Za-z0-9][A-Za-z0-9._-]+\.[A-Za-z]{2,}$/u;
+                                                        return (
+                                                            regex.test(value) ||
+                                                            "Formato de email invalido;"
+                                                        );
+                                                    },
+                                                })}
+                                            />
+                                            {errors.email &&
+                                                ErroMenssage(errors.email)}
+                                        </div>
+                                        <div className="cadastro-usuario__form-input">
+                                            <label htmlFor="cadastro-usuario-senha">
+                                                Senha*
+                                            </label>
+                                            <div className="cadastro-usuario__form-input--senha">
+                                                <input
+                                                    type={
+                                                        showSenha
+                                                            ? "text"
+                                                            : "password"
+                                                    }
+                                                    className={
+                                                        errors.senha &&
+                                                        "input-error"
+                                                    }
+                                                    id="cadastro-usuario-senha"
+                                                    {...register("senha", {
+                                                        required: {
+                                                            value: usuarioId
+                                                                ? false
+                                                                : true,
+                                                            message:
+                                                                "A senha é obrigatória",
+                                                        },
+                                                        minLength: {
+                                                            value: 6,
+                                                            message:
+                                                                "A senha deve ter pelo menos 6 caracteres.",
+                                                        },
+                                                    })}
+                                                />
+                                                <motion.div
+                                                    className="cadastro-usuario__form-input--image"
+                                                    onMouseOver={() =>
+                                                        setKey((v) => v + 1)
+                                                    }
+                                                    onTap={() =>
+                                                        setShowSenha((v) => !v)
+                                                    }
+                                                >
+                                                    <img
+                                                        src={`/eye${
+                                                            showSenha
+                                                                ? "-close"
+                                                                : ""
+                                                        }.gif?key=${key}`}
+                                                        alt="Ver senha"
+                                                    />
+                                                </motion.div>
+                                            </div>
+                                            {errors.senha &&
+                                                ErroMenssage(errors.senha)}
+                                        </div>
+                                    </motion.div>
+                                )}
 
                                 <div className="cadastro-usuario__form-buttons">
                                     <div className="cadastro-usuario__form-cancel">

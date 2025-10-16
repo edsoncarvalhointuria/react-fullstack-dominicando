@@ -143,9 +143,10 @@ function RelatoriosGraficos() {
         const classes = params.getAll("classes");
 
         const form = Object.fromEntries(params.entries());
+
         reset({
             ...form,
-            grafico: tipoGrafico || "bar",
+            grafico: tipoGrafico || form?.grafico || "bar",
             igrejas: !igs.includes("undefined") ? igs : undefined,
             classes: !classes.includes("undefined") ? classes : undefined,
         });

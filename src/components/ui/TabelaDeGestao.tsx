@@ -98,7 +98,7 @@ function TabelaDeGestao({
                                         ) || opt.placeholder}
                                 </td>
                             ) : opt.isBoolean ? (
-                                <td key={opt.id + i}>
+                                <td key={opt.id + i} data-label={opt.nome}>
                                     {v[opt.id] ? (
                                         <span className="status--sim">
                                             <FontAwesomeIcon

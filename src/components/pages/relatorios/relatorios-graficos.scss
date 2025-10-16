@@ -95,6 +95,10 @@
 
         .relatorios-graficos__filtro {
             flex: 1;
+
+            @media all and (max-width: 47.93em) {
+                flex: none;
+            }
         }
     }
 
