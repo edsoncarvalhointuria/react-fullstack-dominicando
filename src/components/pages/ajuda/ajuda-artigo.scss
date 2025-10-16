@@ -16,7 +16,7 @@
 
     @media all and (max-width: 30em) {
         margin: 0;
-        padding: 2rem 4.5rem;
+        padding: 2rem 2.5rem;
     }
 
     &__titulo {
@@ -53,6 +53,14 @@
 
         p {
             margin-bottom: 1.5rem;
+        }
+
+        p:has(img) {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
         }
 
         ul,

@@ -71,6 +71,7 @@ function AjudaArtigo() {
 
                         <div className="ajuda-artigo__videos--video">
                             <iframe
+                                onClick={(v) => v.currentTarget.blur()}
                                 width="560"
                                 height="315"
                                 src={artigo[currentVideo]}
@@ -78,6 +79,7 @@ function AjudaArtigo() {
                                 allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                 referrerPolicy="strict-origin-when-cross-origin"
                                 allowFullScreen
+                                aria-hidden={false}
                             ></iframe>
                         </div>
                     </div>

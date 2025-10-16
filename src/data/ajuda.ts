@@ -1,5 +1,15 @@
-const imgs = import.meta.glob(`/src/assets/ajuda-imgs/*`, { eager: true });
-const base = "/src/assets/ajuda-imgs/";
+const imgsDesktop = import.meta.glob(`/src/assets/ajuda-imgs/desktop/*`, {
+    eager: true,
+});
+const imgsMobile = import.meta.glob(`/src/assets/ajuda-imgs/mobile/*`, {
+    eager: true,
+});
+const imgs = { imgsDesktop, imgsMobile };
+const isMobile = window.innerWidth < 480;
+
+const key = isMobile ? "imgsMobile" : "imgsDesktop";
+
+const base = `/src/assets/ajuda-imgs/${isMobile ? "mobile" : "desktop"}/`;
 
 export interface AjudaInteface {
     id: any;
@@ -12,6 +22,61 @@ export interface AjudaInteface {
 }
 
 export const dadosAjuda: AjudaInteface[] = [
+    {
+        id: "diferenca-aluno-membro-visitante",
+        titulo: "Qual a diferença entre Aluno, Membro e Visitante?",
+        conteudo: `
+# Aluno, Membro ou Visitante? Entenda a diferença!
+
+No Dominicando, usamos alguns termos para organizar as pessoas. Entender a diferença entre eles é super simples e vai te ajudar a manter tudo organizado. Vamos lá!
+
+---
+
+### 👤 O Membro
+
+Pense no **Membro** como o **registro oficial da pessoa na igreja**. É a "fonte da verdade".
+
+* **O que é?** É o cadastro principal de uma pessoa que faz parte da congregação. Contém os dados como nome, data de nascimento, contato, número da carteirinha e a data em que se tornou membro.
+* **Onde eu gerencio?** Você pode ver e gerenciar todos os membros na página de **Gestão > Membros**.
+* **Ponto-chave:** Um membro pode ou não ser um aluno da Escola Dominical.
+
+![Imagem da tela de Gestão de Membros](${
+            (imgs[key][base + "gestao-membros-img.png"] as any).default
+        })
+*A página de Gestão de Membros é o seu "arquivo" central de todas as pessoas da igreja.*
+
+---
+
+### 🎓 O Aluno
+
+Pense no **Aluno** como o **papel que uma pessoa desempenha na Escola Dominical**.
+
+* **O que é?** É o registro que vincula uma pessoa a uma classe e aos trimestres. Um Aluno pode ser um Membro da igreja (e nós podemos criar esse vínculo!) ou pode ser alguém da comunidade que apenas frequenta a EBD.
+* **Onde eu gerencio?** Você pode ver todos que já foram alunos na página de **Gestão > Alunos**.
+* **Ponto-chave:** Todo mundo que participa da chamada é um "Aluno".
+
+![Imagem do modal de cadastro de aluno mostrando o vínculo com membro](${
+            (imgs[key][base + "gestao-aluno-img.png"] as any).default
+        })
+*Ao cadastrar um Aluno, você pode vinculá-lo a um Membro para uma análise mais completa.*
+
+---
+
+### 👋 O Visitante
+
+Pense no **Visitante** como uma pessoa que visita a classe esporadicamente. O sistema guarda um registro único para cada visitante para rastrear o histórico e facilitar o contato.
+
+* **O que é?** É o cadastro de uma pessoa que não é aluna regular, mas que frequenta a classe de vez em quando.
+* **Onde eu gerencio?** Você pode adicionar novos visitantes na tela de **Chamada** e ver a lista completa de todos os visitantes da igreja em **Gestão > Visitantes**.
+* **Ponto-chave:** O nome completo é usado como identificador único de um visitante. Por isso, é importante sempre cadastrar o nome completo!
+
+![Imagem da seção de visitantes na página de chamada](${
+            (imgs[key][base + "gestao-visitantes-img.png"] as any).default
+        })
+*Você pode adicionar os detalhes do visitante diretamente na chamada do dia.*
+
+`,
+    },
     {
         id: "como-matricular-um-aluno",
         titulo: "Como eu faço para matricular um aluno?",
@@ -43,7 +108,7 @@ Este é o fluxo padrão ao criar uma nova revista para o trimestre.
 4.  Para matricular, basta **clicar no nome do aluno** na lista da esquerda!
 
 ![Exemplo da tela de matrícula no Novo Trimestre](${
-            (imgs[base + "matriculando-aluno-img.png"] as any).default
+            (imgs[key][base + "matriculando-aluno-img.png"] as any).default
         })
 
 #### ✨ O Botão Mágico: Importar Alunos
@@ -85,66 +150,11 @@ Com o Dominicando, você terá em um só lugar:
 * 🔒 **Segurança e Acessibilidade:** Seus dados ficam guardados com segurança na nuvem, acessíveis de qualquer lugar, seja no seu computador ou no seu celular.
 
 ![Imagem do Dashboard do Dominicando](${
-            (imgs[base + "dominicando-img.png"] as any).default
+            (imgs[key][base + "dominicando-img.png"] as any).default
         })
 *A tela de Início, por exemplo, te dá uma visão geral e rápida de como a sua Escola Dominical está indo.*
 
 O objetivo é simples: menos papelada, mais ministério. Espero que esta ferramenta seja uma grande bênção para você!`,
-    },
-    {
-        id: "diferenca-aluno-membro-visitante",
-        titulo: "Qual a diferença entre Aluno, Membro e Visitante?",
-        conteudo: `
-# Aluno, Membro ou Visitante? Entenda a diferença!
-
-No Dominicando, usamos alguns termos para organizar as pessoas. Entender a diferença entre eles é super simples e vai te ajudar a manter tudo organizado. Vamos lá!
-
----
-
-### 👤 O Membro
-
-Pense no **Membro** como o **registro oficial da pessoa na igreja**. É a "fonte da verdade".
-
-* **O que é?** É o cadastro principal de uma pessoa que faz parte da congregação. Contém os dados como nome, data de nascimento, contato, número da carteirinha e a data em que se tornou membro.
-* **Onde eu gerencio?** Você pode ver e gerenciar todos os membros na página de **Gestão > Membros**.
-* **Ponto-chave:** Um membro pode ou não ser um aluno da Escola Dominical.
-
-![Imagem da tela de Gestão de Membros](${
-            (imgs[base + "gestao-membros-img.png"] as any).default
-        })
-*A página de Gestão de Membros é o seu "arquivo" central de todas as pessoas da igreja.*
-
----
-
-### 🎓 O Aluno
-
-Pense no **Aluno** como o **papel que uma pessoa desempenha na Escola Dominical**.
-
-* **O que é?** É o registro que vincula uma pessoa a uma classe e aos trimestres. Um Aluno pode ser um Membro da igreja (e nós podemos criar esse vínculo!) ou pode ser alguém da comunidade que apenas frequenta a EBD.
-* **Onde eu gerencio?** Você pode ver todos que já foram alunos na página de **Gestão > Alunos**.
-* **Ponto-chave:** Todo mundo que participa da chamada é um "Aluno".
-
-![Imagem do modal de cadastro de aluno mostrando o vínculo com membro](${
-            (imgs[base + "gestao-aluno-img.png"] as any).default
-        })
-*Ao cadastrar um Aluno, você pode vinculá-lo a um Membro para uma análise mais completa.*
-
----
-
-### 👋 O Visitante
-
-Pense no **Visitante** como uma pessoa que visita a classe esporadicamente. O sistema guarda um registro único para cada visitante para rastrear o histórico e facilitar o contato.
-
-* **O que é?** É o cadastro de uma pessoa que não é aluna regular, mas que frequenta a classe de vez em quando.
-* **Onde eu gerencio?** Você pode adicionar novos visitantes na tela de **Chamada** e ver a lista completa de todos os visitantes da igreja em **Gestão > Visitantes**.
-* **Ponto-chave:** O nome completo é usado como identificador único de um visitante. Por isso, é importante sempre cadastrar o nome completo!
-
-![Imagem da seção de visitantes na página de chamada](${
-            (imgs[base + "gestao-visitantes-img.png"] as any).default
-        })
-*Você pode adicionar os detalhes do visitante diretamente na chamada do dia.*
-
-`,
     },
     {
         id: "como-instalar-o-aplicativo",
@@ -170,7 +180,12 @@ No Android, o processo é o mais simples!
 4.  No menu que abrir, procure e toque na opção **"Instalar aplicativo"** (ou "Adicionar à tela inicial").
 
 ![Imagem do menu do Chrome no Android mostrando a opção 'Instalar aplicativo'](${
-            (imgs[base + "instalar-android-img.png"] as any).default
+            (
+                imgsDesktop[
+                    base.replace("mobile", "desktop") +
+                        "instalar-android-img.png"
+                ] as any
+            ).default
         })
 *É só procurar por esta opção no menu do seu navegador!*
 
@@ -188,7 +203,12 @@ No sistema da Apple, o processo é um pouco diferente, mas igualmente fácil. O 
 4.  Toque nela, confirme o nome e... pronto!
 
 ![Imagem do menu de compartilhamento do Safari no iOS mostrando a opção 'Adicionar à Tela de Início'](${
-            (imgs[base + "instalar-iphone-img.png"] as any).default
+            (
+                imgsDesktop[
+                    base.replace("mobile", "desktop") +
+                        "instalar-iphone-img.png"
+                ] as any
+            ).default
         })
 *O botão de Compartilhar é a chave para instalar no iPhone e iPad.*
 
@@ -205,14 +225,19 @@ Sim, você também pode instalar no seu computador para um acesso mais rápido!
 3.  Clique neste ícone e depois em **"Instalar"**.
 
 ![Imagem da barra de endereço do Chrome mostrando o ícone de instalação de PWA](${
-            (imgs[base + "instalar-computador-img.png"] as any).default
+            (
+                imgsDesktop[
+                    base.replace("mobile", "desktop") +
+                        "instalar-computador-img.png"
+                ] as any
+            ).default
         })
 *Fique de olho neste ícone na sua barra de endereço ou clique na mensagem que aparecer na tela!*
 
 O Dominicando será instalado como um aplicativo no seu computador, e você pode até mesmo fixá-lo na sua barra de tarefas para um acesso super rápido!
 `,
         videoMobile:
-            "https://www.youtube.com/embed/PR09TR8Uhm0?si=nPCscppO7kebKtCR",
+            "https://www.youtube.com/embed/dlJqHTLM0wI?si=t5qdZRSh50LnCoTq",
         videoDesktop:
             "https://www.youtube.com/embed/jls8uu4L8pc?si=hLkd_wLNudYViGSZ",
     },
@@ -239,7 +264,7 @@ Este é o caso mais simples, perfeito para quando você quer atualizar sua senha
 4.  **Clique em "Salvar Nova Senha"** e pronto! Sua senha será atualizada.
 
 ![Imagem da página Minha Conta mostrando o formulário de alteração de senha](${
-            (imgs[base + "minha-conta-img.png"] as any).default
+            (imgs[key][base + "minha-conta-img.png"] as any).default
         })
 *É na página "Minha Conta" que você pode gerenciar sua senha com segurança.*
 
@@ -257,7 +282,7 @@ Não se preocupe, acontece com todo mundo! O processo para recuperar o acesso é
 5.  **Crie a nova senha:** Clique no link que você recebeu no e-mail. Ele te levará para uma página segura do Firebase onde você poderá definir sua nova senha.
 
 ![Imagem do modal de "Esqueci a senha" na tela de login](${
-            (imgs[base + "esqueci-minha-senha-img.png"] as any).default
+            (imgs[key][base + "esqueci-minha-senha-img.png"] as any).default
         })
 *É só clicar no link, digitar seu e-mail e seguir as instruções!*
 
@@ -287,7 +312,7 @@ Realizar a chamada no Dominicando foi pensado para ser um processo rápido e int
 Esta é a tela principal da chamada, onde você marcará a presença de cada aluno.
 
 ![Imagem da Etapa 1 da Chamada, mostrando a lista de alunos e os status.](${
-            (imgs[base + "chamada-1-img.png"] as any).default
+            (imgs[key][base + "chamada-1-img.png"] as any).default
         })
 
 * **Status do Aluno:** Para cada aluno, basta clicar em uma das quatro opções: **Presente**, **Atrasado**, **Falta** ou **Falta Justificada**. Por padrão, todos começam como "Presente" para agilizar o processo!
@@ -303,7 +328,7 @@ Depois de marcar todos, clique em **"Avançar"**.
 Esta etapa é para os números gerais da sua classe naquele dia.
 
 ![Imagem da Etapa 2 da Chamada, mostrando os campos de visitantes, ofertas e missões.](${
-            (imgs[base + "chamada-2-img.png"] as any).default
+            (imgs[key][base + "chamada-2-img.png"] as any).default
         })
 
 * **Visitantes:** Se você teve visitantes, você pode simplesmente colocar a **quantidade** no primeiro campo.
@@ -340,7 +365,7 @@ Ele foi criado para aqueles dias em que você precisa aplicar a mesma ação par
 Você encontrará o ícone da varinha mágica ( ✨ ) na primeira etapa da chamada, logo acima da lista de alunos, ao lado da barra de pesquisa.
 
 ![Imagem da barra de ferramentas da chamada, destacando o ícone da Varinha Mágica.](${
-            (imgs[base + "varinha-magica-img.png"] as any).default
+            (imgs[key][base + "varinha-magica-img.png"] as any).default
         })
 
 ## Como funciona?
@@ -351,7 +376,7 @@ Você encontrará o ícone da varinha mágica ( ✨ ) na primeira etapa da chama
 2.  **Escolha a ação desejada.** Por exemplo, se em um domingo de feriado poucos alunos compareceram, em vez de marcar a "Falta" para cada um, você pode simplesmente clicar em **"Todos com Falta"**. O sistema fará o trabalho para você!
 
 ![Imagem do menu de Ações Rápidas aberto, mostrando as opções.](${
-            (imgs[base + "varinha-magica-aberta-img.png"] as any).default
+            (imgs[key][base + "varinha-magica-aberta-img.png"] as any).default
         })
 
 ### Quais são as ações disponíveis?
@@ -386,7 +411,7 @@ Registrar os visitantes é uma ótima forma de acompanhar quem está frequentand
 A área para registrar visitantes fica na **Etapa 2 da Chamada ("Dados Gerais")**.
 
 ![Imagem da Etapa 2 da Chamada, destacando a seção de Visitantes.](${
-            (imgs[base + "cadastrando-visitante-img.png"] as any).default
+            (imgs[key][base + "cadastrando-visitante-img.png"] as any).default
         })
 
 ---
@@ -408,7 +433,7 @@ Esta é a melhor opção para criar um relacionamento com quem visita sua classe
 3.  Ao salvar, o nome do visitante aparecerá em uma lista logo abaixo do campo de quantidade, e o número total será atualizado automaticamente!
 
 ![Imagem da lista de visitantes adicionados na Etapa 2 da Chamada.](${
-            (imgs[base + "lista-visitantes-img.png"] as any).default
+            (imgs[key][base + "lista-visitantes-img.png"] as any).default
         })
 
 **💡 Dica Importante:** Ao registrar os detalhes, tente sempre usar o **nome completo** do visitante. Isso ajuda o sistema a reconhecê-lo se ele retornar no futuro, evitando cadastros duplicados e mantendo o histórico de visitas dele sempre correto na página de **Gestão > Visitantes**.
@@ -431,7 +456,7 @@ Anexar os comprovantes de PIX diretamente na chamada é uma forma super eficient
 Você encontrará a opção de anexar comprovantes na **Etapa 2 da Chamada ("Dados Gerais")**, logo ao lado dos campos de valor para **Ofertas PIX** e **Missões PIX**.
 
 ![Imagem da Etapa 2 da Chamada, destacando o botão para anexar comprovantes.](${
-            (imgs[base + "add-comprovante-img.png"] as any).default
+            (imgs[key][base + "add-comprovante-img.png"] as any).default
         })
 
 1.  **Preencha o valor** correspondente ao PIX que você recebeu (seja de oferta ou de missões).
@@ -440,7 +465,7 @@ Você encontrará a opção de anexar comprovantes na **Etapa 2 da Chamada ("Dad
 4.  Após selecionar, os nomes dos arquivos aparecerão em uma lista logo abaixo, confirmando que eles foram anexados.
 
 ![Imagem mostrando a lista de comprovantes anexados na Etapa 2.](${
-            (imgs[base + "lista-comprovantes-img.png"] as any).default
+            (imgs[key][base + "lista-comprovantes-img.png"] as any).default
         })
 
 **Precisa remover um arquivo que você anexou por engano?** Sem problemas! Basta clicar no ícone de "X" ao lado do nome do arquivo na lista.
@@ -471,7 +496,7 @@ Pense nele como um **dashboard exclusivo** para cada revista, que te dá uma vis
 3.  No menu que aparecer, selecione a opção **"Panorama da Lição"**.
 
 ![Imagem do menu da engrenagem no modal da lição, destacando a opção "Panorama da Lição".](${
-            (imgs[base + "panorama-licao-img.png"] as any).default
+            (imgs[key][base + "panorama-licao-img.png"] as any).default
         })
 
 ---
@@ -489,7 +514,7 @@ No topo, você encontrará um resumo dos principais indicadores da sua classe:
 * **Alunos Matriculados:** O número total de alunos inscritos naquele trimestre.
 
 ![Imagem dos cards de progresso no topo da tela do Panorama.](${
-            (imgs[base + "panorama-licao-cards-img.png"] as any).default
+            (imgs[key][base + "panorama-licao-cards-img.png"] as any).default
         })
 
 #### 2. A Frequência Individual (O Coração da Ferramenta)
@@ -500,7 +525,7 @@ Logo abaixo dos cards, você encontrará a lista de todos os alunos matriculados
 * **Abrindo os Detalhes:** Clique em qualquer aluno para expandir e ver os números exatos: quantas vezes ele esteve **presente**, **atrasado**, teve **falta** ou **falta justificada**.
 
 ![Imagem da lista de alunos no Panorama, com um dos acordeões abertos mostrando os detalhes.](${
-            (imgs[base + "panorama-licao-detalhes-img.png"] as any).default
+            (imgs[key][base + "panorama-licao-detalhes-img.png"] as any).default
         })
 
 Com o Panorama da Lição, você tem controle total e uma visão clara do engajamento e do progresso da sua classe a cada trimestre!
@@ -524,7 +549,7 @@ Esta página é uma ferramenta de gestão.
 2.  No dropdown que aparecer, selecione a opção **"Comp. PIX"**.
 
 ![Imagem do menu de Gestão, destacando a opção "Comp. PIX"](${
-            (imgs[base + "gestao-opc-comp-pix-img.png"] as any).default
+            (imgs[key][base + "gestao-opc-comp-pix-img.png"] as any).default
         })
 
 ---
@@ -544,7 +569,7 @@ No topo da tela, você encontrará um painel de filtros em cascata. Você precis
 Depois de preencher todos os filtros, clique no botão **"Buscar Comprovantes"**.
 
 ![Imagem do painel de filtros da página de comprovantes](${
-            (imgs[base + "gestao-comp-pix-img.png"] as any).default
+            (imgs[key][base + "gestao-comp-pix-img.png"] as any).default
         })
 
 #### 2. Os Resultados
@@ -556,7 +581,7 @@ Se houver comprovantes para a aula selecionada, eles aparecerão abaixo dos filt
     * **Clique na imagem** para vê-la em tamanho real, ali você conseguirá baixar aquele arquivo individualmente.
 
 ![Imagem da área de resultados, mostrando o acordeão de Ofertas com as miniaturas dos comprovantes](${
-            (imgs[base + "gestao-comp-pix-baixar-img.png"] as any).default
+            (imgs[key][base + "gestao-comp-pix-baixar-img.png"] as any).default
         })
 
 **💡 Dica de Ouro:** Lembre-se que, para manter o sistema rápido e economizar espaço, todos os comprovantes são **deletados automaticamente 90 dias** após a data da aula. Por isso, é uma boa prática fazer a conciliação e o download dos arquivos regularmente!
@@ -582,7 +607,7 @@ Uma **Classe** é um grupo de alunos. Pode ser "Classe de Crianças", "Classe de
 2.  **Clique para Cadastrar:** No topo da página, você encontrará o botão verde **"+ Cadastrar Nova Classe"**. Clique nele!
 
 ![Imagem da página de Gestão de Classes, destacando o botão de cadastrar](${
-            (imgs[base + "gestao-classes-img.png"] as any).default
+            (imgs[key][base + "gestao-classes-img.png"] as any).default
         })
 
 3.  **Preencha os Dados:** Um pequeno modal aparecerá, pedindo as informações da nova classe.
@@ -591,7 +616,7 @@ Uma **Classe** é um grupo de alunos. Pode ser "Classe de Crianças", "Classe de
     * **Idade Mínima e Máxima (Opcional):** Estes campos são uma ferramenta para te ajudar a organizar! Se você os preencher, o sistema irá te avisar quando você tentar matricular um aluno fora da faixa etária recomendada. É um guia, não uma regra rígida!
 
 ![Imagem do modal de cadastro de classe](${
-            (imgs[base + "gestao-classe-modal-img.png"] as any).default
+            (imgs[key][base + "gestao-classe-modal-img.png"] as any).default
         })
 
 4.  **Clique em "Criar Classe"** e pronto! Sua nova classe já aparecerá na lista, pronta para receber os trimestres e os alunos.
@@ -625,7 +650,7 @@ O processo é muito simples e pode ser feito tanto ao criar uma nova classe quan
 3.  No modal que abrir, você verá os campos **"Idade Mínima"** e **"Idade Máxima"**.
 
 ![Imagem do modal de cadastro de classe com campos de idade](${
-            (imgs[base + "gestao-modal-aluno-img.png"] as any).default
+            (imgs[key][base + "gestao-modal-aluno-img.png"] as any).default
         })
 *Os campos são opcionais. Você pode preencher só um deles ou nenhum!*
 
@@ -643,7 +668,8 @@ Agora vem a parte legal! Com a faixa etária configurada, o sistema vai te ajuda
 A faixa etária definida aparecerá no cabeçalho do modal de "Iniciar Novo Trimestre". Isso te dá um lembrete visual imediato sobre o perfil daquela classe.
 
 ![Imagem do cabeçalho do Novo Trimestre com a faixa etária](${
-            (imgs[base + "licao-modal-faixa-etaria-img.png"] as any).default
+            (imgs[key][base + "licao-modal-faixa-etaria-img.png"] as any)
+                .default
         })
 *A informação da idade fica sempre visível para te guiar.*
 
@@ -677,7 +703,7 @@ Este é o caminho ideal quando você está organizando os dados com calma.
 3.  O modal de cadastro irá abrir, pedindo as informações do aluno.
 
 ![Imagem do modal de cadastro de aluno](${
-            (imgs[base + "gestao-alunos-img.png"] as any).default
+            (imgs[key][base + "gestao-alunos-img.png"] as any).default
         })
 *Preencha os dados e clique em "Salvar Aluno" para finalizar.*
 
@@ -699,13 +725,13 @@ Imagina que um aluno novo chegou no meio do trimestre e você precisa adicioná-
 
 1.  Acesse a tela da chamada. Na primeira etapa ("Lista de Alunos"), você verá um botão **"+"** ao lado da barra de pesquisa.)
 ![Imagem do modal de cadastro de aluno](${
-            (imgs[base + "chamada-cadastrar-aluno-img.png"] as any).default
+            (imgs[key][base + "chamada-cadastrar-aluno-img.png"] as any).default
         })
 2.  Ao clicar, um modal abrirá com a lista de todos os alunos da igreja que ainda não estão matriculados.
 3.  Se o aluno que você procura **não está nessa lista**, significa que ele ainda não foi cadastrado no sistema.
 4.  No topo desse mesmo modal, clique no botão **"+ Cadastrar Novo Aluno"**. Isso abrirá o mesmo formulário de cadastro que vimos antes, permitindo que você adicione o aluno sem precisar sair da tela de chamada!
 ![Imagem do modal de cadastro de aluno](${
-            (imgs[base + "matricular-aluno-modal-img.png"] as any).default
+            (imgs[key][base + "matricular-aluno-modal-img.png"] as any).default
         })
 
 É isso! Com esses dois caminhos, você tem total flexibilidade para manter sua lista de alunos sempre atualizada.
@@ -739,7 +765,7 @@ O processo é super simples e pode ser feito tanto ao [cadastrar um novo aluno](
 2.  **Ative a Opção de Membro:** No formulário, você encontrará um *toggle switch* (um interruptor) com a pergunta: **"Este aluno é um membro?"**. Ative essa opção.
 
 ![Ativando a opção 'Este aluno é um membro?' no cadastro do aluno](${
-            (imgs[base + "gestao-aluno-img.png"] as any).default
+            (imgs[key][base + "gestao-aluno-img.png"] as any).default
         })
 
 3.  **Selecione o Membro:** Um novo campo de busca aparecerá. Comece a digitar o nome do membro que você deseja vincular. O sistema irá te mostrar uma lista com os membros correspondentes que **ainda não estão vinculados a nenhum outro aluno**.
@@ -775,7 +801,7 @@ Em vez de criar um usuário e senha para alguém, você gera um **código único
 2.  **Clique em "Enviar Convite":** No topo da página, ao lado do botão de cadastrar, você encontrará o botão "Enviar Convite".
 
 ![Botão 'Enviar Convite' na página de Gestão de Usuários](${
-            (imgs[base + "gestao-usuarios-convite-img.png"] as any).default
+            (imgs[key][base + "gestao-usuarios-convite-img.png"] as any).default
         })
 
 3.  **Preencha as Informações do Convite:** Um modal se abrirá, pedindo os detalhes do cargo que este novo usuário terá.
@@ -784,7 +810,7 @@ Em vez de criar um usuário e senha para alguém, você gera um **código único
     * **Classe:** Se o cargo for "Secretário de Classe", você precisará selecionar a classe específica.
 
 ![Modal de geração de convite com os campos de Cargo, Igreja e Classe](${
-            (imgs[base + "gestao-convite-modal-img.png"] as any).default
+            (imgs[key][base + "gestao-convite-modal-img.png"] as any).default
         })
 
 4.  **Clique em "Gerar convite"**.
@@ -799,7 +825,8 @@ Após gerar, uma tela de sucesso aparecerá com duas opções:
 2.  **O Link de Cadastro:** A opção mais fácil! Clique para copiar o link completo e envie para a pessoa. Ao clicar, ela será levada diretamente para a tela de cadastro com o código já preenchido.
 
 ![Tela de resultado mostrando o código de convite e o link completo](${
-            (imgs[base + "gestao-convite-resultado-img.png"] as any).default
+            (imgs[key][base + "gestao-convite-resultado-img.png"] as any)
+                .default
         })
 
 Basta copiar uma das duas opções e enviar para o novo usuário por WhatsApp, e-mail ou como preferir. Lembre-se de avisá-lo sobre a data de expiração do convite!
@@ -823,7 +850,8 @@ Esta página funciona como um painel de Business Intelligence (BI), permitindo q
 2.  Na tela de seleção que aparecer, escolha a opção **"Relatórios Gráficos"**.
 
 ![Tela de seleção de Relatórios, destacando 'Relatórios Gráficos'](${
-            (imgs[base + "relatorios-selecao-graficos-img.png"] as any).default
+            (imgs[key][base + "relatorios-selecao-graficos-img.png"] as any)
+                .default
         })
 
 ---
@@ -861,7 +889,8 @@ Se você for um administrador, poderá filtrar os dados para ver os resultados d
 Por fim, você pode escolher como os dados serão exibidos visualmente: em **Barras**, **Linhas** ou **Pizza**.
 
 ![Painel de filtros da página de Relatórios Gráficos preenchido](${
-            (imgs[base + "relatorios-graficos-filtros-img.png"] as any).default
+            (imgs[key][base + "relatorios-graficos-filtros-img.png"] as any)
+                .default
         })
 
 ---
@@ -873,7 +902,7 @@ Depois de preencher todos os filtros, clique no botão azul **"Gerar Relatório"
 O sistema irá processar sua solicitação e exibir o gráfico logo abaixo. Você pode passar o mouse sobre as barras, linhas ou fatias para ver os valores detalhados de cada ponto.
 
 ![Exemplo de um gráfico de barras gerado, mostrando o total de presentes por classe](${
-            (imgs[base + "relatorios-graficos-resultado-img.png"] as any)
+            (imgs[key][base + "relatorios-graficos-resultado-img.png"] as any)
                 .default
         })
 
@@ -898,7 +927,7 @@ Ela permite que você extraia os dados brutos do Dominicando em um arquivo **.cs
 2.  Na tela de seleção que aparecer, escolha a opção **"Relatórios CSV"**.
 
 ![Tela de seleção de Relatórios, destacando 'Relatórios CSV'](${
-            (imgs[base + "relatorios-selecao-csv-img.png"] as any).default
+            (imgs[key][base + "relatorios-selecao-csv-img.png"] as any).default
         })
 
 ---
@@ -924,7 +953,7 @@ Assim que você escolhe um tipo de relatório, o formulário se adapta e te most
 * Dependendo do seu cargo, você também poderá filtrar por **Igreja** ou **Classe**.
 
 ![Painel de filtros da página de Relatórios CSV, com os campos aparecendo dinamicamente.](${
-            (imgs[base + "relatorios-csv-filtros-img.png"] as any).default
+            (imgs[key][base + "relatorios-csv-filtros-img.png"] as any).default
         })
 
 #### 3. Verifique com a "Prévia" (Opcional, mas recomendado!)
@@ -959,7 +988,8 @@ Ativar ou desativar essa funcionalidade é muito simples e pode ser feito direta
     * Se o interruptor estiver **ligado**, você estará apto a receber as notificações.
 
 ![Imagem da seção de Notificações na página Minha Conta](${
-            (imgs[base + "minha-conta-notificacoes-img.png"] as any).default
+            (imgs[key][base + "minha-conta-notificacoes-img.png"] as any)
+                .default
         })
 
 ---
@@ -983,7 +1013,8 @@ Geralmente, o caminho é:
 4.  Procure pelo site **dominicando.web.app** na lista e altere a permissão para "Permitir".
 
 ![Imagem genérica das configurações de notificação de um site no navegador](${
-            (imgs[base + "config-navegador-notificacao-img.png"] as any).default
+            (imgs[key][base + "config-navegador-notificacao-img.png"] as any)
+                .default
         })
 
 Depois de ajustar no navegador, o interruptor no site passará a refletir sua escolha corretamente!
@@ -1013,7 +1044,7 @@ Este método é como o nome diz: você cria a conta do usuário diretamente no s
     3.  Preencha todos os campos do formulário e clique em "Salvar".
 
 ![Imagem do modal de Cadastro de Usuário](${
-            (imgs[base + "gestao-usuarios-modal-cadastro-img.png"] as any)
+            (imgs[key][base + "gestao-usuarios-modal-cadastro-img.png"] as any)
                 .default
         })
 
@@ -1037,7 +1068,7 @@ Este é o método mais seguro e prático para adicionar novos usuários no dia a
     5.  Copie o **link completo** e envie para a pessoa. Ela só precisa clicar e finalizar o cadastro!
 
 ![Imagem do modal de geração de convite, mostrando o link final](${
-            (imgs[base + "gestao-convite-modal-img.png"] as any).default
+            (imgs[key][base + "gestao-convite-modal-img.png"] as any).default
         })
 
 **💡 Dica de Ouro:** O código do convite só pode ser usado uma vez e expira em 48 horas, garantindo a segurança do processo!
@@ -1057,7 +1088,7 @@ A tela de "Início", ou Relatório Geral Trimestral, é o seu centro de comando.
 No topo da página, você encontrará os filtros. Eles são a ferramenta mais poderosa para analisar os dados.
 
 ![Imagem da área de filtros do Dashboard](${
-            (imgs[base + "dashboard-filtros-img.png"] as any).default
+            (imgs[key][base + "dashboard-filtros-img.png"] as any).default
         })
 
 * **Filtro de Igreja/Classe:** Este dropdown é inteligente!
@@ -1074,7 +1105,7 @@ No topo da página, você encontrará os filtros. Eles são a ferramenta mais po
 Abaixo dos filtros, você encontrará os cards. Cada um deles é um resumo de um indicador-chave (KPI) para o período selecionado.
 
 ![Imagem dos cards de informação do Dashboard](${
-            (imgs[base + "dashboard-cards-img.png"] as any).default
+            (imgs[key][base + "dashboard-cards-img.png"] as any).default
         })
 
 Cada card mostra:
@@ -1108,7 +1139,7 @@ A maioria das páginas que você encontra no menu **Gestão** (como Alunos, Clas
 A chave para a edição e exclusão está sempre na **última coluna** dessa tabela, chamada **"Ações"**.
 
 ![Imagem da tabela de gestão, destacando a última coluna 'Ações' com os ícones de editar e excluir.](${
-            (imgs[base + "gestao-acoes-img.png"] as any).default
+            (imgs[key][base + "gestao-acoes-img.png"] as any).default
         })
 
 Nesta coluna, você encontrará dois ícones principais para cada item da lista:
@@ -1135,7 +1166,8 @@ Excluir dados é uma ação permanente, por isso o Dominicando toma um cuidado e
 2.  **Clique no ícone de lixeira (🗑️):** O sistema **não** irá deletar o item imediatamente. Em vez disso, ele abrirá um **alerta de confirmação**.
 
 ![Imagem de um modal de alerta confirmando a exclusão de um item.](${
-            (imgs[base + "gestao-excluir-confirmacao-img.png"] as any).default
+            (imgs[key][base + "gestao-excluir-confirmacao-img.png"] as any)
+                .default
         })
 
 3.  **Confirme a Ação:** Leia o aviso com atenção e, se você tiver certeza absoluta, clique no botão de confirmação (ex: "Sim, deletar").
