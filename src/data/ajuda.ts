@@ -78,6 +78,61 @@ Pense no **Visitante** como uma pessoa que visita a classe esporadicamente. O si
 `,
     },
     {
+        id: "como-iniciar-novo-trimestre",
+        titulo: "Como iniciar um novo trimestre?",
+        conteudo: `
+# Como eu inicio um novo trimestre? (cadastrando uma nova revista)
+
+Iniciar um novo trimestre é uma das tarefas mais importantes no Dominicando. É aqui que você cadastra a nova revista de estudo e define quais alunos participarão das aulas. O sistema foi projetado para tornar esse processo rápido e inteligente.
+
+---
+
+### O Conceito-Chave: Você não precisa cadastrar o aluno de novo!
+
+Antes de começar, é crucial lembrar a diferença:
+
+* **Aluno:** É o cadastro da **pessoa**. Ele é único e permanente no sistema.
+* **Matrícula:** É o que **conecta** um aluno a um trimestre específico.
+
+Isso significa que você **não precisa cadastrar seus alunos toda vez** que um novo trimestre começa. Você apenas irá matriculá-los na nova lição! Se precisar de mais detalhes, confira nosso guia: [Qual a diferença entre Aluno, Membro e Visitante?](/ajuda/diferenca-aluno-membro-visitante).
+
+---
+
+### Passo a Passo para Iniciar o Trimestre
+
+1.  **Acesse a Tela de Aulas:** No menu principal, vá em **Aulas**. Se você tiver permissão para mais de uma classe, selecione a classe desejada.
+
+2.  **Clique em "Iniciar um novo trimestre":** No topo da tela, você verá um botão destacado para esta ação.
+
+![Imagem da tela de lições, destacando o botão 'Iniciar um novo trimestre'](${
+            (imgs[key][base + "iniciar-trimestre-img.png"] as any).default
+        })
+
+3.  **Preencha os Dados da Lição (Revista):** Um formulário completo aparecerá. Preencha as informações:
+    * **Capa da Revista (Opcional, mas importante):** Adicione uma imagem para deixar tudo mais visual.
+    * **Título da Lição:** O tema do trimestre.
+    * **Nº do Trimestre e Data de Início:** Essencial para a organização. A data de início **precisa ser um domingo**.
+    * **Quantidade de Aulas:** Geralmente 13, mas você pode ajustar.
+
+4.  **Matricule os Alunos:** Esta é a etapa final e mais importante! Você verá duas listas:
+    * **À esquerda:** Todos os alunos disponíveis na sua igreja.
+    * **À direita:** Os alunos que serão matriculados neste trimestre.
+    * **Para matricular, basta clicar no nome do aluno na lista da esquerda!** Ele será movido para a direita. Clicou errado? Clique no nome dele na lista da direita para devolvê-lo.
+
+![Exemplo da tela de matrícula no Novo Trimestre](${
+            (imgs[key][base + "matriculando-aluno-img.png"] as any).default
+        })
+
+### ✨ O Botão Mágico: "Importar do trimestre anterior"
+
+Para agilizar ainda mais, use o botão **"Importar do trimestre anterior"**. Com um único clique, o sistema automaticamente matricula todos os alunos que já estavam na turma do último trimestre! É um enorme poupador de tempo.
+
+5.  **Salve o Trimestre:** Após preencher tudo, clique em **"Criar Trimestre"**. Pronto! Sua nova lição estará criada e pronta para a primeira chamada.
+`,
+        videoMobile:
+            "https://www.youtube.com/embed/mjM2NXgW3po?si=nh07DkIXkkvNnroj",
+    },
+    {
         id: "como-matricular-um-aluno",
         titulo: "Como eu faço para matricular um aluno?",
         conteudo: `

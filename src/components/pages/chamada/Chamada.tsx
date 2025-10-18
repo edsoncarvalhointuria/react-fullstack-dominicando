@@ -1,6 +1,6 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useDataContext } from "../../../context/DataContext";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Loading from "../../layout/loading/Loading";
 import {
     collection,
@@ -80,17 +80,25 @@ function ChamadaPage() {
     const [realizada, setRealizada] = useState<"rascunho" | "realizada" | null>(
         null
     );
-    const [resetForm, setResetForm] = useState(false);
     const [matricularNovoAluno, setMatricularNovoAluno] = useState(false);
-    const [mensagemErro, setMensagemErro] = useState("");
     const [isEnviando, setIsEnviando] = useState(false);
-    const [chamadaSalva, setChamadaSalva] = useState(false);
     const [update, setUpdate] = useState(0);
     const [addVisita, setAddVisita] = useState(false);
+    const [editAluno, setEditAluno] = useState("");
     const [visitas, setVisitas] = useState<VisitaFront[]>([]);
     const [openAction, setOpenAction] = useState(false);
     const [pixOfertas, setPixOfertas] = useState<File[]>([]);
     const [pixMissoes, setPixMissoes] = useState<File[]>([]);
+    const [mensagem, setMensagem] = useState<{
+        message: string | ReactNode;
+        title: string;
+        confirmText: string;
+        cancelText: string;
+        onCancel: () => void;
+        onClose: () => void;
+        onConfirm: () => void;
+        icon?: any;
+    } | null>(null);
 
     const matriculasRef = useRef(matriculas);
     const isEdit = useRef(false);
@@ -232,9 +240,27 @@ function ChamadaPage() {
             const { data } = await salvarChamada(envio);
             localStorage.removeItem(rascunhoLocalStorage);
             console.log((data as any).mensagem);
-            setChamadaSalva(true);
+            setMensagem({
+                message: "Chamada salva com sucesso!",
+                onCancel: navigateChamadaSalva,
+                onClose: navigateChamadaSalva,
+                onConfirm: navigateChamadaSalva,
+                title: "Sucesso ao salvar!",
+                cancelText: "Cancelar",
+                confirmText: "Ok",
+                icon: <FontAwesomeIcon icon={faThumbsUp} />,
+            });
         } catch (err: any) {
-            setMensagemErro(err.message);
+            setMensagem({
+                message: err.message,
+                onCancel: () => setMensagem(null),
+                onClose: () => setMensagem(null),
+                onConfirm: () => window.location.reload(),
+                title: "Erro ao salvar chamada",
+                confirmText: "Atualizar Página",
+                cancelText: "Cancelar",
+                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+            });
         } finally {
             setIsEnviando(false);
         }
@@ -467,7 +493,28 @@ function ChamadaPage() {
                                         title="Reiniciar Formulário"
                                         type="button"
                                         className="chamada-page__status--rascunho"
-                                        onClick={() => setResetForm(true)}
+                                        onClick={() =>
+                                            setMensagem({
+                                                message:
+                                                    "Você tem certeza que deseja descartar este rascunho? Todo o progresso não salvo será perdido.",
+                                                onCancel: () =>
+                                                    setMensagem(null),
+                                                onClose: () =>
+                                                    setMensagem(null),
+                                                onConfirm: limparFomulario,
+                                                title: "Resetar Formulário?",
+                                                confirmText:
+                                                    "Sim, resetar formulário",
+                                                cancelText: "Cancelar",
+                                                icon: (
+                                                    <FontAwesomeIcon
+                                                        icon={
+                                                            faTriangleExclamation
+                                                        }
+                                                    />
+                                                ),
+                                            })
+                                        }
                                     >
                                         <FontAwesomeIcon icon={faSquarePen} />
                                         Rascunho
@@ -730,6 +777,7 @@ function ChamadaPage() {
 
                                         <ListaChamada
                                             key="etapa1"
+                                            setEditAluno={setEditAluno}
                                             matriculas={matriculas}
                                         />
                                     </>
@@ -829,40 +877,44 @@ function ChamadaPage() {
                     />
                 )}
 
-                <AlertModal
-                    key={"resetar-rascunho-chamada"}
-                    isOpen={resetForm}
-                    message="Você tem certeza que deseja descartar este rascunho? Todo o progresso não salvo será perdido."
-                    onCancel={() => setResetForm(false)}
-                    onClose={() => setResetForm(false)}
-                    onConfirm={limparFomulario}
-                    title="Resetar Formulário?"
-                    confirmText="Sim, resetar formulário"
-                    icon={<FontAwesomeIcon icon={faTriangleExclamation} />}
-                />
-                <AlertModal
-                    key={"mensagem-erro-cadastrar"}
-                    isOpen={!!mensagemErro}
-                    message={mensagemErro}
-                    onCancel={() => setMensagemErro("")}
-                    onClose={() => setMensagemErro("")}
-                    onConfirm={() => window.location.reload()}
-                    title="Erro ao salvar chamada"
-                    confirmText="Atualizar Página"
-                    icon={<FontAwesomeIcon icon={faTriangleExclamation} />}
-                />
-                <AlertModal
-                    key={"mensagem-sucesso-cadastrar"}
-                    isOpen={chamadaSalva}
-                    message="Chamada salva com sucesso!"
-                    onCancel={navigateChamadaSalva}
-                    onClose={navigateChamadaSalva}
-                    onConfirm={navigateChamadaSalva}
-                    title="Sucesso ao salvar!"
-                    confirmText="Ok"
-                    icon={<FontAwesomeIcon icon={faThumbsUp} />}
-                />
+                {editAluno && (
+                    <CadastroAlunoModal
+                        igrejaId={licao?.igrejaId || ""}
+                        onCancel={() => setEditAluno("")}
+                        onSave={() => {
+                            setTimeout(() => setUpdate((v) => v + 1), 2000);
+                            setMensagem({
+                                message: (
+                                    <>
+                                        <span>
+                                            Aluno atualizado com sucesso!
+                                        </span>
+                                        <span>
+                                            Pode levar alguns segundos até que
+                                            os dados do seu aluno sejam
+                                            atualizados totalmente.
+                                        </span>
+                                        <strong>
+                                            Pode continuar a chamada
+                                            normalmente!
+                                        </strong>
+                                    </>
+                                ),
+
+                                confirmText: "OK",
+                                cancelText: "Cancelar",
+                                onCancel: () => setMensagem(null),
+                                onClose: () => setMensagem(null),
+                                onConfirm: () => setMensagem(null),
+                                title: "Atualização concluída",
+                            });
+                        }}
+                        key={"editar-alunos"}
+                        alunoId={editAluno}
+                    />
+                )}
             </AnimatePresence>
+            <AlertModal isOpen={!!mensagem} {...mensagem!} />
         </>
     );
 }

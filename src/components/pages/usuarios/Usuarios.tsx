@@ -91,6 +91,7 @@ function Usuarios() {
     const [pesquisa, setPesquisa] = useState("");
     const [usuarios, setUsuarios] = useState<UsuarioInterface[]>([]);
     const [editItem, setEditItem] = useState("");
+    const [options, setOptions] = useState(OPTIONS);
     const [addItem, setAddItem] = useState(false);
     const [gerarConvite, setGerarConvite] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -195,6 +196,8 @@ function Usuarios() {
                     ministerioId: user.ministerioId!,
                     nome: user.nome!,
                 });
+            if (isSecretario.current)
+                setOptions(OPTIONS.filter((v) => v.id !== "email"));
         }
     }, [update]);
     if (isLoadingData || isLoading) return <Loading />;
@@ -299,7 +302,7 @@ function Usuarios() {
                         >
                             <thead>
                                 <tr>
-                                    {OPTIONS.map((v, i) =>
+                                    {options.map((v, i) =>
                                         v.isFilter ? (
                                             <th
                                                 key={v.id + i}
@@ -356,7 +359,11 @@ function Usuarios() {
                                 {usuariosMemo.map((v) => (
                                     <tr key={v.id}>
                                         <td data-label="Nome">{v.nome}</td>
-                                        <td data-label="Email">{v.email}</td>
+                                        {!isSecretario.current && (
+                                            <td data-label="Email">
+                                                {v.email}
+                                            </td>
+                                        )}
                                         <td data-label="Cargo">
                                             {RolesLabel[v.role]}
                                         </td>

@@ -3151,6 +3151,7 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
                     id: v.id,
                     igrejaNome: registro.igrejaNome,
                     classeNome: registro.classeNome,
+                    data: registro.data.toDate().toLocaleDateString("pt-BR"),
                     ...c.data(),
                 });
             });
@@ -3281,6 +3282,7 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
             };
 
             const key = chamada.status.toLowerCase().replace(/\s/g, "_");
+            if (key === "falta_justificada") totalPresenca.push(1);
 
             item[key] = (item[key] || 0) + 1;
 
@@ -3300,15 +3302,22 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
     );
 
     const frequenciaAlunos = Array.from(alunosMap.values()).map((v) => {
-        const totalPontos = v.presente + v.atrasado * 0.9;
-        const porcentagem = (totalPontos / progresso.concluidas) * 100;
-        return { ...v, presenca: Number.parseFloat(porcentagem.toFixed(1)) };
+        const totalPontos =
+            (v.presente || 0) +
+            (v.atrasado || 0) * 0.9 +
+            (v.falta_justificada || 0) * 0.5;
+        const porcentagem = (totalPontos / (progresso.concluidas || 0)) * 100;
+        return {
+            ...v,
+            presenca: Number.parseFloat(porcentagem.toFixed(1)) || 0,
+        };
     });
 
     const mediaPresenca =
         Number.parseFloat(
             (
-                (totalPresenca / (totalAlunos * progresso.concluidas)) *
+                (totalPresenca /
+                    (frequenciaAlunos.length * progresso.concluidas)) *
                 100
             ).toFixed(1)
         ) || 0;

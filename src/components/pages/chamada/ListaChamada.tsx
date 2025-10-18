@@ -11,9 +11,10 @@ import { useEffect } from "react";
 
 interface Props {
     matriculas: MatriculasInterface[];
+    setEditAluno: (aluno: string) => void;
 }
 
-function ListaChamada({ matriculas }: Props) {
+function ListaChamada({ matriculas, setEditAluno }: Props) {
     const { register, watch, setValue } = useFormContext();
     const chamada = watch("chamada");
     const biblias = watch("bibliasTrazidas");
@@ -56,7 +57,11 @@ function ListaChamada({ matriculas }: Props) {
                     >
                         <div className="lista-chamada__aluno--header">
                             <div className="lista-chamada__infos">
-                                <button type="button" title="Editar Aluno">
+                                <button
+                                    type="button"
+                                    title="Editar Aluno"
+                                    onClick={() => setEditAluno(aluno.alunoId)}
+                                >
                                     <FontAwesomeIcon icon={faUserPen} />
                                 </button>
                                 <h3>{aluno.alunoNome}</h3>
@@ -64,15 +69,19 @@ function ListaChamada({ matriculas }: Props) {
                             <div className="lista-chamada__revista">
                                 <p>Tem Revista?</p>
                                 {aluno.possui_revista ? (
-                                    <FontAwesomeIcon
-                                        className="com-revista"
-                                        icon={faSquareCheck}
-                                    />
+                                    <span>
+                                        <FontAwesomeIcon
+                                            className="com-revista"
+                                            icon={faSquareCheck}
+                                        />
+                                    </span>
                                 ) : (
-                                    <FontAwesomeIcon
-                                        className="sem-revista"
-                                        icon={faSquareXmark}
-                                    />
+                                    <span>
+                                        <FontAwesomeIcon
+                                            className="sem-revista"
+                                            icon={faSquareXmark}
+                                        />
+                                    </span>
                                 )}
                             </div>
                         </div>

@@ -97,7 +97,7 @@ function Notificacoes() {
             })
             .catch((error: any) => {
                 setAlert({
-                    title: "Sucesso!",
+                    title: "Erro ao enviar",
                     message: error.message,
                     cancelText: "Cancelar",
                     confirmText: "Ok",

@@ -266,6 +266,7 @@
         &--header {
             display: flex;
             align-items: center;
+            gap: 0.5rem;
             justify-content: space-between;
             padding-bottom: 1.5rem;
             border-bottom: 1px solid rgba(v.$cor-secundaria-texto, 0.1);
@@ -305,10 +306,16 @@
 
     &__revista {
         display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
         align-items: center;
-        gap: 0.8rem;
-        font-size: 1.3rem;
+        min-width: 7.5rem;
+        font-size: 1.2rem;
         color: v.$cor-secundaria-texto;
+
+        @media all and (max-width: 32em) {
+            flex-direction: column;
+        }
 
         .com-revista {
             font-size: 2rem;
