@@ -1011,8 +1011,8 @@ export const salvarClasse = functions.https.onCall(async (request) => {
         igrejaId,
         igrejaNome: igreja.data()!.nome,
         nome,
-        idade_minima: idade_minima || null,
-        idade_maxima: idade_maxima || null,
+        idade_minima: typeof idade_minima !== "number" ? null : idade_minima,
+        idade_maxima: typeof idade_maxima !== "number" ? null : idade_maxima,
     };
     if (classeId) {
         const classeRef = db.collection("classes").doc(classeId);

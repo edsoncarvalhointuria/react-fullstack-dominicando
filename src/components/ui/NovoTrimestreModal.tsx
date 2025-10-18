@@ -317,9 +317,17 @@ function NovoTrimestreModal({
         if (classe?.idade_minima || classe?.idade_maxima) {
             fields.forEach((v) => {
                 const aluno = alunosMap.get(v.alunoId);
-                if (aluno && aluno.idade < classe.idade_minima)
+                if (
+                    aluno &&
+                    classe.idade_minima &&
+                    aluno.idade < classe.idade_minima
+                )
                     alunosForaMap.set(v.alunoId, "abaixo");
-                if (aluno && aluno.idade > classe.idade_maxima)
+                if (
+                    aluno &&
+                    classe.idade_maxima &&
+                    aluno.idade > classe.idade_maxima
+                )
                     alunosForaMap.set(v.alunoId, "acima");
             });
         }
@@ -364,8 +372,9 @@ function NovoTrimestreModal({
                 <>
                     <span>
                         Prezado, a classe tem a idade mínima de{" "}
-                        <strong>{classe?.idade_minima} anos</strong> e idade
-                        máxima de <strong>{classe?.idade_maxima} anos</strong>.
+                        <strong>{classe?.idade_minima || 0} anos</strong> e
+                        idade máxima de{" "}
+                        <strong>{classe?.idade_maxima} anos</strong>.
                     </span>
                     {abaixo.length > 0 && (
                         <>
@@ -542,17 +551,15 @@ function NovoTrimestreModal({
 
             if (alunosSnap.empty) return [];
 
-            const alunos = alunosSnap.docs
-                .map(
-                    (v) =>
-                        ({
-                            id: v.id,
-                            nome: v.data().nome_completo,
-                            idade: getIdade(v.data().data_nascimento),
-                            ...v.data(),
-                        } as AlunoInterface & { nome: string; idade: number })
-                )
-                .sort((a, b) => a.idade - b.idade);
+            const alunos = alunosSnap.docs.map(
+                (v) =>
+                    ({
+                        id: v.id,
+                        nome: v.data().nome_completo,
+                        idade: getIdade(v.data().data_nascimento),
+                        ...v.data(),
+                    } as AlunoInterface & { nome: string; idade: number })
+            );
 
             return alunos;
         };
@@ -560,13 +567,25 @@ function NovoTrimestreModal({
             .then(([c, l, a]) => {
                 setClasse(c);
                 setLicao(l);
-                setAlunos(a);
+                setAlunos(
+                    a.sort((a, b) => {
+                        const aEstaNaFaixa = a.idade >= c.idade_minima;
+                        const bEstaNaFaixa = b.idade >= c.idade_minima;
+
+                        if (aEstaNaFaixa && !bEstaNaFaixa) return -1;
+
+                        if (!aEstaNaFaixa && bEstaNaFaixa) return 1;
+
+                        return a.idade - b.idade;
+                    })
+                );
             })
             .catch((err) => {
                 console.log("deu esse erro", err);
                 navigate("/aulas");
             })
             .finally(() => setIsLoading(false));
+        window.history.pushState({ modal: "open" }, "");
     }, []);
 
     return (
@@ -609,14 +628,23 @@ function NovoTrimestreModal({
                                         />
                                         <strong>Classe:</strong> {classe?.nome}
                                     </p>
-                                    {classe?.idade_minima && (
+                                    {(classe?.idade_minima ||
+                                        classe?.idade_maxima) && (
                                         <p>
                                             <FontAwesomeIcon
                                                 icon={faRulerVertical}
                                             />
                                             <strong>Faixa Etária:</strong>{" "}
-                                            {classe?.idade_minima || "N/A"} -{" "}
-                                            {classe?.idade_maxima || "N/A"} anos
+                                            {typeof classe?.idade_minima ===
+                                            "number"
+                                                ? classe?.idade_minima
+                                                : "N/A"}{" "}
+                                            -{" "}
+                                            {typeof classe?.idade_maxima ===
+                                            "number"
+                                                ? classe?.idade_maxima
+                                                : "N/A"}{" "}
+                                            anos
                                         </p>
                                     )}
                                 </div>
