@@ -19,7 +19,10 @@ function LicaoCard({ licao, openModal }: LicaoCardProps) {
             className="licao-card"
             whileHover={{ y: -5, boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)" }}
             whileTap={{ scale: 0.9 }}
-            onTap={() => openModal(licao)}
+            onTap={() => {
+                openModal(licao);
+                window.history.pushState({ modal: true }, "");
+            }}
             layoutId={licao.id}
         >
             <motion.div

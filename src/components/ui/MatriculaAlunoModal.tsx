@@ -17,6 +17,7 @@ import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import { db } from "../../utils/firebase";
 import { getDoc, doc } from "firebase/firestore";
+import { getIdade } from "../../utils/getIdade";
 
 interface Form {
     data_matricula: string;
@@ -205,6 +206,20 @@ function MatriculaAlunoModal({
                                                         )}
                                                 </p>
                                             </div>
+
+                                            <div className="matricula-aluno__form-aluno--contato">
+                                                <p className="matricula-aluno__form-label">
+                                                    Idade
+                                                </p>
+                                                <p>
+                                                    {alunoState &&
+                                                        getIdade(
+                                                            alunoState.data_nascimento
+                                                        )}{" "}
+                                                    anos
+                                                </p>
+                                            </div>
+
                                             <div className="matricula-aluno__form-aluno--contato">
                                                 <p className="matricula-aluno__form-label">
                                                     Contato

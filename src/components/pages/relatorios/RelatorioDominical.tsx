@@ -95,6 +95,12 @@ function RelatorioDominical() {
         };
 
         setDomingo(getDomingo());
+        const popstate = () => {
+            setShowRelatorio(false);
+        };
+        window.addEventListener("popstate", popstate);
+
+        return () => window.removeEventListener("popstate", popstate);
     }, []);
 
     // Admin e secretarios
@@ -253,13 +259,19 @@ function RelatorioDominical() {
 
                         {filaClasses.length > 0 && (
                             <motion.div whileTap={{ scale: 0.85 }}>
-                                <button
+                                <motion.button
                                     title="Iniciar Leitura"
                                     className="relatorio-dominical__iniciar-leitura"
-                                    onClick={() => setShowRelatorio(true)}
+                                    onTap={() => {
+                                        setShowRelatorio(true);
+                                        window.history.pushState(
+                                            { modal: true },
+                                            ""
+                                        );
+                                    }}
                                 >
                                     Iniciar Leitura
-                                </button>
+                                </motion.button>
                             </motion.div>
                         )}
                     </div>

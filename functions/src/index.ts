@@ -1904,20 +1904,33 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 .collection("matriculas")
                 .where("licaoId", "==", licaoId)
                 .get();
-            const todasMatriculas = matriculas.docs.map((v) => ({
-                id: v.id,
-                alunoId: v.data()?.alunoId,
-            }));
-            const matriculasIds = todasMatriculas.map((v) => v.alunoId);
-            todasMatriculas
-                .filter((v) => !alunosIds.includes(v.alunoId))
-                .forEach((v) => {
-                    const matriculaRef = db.collection("matriculas").doc(v.id);
+            const todasMatriculasMap = new Map(
+                matriculas.docs.map((v) => [
+                    v.data()?.alunoId,
+                    {
+                        id: v.id,
+                        alunoId: v.data()?.alunoId,
+                    },
+                ])
+            );
+
+            const alunosSelecionadosMap = new Map(
+                dados.alunosSelecionados.map((v) => [v.alunoId, v])
+            );
+
+            todasMatriculasMap.forEach((v) => {
+                const matriculaRef = db.collection("matriculas").doc(v.id);
+                if (!alunosSelecionadosMap.get(v.alunoId))
                     batch.delete(matriculaRef);
-                });
+                else if (alunosSelecionadosMap.get(v.alunoId))
+                    batch.update(matriculaRef, {
+                        possui_revista: alunosSelecionadosMap.get(v.alunoId)
+                            ?.possui_revista,
+                    });
+            });
 
             const novosAlunos = dados.alunosSelecionados.filter(
-                (v) => !matriculasIds.includes(v.alunoId)
+                (v) => !todasMatriculasMap.get(v.alunoId)
             );
 
             if (novosAlunos.length > 0) {

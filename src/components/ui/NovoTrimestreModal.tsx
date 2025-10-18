@@ -14,13 +14,7 @@ import {
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-    collection,
-    documentId,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { db } from "../../utils/firebase";
 import { useNavigate } from "react-router-dom";
@@ -42,6 +36,7 @@ import type { AlunoInterface } from "../../interfaces/AlunoInterface";
 import { getIdade } from "../../utils/getIdade";
 import { useAuthContext } from "../../context/AuthContext";
 import { reduzirImagem } from "../../utils/reduzirImagem";
+import { useDataContext } from "../../context/DataContext";
 
 interface AlunoSelecionado {
     alunoId: string;
@@ -127,6 +122,7 @@ function NovoTrimestreModal({
     });
 
     const { isSuperAdmin, user } = useAuthContext();
+    const { classes } = useDataContext();
 
     const imagem = watch("img");
     const dataInicio = watch("data_inicio");
@@ -483,32 +479,12 @@ function NovoTrimestreModal({
                     (a) =>
                         (trimestreAnterior.current = a.map((v) => ({
                             alunoId: v.alunoId,
-                            possui_revista: v.possui_revista,
+                            possui_revista: true,
                         })))
                 )
                 .catch((err) => console.log("deu esse erro", err));
     }, [licao]);
     useEffect(() => {
-        const getClasse = async () => {
-            const collClasse = collection(db, "classes");
-            const q = query(
-                collClasse,
-                where(documentId(), "==", classeId),
-                isSuperAdmin.current
-                    ? where("ministerioId", "==", user!.ministerioId)
-                    : where("igrejaId", "==", user!.igrejaId)
-            );
-            const classeSnap = await getDocs(q);
-
-            if (classeSnap.empty) throw new Error("classe não encontrada");
-
-            const classe = {
-                ...classeSnap.docs[0].data(),
-                id: classeSnap.docs[0].id,
-            } as ClasseInterface;
-
-            return classe;
-        };
         const getLicao = async () => {
             if (!licaoReference) {
                 const licoesCollection = collection(db, "licoes");
@@ -563,14 +539,26 @@ function NovoTrimestreModal({
 
             return alunos;
         };
-        Promise.all([getClasse(), getLicao(), getAlunos()])
-            .then(([c, l, a]) => {
-                setClasse(c);
+        Promise.all([getLicao(), getAlunos()])
+            .then(([l, a]) => {
+                const c = classes.find((v) => v.id === classeId);
+
+                if (!c) navigate("/aulas");
+
+                setClasse(c!);
                 setLicao(l);
                 setAlunos(
                     a.sort((a, b) => {
-                        const aEstaNaFaixa = a.idade >= c.idade_minima;
-                        const bEstaNaFaixa = b.idade >= c.idade_minima;
+                        const aEstaNaFaixa =
+                            a.idade >=
+                            (typeof c?.idade_minima === "number"
+                                ? c!.idade_minima
+                                : 0);
+                        const bEstaNaFaixa =
+                            b.idade >=
+                            (typeof c?.idade_minima === "number"
+                                ? c!.idade_minima
+                                : 0);
 
                         if (aEstaNaFaixa && !bEstaNaFaixa) return -1;
 
@@ -585,7 +573,6 @@ function NovoTrimestreModal({
                 navigate("/aulas");
             })
             .finally(() => setIsLoading(false));
-        window.history.pushState({ modal: "open" }, "");
     }, []);
 
     return (

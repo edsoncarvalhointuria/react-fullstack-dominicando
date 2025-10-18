@@ -7,7 +7,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import LicaoCard from "../../ui/LicaoCard";
 import "./licoes-grid.scss";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import LicaoModal from "../../ui/LicaoModal";
 import NovoTrimestreModal from "../../ui/NovoTrimestreModal";
@@ -41,6 +41,15 @@ function LicoesGrid({
     }, [itens, paginaAtual]);
 
     const totalPaginas = Math.ceil(itens.length / TOTAL_ITENS);
+    useEffect(() => {
+        const popstate = () => {
+            setNewTrimestre(false);
+            setCurrentLicao(null);
+        };
+        window.addEventListener("popstate", popstate);
+
+        return () => window.removeEventListener("popstate", popstate);
+    }, []);
     return (
         <AnimatePresence>
             <motion.div
@@ -56,10 +65,18 @@ function LicoesGrid({
                     </div>
                     <div className="licoes-grid__header--controls">
                         <div className="licoes-grid__header--novo-trimestre">
-                            <button onClick={() => setNewTrimestre(true)}>
+                            <motion.button
+                                onTap={() => {
+                                    setNewTrimestre(true);
+                                    window.history.pushState(
+                                        { modal: true },
+                                        ""
+                                    );
+                                }}
+                            >
                                 <FontAwesomeIcon icon={faCalendarDay} />
                                 <span>Iniciar um novo trimestre</span>
-                            </button>
+                            </motion.button>
                         </div>
 
                         <SearchInput

@@ -304,7 +304,7 @@ function Comprovantes() {
                             ...v.data(),
                         } as LicaoInterface & { nome: string })
                 )
-                .sort((a) => (a.ativo ? 1 : 0));
+                .sort((a, b) => Number(b.ativo) - Number(a.ativo));
         };
 
         if (classeId)

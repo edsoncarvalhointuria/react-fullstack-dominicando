@@ -149,7 +149,7 @@ function Matriculas() {
                 } as LicaoInterface & { nome: string })
         );
 
-        return licoes;
+        return licoes.sort((a, b) => Number(b.ativo) - Number(a.ativo));
     };
 
     const apagarMatricula = async (matricula: MatriculasInterface) => {

@@ -142,9 +142,6 @@ function LicaoModal({
         }
         getAulas();
     }, [licao.id]);
-    useEffect(() => {
-        window.history.pushState({ modal: "open" }, "");
-    }, []);
     return (
         <motion.div className="licao-modal" layoutId={licao.id}>
             <motion.div

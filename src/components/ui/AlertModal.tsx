@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import "./alert-modal.scss";
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 interface AlertModalProps {
     isOpen: boolean;
@@ -27,9 +27,6 @@ function AlertModal({
     cancelText = "Cancelar",
     icon,
 }: AlertModalProps) {
-    useEffect(() => {
-        window.history.pushState({ modal: "open" }, "");
-    }, []);
     return (
         <AnimatePresence>
             {isOpen && (

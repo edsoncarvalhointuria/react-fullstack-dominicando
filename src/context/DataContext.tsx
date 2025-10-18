@@ -7,7 +7,13 @@ import {
     type ReactNode,
 } from "react";
 import { useAuthContext } from "./AuthContext";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+    collection,
+    documentId,
+    getDocs,
+    query,
+    where,
+} from "firebase/firestore";
 import { db } from "../utils/firebase";
 
 const context = createContext({});
@@ -29,6 +35,17 @@ function DataContext({ children }: { children: ReactNode }) {
     const getPastor = (collectionName: string) => {
         const c = collection(db, collectionName);
         const q = query(c, where("igrejaId", "==", user!.igrejaId));
+        const docs = getDocs(q);
+
+        return docs;
+    };
+    const getClasseSecretario = (collectionName: string) => {
+        const c = collection(db, collectionName);
+        const q = query(
+            c,
+            where("igrejaId", "==", user!.igrejaId),
+            where(documentId(), "==", user!.classeId)
+        );
         const docs = getDocs(q);
 
         return docs;
@@ -76,6 +93,8 @@ function DataContext({ children }: { children: ReactNode }) {
                     )
                 );
             } else {
+                const c = await getClasseSecretario("classes");
+
                 setIgrejas([
                     {
                         id: user.igrejaId!,
@@ -85,14 +104,9 @@ function DataContext({ children }: { children: ReactNode }) {
                 ]);
                 setClasses([
                     {
-                        id: user.classeId!,
-                        nome: user.classeNome!,
-                        igrejaId: user.igrejaId!,
-                        igrejaNome: user.igrejaNome!,
-                        ministerioId: user.ministerioId!,
-                        idade_maxima: 0,
-                        idade_minima: 0,
-                    },
+                        id: c.docs[0].id,
+                        ...c.docs[0].data(),
+                    } as ClasseInterface,
                 ]);
             }
         } catch (err) {
