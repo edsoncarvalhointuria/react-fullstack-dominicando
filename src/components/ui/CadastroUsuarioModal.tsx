@@ -53,6 +53,7 @@ const ROLES_LIST: { nome: string; id: Roles }[] = [
         nome: RolesLabel[ROLES.SECRETARIO_CONGREGACAO],
         id: ROLES.SECRETARIO_CONGREGACAO,
     },
+    { nome: RolesLabel[ROLES.PROFESSOR], id: ROLES.PROFESSOR },
     { nome: RolesLabel[ROLES.SECRETARIO_CLASSE], id: ROLES.SECRETARIO_CLASSE },
 ];
 
@@ -162,14 +163,21 @@ function CadastroUsuarioModal({
                             v.id !== "super_admin"
                     )
                 );
-            else if (isSecretario.current)
+            else if (user.role === "professor")
+                setRoles(
+                    ROLES_LIST.filter(
+                        (v) =>
+                            v.id === "secretario_classe" || v.id === "professor"
+                    )
+                );
+            else if (user.role === "secretario_classe")
                 setRoles(
                     ROLES_LIST.filter((v) => v.id === "secretario_classe")
                 );
         if (usuarioId)
             getUsuario()
                 .then((v) => {
-                    if (v)
+                    if (v) {
                         reset({
                             classeId: v.classeId || undefined,
                             email: v.email,
@@ -178,7 +186,9 @@ function CadastroUsuarioModal({
                             role: v.role as Roles,
                             senha: "",
                         });
-                    else
+
+                        setCurrentRole((v.role as any) || null);
+                    } else
                         reset({
                             classeId: "",
                             email: "",
@@ -303,8 +313,10 @@ function CadastroUsuarioModal({
                                 </motion.div>
 
                                 <AnimatePresence>
-                                    {currentRole?.id ===
-                                        "secretario_classe" && (
+                                    {(currentRole?.id ===
+                                        ROLES.SECRETARIO_CLASSE ||
+                                        currentRole?.id ===
+                                            ROLES.PROFESSOR) && (
                                         <motion.div
                                             variants={variantsItem}
                                             key="secretario-classe-input"
@@ -316,7 +328,7 @@ function CadastroUsuarioModal({
                                                 control={control}
                                                 rules={{
                                                     required:
-                                                        'O cargo "secretário de classe", exige que uma classe seja selecionada',
+                                                        "O cargo selecionado, exige que uma classe vinculada",
                                                 }}
                                                 render={({ field }) => (
                                                     <Dropdown
@@ -405,7 +417,7 @@ function CadastroUsuarioModal({
                                         </div>
                                         <div className="cadastro-usuario__form-input">
                                             <label htmlFor="cadastro-usuario-senha">
-                                                Senha*
+                                                Senha{usuarioId ? "" : "*"}
                                             </label>
                                             <div className="cadastro-usuario__form-input--senha">
                                                 <input

@@ -165,7 +165,11 @@ function Alunos() {
     useEffect(() => {
         const getAlunos = async (igrejaId: string) => {
             const alunosCll = collection(db, "alunos");
-            const q = query(alunosCll, where("igrejaId", "==", igrejaId));
+            const q = query(
+                alunosCll,
+                where("igrejaId", "==", igrejaId),
+                where("ministerioId", "==", user?.ministerioId)
+            );
             const alunosSnap = await getDocs(q);
 
             if (alunosSnap.empty) return [];

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
     collection,
     doc,
+    documentId,
     getDoc,
     getDocs,
     query,
@@ -32,14 +33,21 @@ function Aulas() {
     const getLicoes = async (igreja: string, classe: string) => {
         setIsLoading(true);
         const docIgreja = doc(db, "igrejas", igreja);
-        const docClasse = doc(db, "classes", classe);
+        const classeCll = collection(db, "classes");
+        const queryClasse = query(
+            classeCll,
+            where(documentId(), "==", classe),
+            !isSuperAdmin.current
+                ? where("igrejaId", "==", user.igrejaId)
+                : where("ministerioId", "==", user.ministerioId)
+        );
 
         const [docSnapI, docSnapC] = await Promise.all([
             getDoc(docIgreja),
-            getDoc(docClasse),
+            getDocs(queryClasse),
         ]);
 
-        if (!docSnapC.exists() || !docSnapI.exists()) return navigate("/aulas");
+        if (docSnapC.empty || !docSnapI.exists()) return navigate("/aulas");
 
         const collectionLicoes = collection(db, "licoes");
         const q = query(

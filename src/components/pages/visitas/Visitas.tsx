@@ -161,7 +161,11 @@ function Visitas() {
     useEffect(() => {
         const getVisitas = async (igrejaId: string) => {
             const visitasCll = collection(db, "visitantes");
-            const q = query(visitasCll, where("igrejaId", "==", igrejaId));
+            const q = query(
+                visitasCll,
+                where("igrejaId", "==", igrejaId),
+                where("ministerioId", "==", user?.ministerioId)
+            );
             const visitasSnap = await getDocs(q);
 
             if (visitasSnap.empty) return [];

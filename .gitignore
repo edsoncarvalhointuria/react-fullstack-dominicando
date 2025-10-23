@@ -33,3 +33,4 @@ serviceAccountKey.json
 firebase.ts
 sw.ts
 teste-firebase-messaging-sw.js
+scripts

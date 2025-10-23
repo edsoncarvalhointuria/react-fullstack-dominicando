@@ -7,8 +7,8 @@ interface MembroInterface {
     ministerioId: string;
     nome_completo: string;
     contato: string | null;
-    validade: Timestamp;
-    registro: string;
+    validade: Timestamp | null;
+    registro: string | null;
     igrejaNome: string;
     alunoId: string | null;
 }

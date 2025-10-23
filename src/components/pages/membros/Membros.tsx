@@ -177,7 +177,11 @@ function Membros() {
     useEffect(() => {
         const getMembros = async (igrejaId: string) => {
             const membrosCll = collection(db, "membros");
-            const q = query(membrosCll, where("igrejaId", "==", igrejaId));
+            const q = query(
+                membrosCll,
+                where("igrejaId", "==", igrejaId),
+                where("ministerioId", "==", user?.ministerioId)
+            );
             const membrosSnap = await getDocs(q);
 
             if (membrosSnap.empty) return [];

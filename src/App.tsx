@@ -29,6 +29,8 @@ import InstallModal from "./components/ui/InstallModal";
 import Notificacoes from "./components/pages/notificacoes/Notificacoes";
 import Ajuda from "./components/pages/ajuda/Ajuda";
 import AjudaArtigo from "./components/pages/ajuda/AjudaArtigo";
+import Preparo from "./components/pages/preparo/Preparo";
+import PreparoAula from "./components/pages/preparo/PreparoAula";
 // import { app } from "./utils/firebase";
 
 function App() {
@@ -244,6 +246,14 @@ function App() {
                             <Route
                                 element={<AjudaArtigo key={location.key} />}
                                 path=":ajudaId"
+                            />
+                        </Route>
+
+                        <Route path="/preparo">
+                            <Route path="" element={<Preparo />} />
+                            <Route
+                                path="licao/:licaoId/aula/:aulaId"
+                                element={<PreparoAula />}
                             />
                         </Route>
                     </Route>

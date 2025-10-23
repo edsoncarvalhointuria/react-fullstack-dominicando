@@ -412,7 +412,7 @@ function NovoTrimestreModal({
     }, [alunosForaDaIdadeMemo]);
     useEffect(() => {
         if (dataInicio && numeroAulas > 0) {
-            const data = new Date(dataInicio + "T00:00:00");
+            const data = new Date(dataInicio + "T12:00:00");
 
             if (data.getUTCDay() !== 0) return setDataAulas([]);
 
@@ -504,12 +504,17 @@ function NovoTrimestreModal({
                     ...licoesSnap.docs[0].data(),
                     id: licoesSnap.docs[0].id,
                 } as LicaoInterface;
+
+                const dataFim = licoes.data_fim.toDate();
+                dataFim.setDate(dataFim.getDate() + 7);
+
                 setValue(
                     "trimestre",
                     (licoes?.numero_trimestre || 0) + 1 === 5
                         ? 1
                         : (licoes?.numero_trimestre || 0) + 1
                 );
+                setValue("data_inicio", dataFim.toISOString().split("T")[0]);
 
                 return licoes;
             } else {
@@ -521,7 +526,8 @@ function NovoTrimestreModal({
             const alunosCollection = collection(db, "alunos");
             const q = query(
                 alunosCollection,
-                where("igrejaId", "==", igrejaId)
+                where("igrejaId", "==", igrejaId),
+                where("ministerioId", "==", user?.ministerioId)
             );
             const alunosSnap = await getDocs(q);
 

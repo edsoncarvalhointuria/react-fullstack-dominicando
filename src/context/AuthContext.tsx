@@ -156,6 +156,7 @@ function AuthContext({ children }: { children: ReactNode }) {
                                 appUser.role === ROLES.PASTOR ||
                                 appUser.role === ROLES.SECRETARIO_CONGREGACAO;
                             isSecretario.current =
+                                appUser.role === ROLES.PROFESSOR ||
                                 appUser.role === ROLES.SECRETARIO_CLASSE;
 
                             setUser(appUser);

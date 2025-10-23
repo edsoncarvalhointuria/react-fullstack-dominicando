@@ -1,0 +1,154 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.preparo {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    min-height: 70vh;
+
+    @media all and (max-width: 37em) {
+        padding: 2rem;
+    }
+
+    &__sem-aulas {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 5rem;
+        border: 2px dashed #e5e7eb;
+        border-radius: 1.2rem;
+        background-color: v.$cor-secundaria-fundo;
+        min-height: 50vh;
+        width: 100%;
+
+        p {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: v.$cor-secundaria-texto;
+            max-width: 30rem;
+            line-height: 1.6;
+
+            span {
+                display: block;
+                font-size: 4rem;
+                color: v.$cor-primaria-itens;
+                margin-bottom: 1.5rem;
+                opacity: 0.7;
+            }
+        }
+    }
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        @media all and (max-width: 37em) {
+            justify-content: center;
+        }
+    }
+
+    &__title {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+
+        span {
+            font-size: 2.2rem;
+            color: v.$cor-primaria-itens;
+        }
+
+        h2 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+        }
+    }
+
+    &__acoes {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        @media all and (max-width: 37em) {
+            justify-content: center;
+        }
+    }
+
+    &__buttons {
+        display: flex;
+        gap: 1.5rem;
+
+        button {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 0.8rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
+
+            &:first-of-type {
+                background-color: v.$cor-primaria-itens;
+                color: white;
+                &:hover {
+                    background-color: color.scale(
+                        v.$cor-primaria-itens,
+                        $lightness: -10%
+                    );
+                    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+                }
+            }
+
+            // &:last-of-type {
+            //     background-color: v.$cor-primaria-fundo;
+            //     color: v.$cor-primaria-texto;
+            //     border: 1px solid #d1d5db;
+            //     &:hover {
+            //         border-color: v.$cor-primaria-itens;
+            //         color: v.$cor-primaria-itens;
+            //     }
+            // }
+        }
+    }
+
+    &__pesquisa {
+        min-width: 25rem;
+        @media all and (max-width: 37em) {
+            width: 100%;
+        }
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr));
+        gap: 2.5rem;
+
+        &--vazio {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            padding: 5rem 2rem;
+            text-align: center;
+            background-color: v.$cor-secundaria-fundo;
+            border-radius: 1.2rem;
+            border: 2px dashed #e5e7eb;
+
+            p {
+                font-size: 1.8rem;
+                font-weight: 500;
+                color: v.$cor-secundaria-texto;
+            }
+        }
+    }
+}

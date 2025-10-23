@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuthContext } from "../../../context/AuthContext";
 import { ROLES } from "../../../roles/Roles";
 import "./notificacoes.scss";
@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import AlertModal from "../../ui/AlertModal";
 import Loading from "../../layout/loading/Loading";
+import { useNavigate } from "react-router-dom";
 
 interface NotificacaoForm {
     destinarios: string;
@@ -64,7 +65,7 @@ function Notificacoes() {
         icon?: any;
     } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-
+    const navigate = useNavigate();
     const methods = useForm<NotificacaoForm>({
         defaultValues: {
             destinarios: "todos",
@@ -128,6 +129,10 @@ function Notificacoes() {
 
         return d;
     }, [user, DESTINATARIOS]);
+    useEffect(() => {
+        if (user && user.role === ROLES.SECRETARIO_CLASSE)
+            navigate("/dashboard");
+    }, [user]);
     if (isLoading) return <Loading />;
     return (
         <>

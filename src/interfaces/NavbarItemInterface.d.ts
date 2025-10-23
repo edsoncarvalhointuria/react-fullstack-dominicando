@@ -6,5 +6,7 @@ interface NavbarItemInterface {
         caminho?: string;
         superAdmin?: boolean;
         admin?: boolean;
+        professor?: boolean;
     }[];
+    notRoles?: any[];
 }

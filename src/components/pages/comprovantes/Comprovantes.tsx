@@ -268,12 +268,25 @@ function Comprovantes() {
     };
 
     useEffect(() => {
-        if (currentLicao)
+        if (currentLicao) {
+            const dataInicial = currentLicao.data_inicio.toDate();
             setAulas(
                 Array.from({ length: currentLicao.numero_aulas }).map(
-                    (_, i) => ({ nome: i + 1, id: i + 1 })
+                    (_, i) => {
+                        const data = new Date(
+                            dataInicial.toISOString().split("T")[0] +
+                                "T12:00:00"
+                        );
+                        data.setDate(data.getDate() + i * 7);
+
+                        return {
+                            nome: `${i + 1} - ${data.toLocaleDateString()}`,
+                            id: i + 1,
+                        };
+                    }
                 )
             );
+        }
     }, [currentLicao]);
     useEffect(() => {
         const getLicoes = async (classeId: string) => {

@@ -142,14 +142,17 @@ function Usuarios() {
         let u = usuarios;
 
         if (currentIgreja) u = u.filter((v) => v.igrejaId === currentIgreja.id);
-        if (pesquisa)
+        if (pesquisa) {
+            const p = pesquisa.toLowerCase();
             u = u.filter(
                 (v) =>
-                    v.nome.toLowerCase().includes(pesquisa) ||
-                    v.igrejaNome.toLowerCase().includes(pesquisa) ||
-                    v.email.includes(pesquisa) ||
-                    v.id.toLowerCase() === pesquisa
+                    v.nome.toLowerCase().includes(p) ||
+                    v.igrejaNome.toLowerCase().includes(p) ||
+                    v.role.replace(/_/g, " ").includes(p) ||
+                    v.email.includes(p) ||
+                    v.id.toLowerCase() === p
             );
+        }
         return u.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
     }, [currentIgreja, pesquisa, usuarios, ordemColuna, ordem]);
     useEffect(() => {
@@ -162,7 +165,11 @@ function Usuarios() {
             else if (isAdmin.current)
                 q = query(c, where("igrejaId", "==", user?.igrejaId));
             else if (isSecretario.current)
-                q = query(c, where("classeId", "==", user?.classeId));
+                q = query(
+                    c,
+                    where("classeId", "==", user?.classeId),
+                    where("igrejaId", "==", user?.igrejaId)
+                );
             else throw new Error("Seu usuário está invalido");
 
             const snap = await getDocs(q);
@@ -176,13 +183,17 @@ function Usuarios() {
             if (!isSuperAdmin.current)
                 usuarios = usuarios.filter(
                     (v) =>
-                        v.role !== "pastor_presidente" &&
-                        v.role !== "super_admin"
+                        v.role !== ROLES.PASTOR_PRESIDENTE &&
+                        v.role !== ROLES.SUPER_ADMIN
                 );
-            if (user?.role === "secretario_congregacao")
-                return usuarios.filter((v) => v.role !== "pastor");
-            if (user?.role === "super_admin")
-                return usuarios.filter((v) => v.role !== "pastor_presidente");
+            if (user?.role === ROLES.SUPER_ADMIN)
+                return usuarios.filter(
+                    (v) => v.role !== ROLES.PASTOR_PRESIDENTE
+                );
+            if (isSecretario.current)
+                usuarios.filter((v) => v.role !== ROLES.PASTOR);
+            if (user?.role === ROLES.SECRETARIO_CLASSE)
+                return usuarios.filter((v) => v.role !== ROLES.PROFESSOR);
             return usuarios;
         };
 
@@ -233,8 +244,9 @@ function Usuarios() {
                                     Cadastrar novo usuário
                                 </button>
                             </motion.div>
-                            {(user?.role === ROLES.PASTOR ||
-                                user?.role === ROLES.PASTOR_PRESIDENTE) && (
+                            {user?.role === ROLES.PASTOR ||
+                            user?.role === ROLES.PASTOR_PRESIDENTE ||
+                            user?.role === ROLES.SUPER_ADMIN ? (
                                 <motion.div
                                     whileTap={{ scale: 0.85 }}
                                     className="usuarios-page__convite"
@@ -251,6 +263,8 @@ function Usuarios() {
                                         Enviar Convite
                                     </button>
                                 </motion.div>
+                            ) : (
+                                <></>
                             )}
                         </div>
                     </div>

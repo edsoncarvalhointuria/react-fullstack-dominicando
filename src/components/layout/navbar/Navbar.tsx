@@ -4,6 +4,7 @@ import "./navbar.scss";
 
 import MobileNavbar from "./MobileNavbar";
 import { useAuthContext } from "../../../context/AuthContext";
+import { ROLES } from "../../../roles/Roles";
 
 function Navbar() {
     const OPCOES_NAV: NavbarItemInterface[] = [
@@ -20,9 +21,18 @@ function Navbar() {
                 { texto: "Matriculas", caminho: "/matriculas" },
                 { texto: "Visitas", caminho: "/visitas" },
                 { texto: "Usuários", caminho: "/usuarios" },
-                { texto: "Notificações", caminho: "/notificacoes" },
+                {
+                    texto: "Notificações",
+                    caminho: "/notificacoes",
+                    professor: true,
+                },
                 { texto: "Comp. PIX", caminho: "/comprovantes" },
             ],
+        },
+        {
+            texto: "Preparo 📖",
+            caminho: "/preparo",
+            notRoles: [ROLES.SECRETARIO_CLASSE],
         },
         { texto: "Ajuda", caminho: "/ajuda" },
     ];
@@ -39,13 +49,19 @@ function Navbar() {
                 ...item,
                 dropdown: item.dropdown.filter(
                     (v) =>
-                        (!v.superAdmin && !v.admin) ||
+                        (!v.superAdmin && !v.admin && !v.professor) ||
                         (v.superAdmin && isSuperAdmin.current) ||
-                        (v.admin && (isAdmin.current || isSuperAdmin.current))
+                        (v.admin &&
+                            (isAdmin.current || isSuperAdmin.current)) ||
+                        (v.professor &&
+                            (user?.role === ROLES.PROFESSOR ||
+                                isAdmin.current ||
+                                isSuperAdmin.current))
                 ),
             };
-        } else return item;
-    });
+        } else if (!item.notRoles) return item;
+        else if (!item.notRoles.includes(user?.role)) return item;
+    }).filter(Boolean);
 
     useEffect(() => {
         const resize = (evt: UIEvent) => {
@@ -64,7 +80,7 @@ function Navbar() {
         <>
             {isMobile ? (
                 <MobileNavbar
-                    OPCOES={listaFiltrada}
+                    OPCOES={listaFiltrada as any}
                     userName={(user?.nome || "").split(" ")[0]}
                     userEmail={user?.email || ""}
                     logout={logout}

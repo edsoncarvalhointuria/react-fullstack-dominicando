@@ -267,8 +267,10 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                         </motion.div>
 
                                         <AnimatePresence>
-                                            {currentRole?.id ===
-                                                ROLES.SECRETARIO_CLASSE && (
+                                            {(currentRole?.id ===
+                                                ROLES.SECRETARIO_CLASSE ||
+                                                currentRole?.id ===
+                                                    ROLES.PROFESSOR) && (
                                                 <motion.div
                                                     variants={variantsItem}
                                                     key="secretario-classe-input"

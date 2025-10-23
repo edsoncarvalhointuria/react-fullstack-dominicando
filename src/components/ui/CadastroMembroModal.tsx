@@ -84,14 +84,18 @@ function CadastroMembroModal({
                 const result = data as any;
                 const dadosAtualizados: MembroInterface = {
                     ...result,
-                    data_nascimento: new Timestamp(
-                        result.data_nascimento._seconds,
-                        result.data_nascimento._nanoseconds
-                    ),
-                    validade: new Timestamp(
-                        result.validade._seconds,
-                        result.validade._nanoseconds
-                    ),
+                    data_nascimento: result.data_nascimento
+                        ? new Timestamp(
+                              result.data_nascimento._seconds,
+                              result.data_nascimento._nanoseconds
+                          )
+                        : null,
+                    validade: result.validade
+                        ? new Timestamp(
+                              result.validade._seconds,
+                              result.validade._nanoseconds
+                          )
+                        : null,
                 };
                 onSave(dadosAtualizados);
                 onCancel();
@@ -123,8 +127,10 @@ function CadastroMembroModal({
                     .split("T")[0],
                 nome_completo: membro.nome_completo,
                 contato: membro.contato || "",
-                registro: membro.registro,
-                validade: membro.validade.toDate().toISOString().split("T")[0],
+                registro: membro.registro || undefined,
+                validade: membro?.validade
+                    ? membro?.validade.toDate().toISOString().split("T")[0]
+                    : undefined,
             });
         };
         if (membroId) {
@@ -290,15 +296,12 @@ function CadastroMembroModal({
                                     >
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="cadastro-membro-validade">
-                                                Validade*
+                                                Validade
                                             </label>
                                             <input
                                                 type="date"
                                                 id="cadastro-membro-validade"
-                                                {...register("validade", {
-                                                    required:
-                                                        "A validade é obrigatória",
-                                                })}
+                                                {...register("validade")}
                                                 className={
                                                     errors.validade
                                                         ? "input-error"
@@ -318,7 +321,7 @@ function CadastroMembroModal({
                                     >
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="cadastro-membro-registro">
-                                                Registro*
+                                                Registro
                                             </label>
                                             <input
                                                 type="text"
@@ -328,10 +331,7 @@ function CadastroMembroModal({
                                                         ? "input-error"
                                                         : ""
                                                 }
-                                                {...register("registro", {
-                                                    required:
-                                                        "O registro é obrigatório",
-                                                })}
+                                                {...register("registro")}
                                             />
                                         </div>
                                         <ErroComponent

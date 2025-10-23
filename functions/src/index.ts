@@ -10,6 +10,7 @@ enum Roles {
     SUPER_ADMIN = "super_admin",
     PASTOR = "pastor",
     SECRETARIO_CONGREGACAO = "secretario_congregacao",
+    PROFESSOR = "professor",
     SECRETARIO_CLASSE = "secretario_classe",
 }
 
@@ -80,7 +81,8 @@ async function validarUsuario(request: functions.https.CallableRequest) {
     const isAdmin =
         user.role === Roles.PASTOR ||
         user.role === Roles.SECRETARIO_CONGREGACAO;
-    const isSecretario = user.role === Roles.SECRETARIO_CLASSE;
+    const isSecretario =
+        user.role === Roles.SECRETARIO_CLASSE || user.role === Roles.PROFESSOR;
 
     return { user, db, isSuperAdmin, isAdmin, isSecretario };
 }
@@ -479,8 +481,8 @@ interface Membro {
     ministerioId: string;
     nome_completo: string;
     contato: string | null;
-    validade: Timestamp;
-    registro: string;
+    validade: Timestamp | null;
+    registro: string | null;
     alunoId?: string | null;
 }
 
@@ -511,12 +513,14 @@ export const salvarMembro = functions.https.onCall(async (request) => {
         data_nascimento: Timestamp.fromDate(
             new Date(dados.data_nascimento + "T12:00:00")
         ),
-        validade: Timestamp.fromDate(new Date(dados.validade + "T12:00:00")),
+        validade: dados?.validade
+            ? Timestamp.fromDate(new Date(dados.validade + "T12:00:00"))
+            : null,
         igrejaId,
         igrejaNome: igreja.data()!.nome,
         ministerioId: user.ministerioId,
         nome_completo: dados.nome_completo,
-        registro: dados.registro,
+        registro: dados?.registro || null,
     };
 
     if (membroId) {
@@ -983,7 +987,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     if (isSecretario) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Secretário de classe não podem cadastrar outras classes"
+            "Secretário de classe ou professor não podem cadastrar outras classes"
         );
     }
 
@@ -1172,7 +1176,7 @@ export const deletarClasse = functions.https.onCall(async (request) => {
 
         const usuariosSnap = await db
             .collection("usuarios")
-            .where("role", "==", "secretario_classe")
+            .where("role", "in", [Roles.SECRETARIO_CLASSE, Roles.PROFESSOR])
             .where("classeId", "==", classeId)
             .get();
 
@@ -1543,6 +1547,14 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         );
     }
 
+    const igreja = await db.collection("igrejas").doc(dados.igrejaId).get();
+    if (!igreja.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Igreja não foi encontrada"
+        );
+    }
+
     const podeCriar =
         user.role === Roles.PASTOR_PRESIDENTE ||
         (user.role === Roles.SUPER_ADMIN &&
@@ -1554,9 +1566,15 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
             dados.role !== Roles.PASTOR &&
             dados.role !== Roles.SUPER_ADMIN &&
             dados.role !== Roles.PASTOR_PRESIDENTE) ||
-        (isSecretario && dados.role === Roles.SECRETARIO_CLASSE);
+        (user.role === Roles.PROFESSOR &&
+            dados.role !== Roles.SECRETARIO_CONGREGACAO &&
+            dados.role !== Roles.PASTOR &&
+            dados.role !== Roles.SUPER_ADMIN &&
+            dados.role !== Roles.PASTOR_PRESIDENTE) ||
+        (user.role === Roles.SECRETARIO_CLASSE &&
+            dados.role === Roles.SECRETARIO_CLASSE);
 
-    if (!podeCriar) {
+    if (igreja.data()?.ministerioId !== user.ministerioId || !podeCriar) {
         throw new functions.https.HttpsError(
             "permission-denied",
             "Usuário não tem para usuários com este cargo"
@@ -1571,28 +1589,23 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
     }
 
     let classe;
-    if (dados.role === Roles.SECRETARIO_CLASSE) {
+    if (
+        dados.role === Roles.SECRETARIO_CLASSE ||
+        dados.role === Roles.PROFESSOR
+    ) {
         if (!dados.classeId) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Secretários de classe precisam de uma classe associada"
+                "Secretários de classe ou professores precisam de uma classe associada"
             );
         }
         classe = await db.collection("classes").doc(dados.classeId).get();
         if (!classe.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Igreja não encontrada"
+                "Classe não encontrada"
             );
         }
-    }
-
-    const igreja = await db.collection("igrejas").doc(dados.igrejaId).get();
-    if (!igreja.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não foi encontrada"
-        );
     }
 
     const dadosAtualizados: any | Usuario = {
@@ -3589,13 +3602,16 @@ interface CodigoConvite {
 }
 
 export const gerarCodigoConvite = functions.https.onCall(async (request) => {
-    const { db, user } = await validarUsuario(request);
+    const { db, user, isSuperAdmin } = await validarUsuario(request);
     const isPastor = user.role === Roles.PASTOR;
-    const isPastorPresidente = user.role === Roles.PASTOR_PRESIDENTE;
 
     let { igrejaId, classeId, role } = request.data;
 
-    if (!role || (role === Roles.SECRETARIO_CLASSE && !classeId)) {
+    if (
+        !role ||
+        ((role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) &&
+            !classeId)
+    ) {
         throw new functions.https.HttpsError(
             "invalid-argument",
             "Dados inválidos ou ausentes"
@@ -3603,7 +3619,8 @@ export const gerarCodigoConvite = functions.https.onCall(async (request) => {
     }
 
     if (
-        (!isPastor && !isPastorPresidente) ||
+        (!isPastor && !isSuperAdmin) ||
+        (user.role === Roles.SUPER_ADMIN && role === Roles.PASTOR_PRESIDENTE) ||
         (isPastor &&
             (role === Roles.SUPER_ADMIN || role === Roles.PASTOR_PRESIDENTE))
     ) {
@@ -3616,15 +3633,18 @@ export const gerarCodigoConvite = functions.https.onCall(async (request) => {
     if (isPastor) igrejaId = user.igrejaId;
 
     const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
-    if (!igrejaSnap.exists) {
+    if (
+        !igrejaSnap.exists ||
+        igrejaSnap.data()?.ministerioId !== user.ministerioId
+    ) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada"
+            "Igreja não encontrada ou de outro ministério"
         );
     }
 
     let classe;
-    if (role === Roles.SECRETARIO_CLASSE) {
+    if (role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) {
         const classeSnap = await db.collection("classes").doc(classeId).get();
         if (!classeSnap.exists || classeSnap.data()?.igrejaId !== igrejaId) {
             throw new functions.https.HttpsError(
@@ -3760,13 +3780,16 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
                 "Usuário não encontrado."
             );
         }
-        if (!igrejaSnap.exists) {
+        if (
+            !igrejaSnap.exists ||
+            igrejaSnap.data()?.ministerioId !== criador.data()?.ministerioId
+        ) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Igreja não encontrada"
+                "Igreja não encontrada ou de outro ministério"
             );
         }
-        if (role === Roles.SECRETARIO_CLASSE) {
+        if (role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) {
             if (!classeId || !classeSnap.exists) {
                 throw new functions.https.HttpsError(
                     "not-found",
@@ -3783,7 +3806,8 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         }
         if (
             criador.data()!.role !== Roles.PASTOR &&
-            criador.data()!.role !== Roles.PASTOR_PRESIDENTE
+            criador.data()!.role !== Roles.PASTOR_PRESIDENTE &&
+            criador.data()!.role !== Roles.SUPER_ADMIN
         ) {
             throw new functions.https.HttpsError(
                 "permission-denied",
@@ -4120,11 +4144,13 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
 
     if (
         (!isSuperAdmin &&
-            (destinarios === "super_admin" ||
-                destinarios === "pastor_presidente")) ||
+            (destinarios === Roles.SUPER_ADMIN ||
+                destinarios === Roles.PASTOR_PRESIDENTE)) ||
+        user.role === Roles.SECRETARIO_CLASSE ||
         (isSecretario &&
             destinarios !== "todos" &&
-            destinarios !== "secretario_classe")
+            destinarios !== Roles.PROFESSOR &&
+            destinarios !== Roles.SECRETARIO_CLASSE)
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
@@ -4241,4 +4267,639 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
         console.log("Houve um ao enviar a notificação", Error);
         throw new functions.https.HttpsError("internal", Error.message);
     }
+});
+
+interface NovoTrimestreAulasFront {
+    licaoPreparoId: string | null;
+    dados: {
+        titulo: string;
+        numero_aulas: number;
+        data_inicio: string;
+        img?: string;
+        trimestre: number;
+    };
+}
+
+export const salvarLicaoAulaPreparo = functions.https.onCall(
+    async (request) => {
+        const { isSuperAdmin, db, user } = await validarUsuario(request);
+        if (!isSuperAdmin) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Você não tem permissão para fazer isso."
+            );
+        }
+
+        const {
+            licaoPreparoId,
+            dados: { data_inicio, numero_aulas, titulo, trimestre, img },
+        } = request.data as NovoTrimestreAulasFront;
+
+        if (!data_inicio || !numero_aulas || !titulo || !trimestre) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "Dados inválidos ou ausentes"
+            );
+        }
+
+        const dataAtual = new Date(data_inicio + "T12:00:00");
+        const dataFinal = new Date(data_inicio + "T12:00:00");
+        dataFinal.setDate(dataAtual.getDate() + (numero_aulas - 1) * 7);
+
+        const dadosAtualizados: { [key: string]: any } = {
+            data_inicio: Timestamp.fromDate(dataAtual),
+            data_final: Timestamp.fromDate(dataFinal),
+            numero_aulas,
+            ministerioId: user.ministerioId,
+            titulo,
+            trimestre,
+            img: img ? img : null,
+        };
+
+        if (licaoPreparoId) {
+            const licaoRef = db
+                .collection("licoes_preparo")
+                .doc(licaoPreparoId);
+            const licaoSnap = await licaoRef.get();
+
+            if (
+                !licaoSnap.exists ||
+                user.ministerioId !== licaoSnap.data()?.ministerioId
+            ) {
+                throw new functions.https.HttpsError(
+                    "not-found",
+                    "Lição não encontrada ou ministério inválido"
+                );
+            }
+
+            if (licaoSnap.data()?.numero_aulas !== numero_aulas) {
+                const aulasMap = new Map(
+                    Array.from(
+                        Object.entries(licaoSnap.data()?.status_aulas || {})
+                    )
+                );
+
+                const status_aulas = Array.from({ length: numero_aulas }).map(
+                    (_, i) => {
+                        return [
+                            String(i + 1),
+                            aulasMap.get(String(i + 1)) || false,
+                        ];
+                    }
+                );
+
+                dadosAtualizados["status_aulas"] =
+                    Object.fromEntries(status_aulas);
+            }
+
+            await licaoRef.update(dadosAtualizados);
+            const notificao: Notificacao = {
+                actor: {
+                    email: user.email,
+                    uid: user.uid,
+                    ip: request.rawRequest.ip,
+                },
+                dados: {
+                    dados_enviados: request.data,
+                    dados_importantes: [dadosAtualizados],
+                },
+                evento: "SALVAR_LICAO_AULAS_PREPARO",
+                message: `Lição atualizada com sucesso pelo usuário: ${user.uid}`,
+            };
+            console.log(JSON.stringify(notificao));
+            return { message: `Lição atualizada com sucesso.` };
+        }
+
+        const dadosParaSalvar = {
+            ...dadosAtualizados,
+            status_aulas: Object.fromEntries(
+                Array.from({ length: numero_aulas }).map((_, i) => [
+                    String(i + 1),
+                    false,
+                ])
+            ),
+            ativo: true,
+            ultima_aula: null,
+        };
+
+        const licaoPreparoRef = db.collection("licoes_preparo").doc();
+        const batch = db.batch();
+        batch.create(licaoPreparoRef, dadosParaSalvar);
+        const licoesAnteriores = await db
+            .collection("licoes_preparo")
+            .where("ativo", "==", true)
+            .get();
+
+        if (!licoesAnteriores.empty) {
+            licoesAnteriores.docs.forEach((v) =>
+                batch.update(v.ref, { ativo: false })
+            );
+        }
+
+        Array.from({ length: numero_aulas }).forEach((_, i) => {
+            const aula = i + 1;
+            const aulaRef = licaoPreparoRef
+                .collection("aulas")
+                .doc(String(aula));
+            const dadosAula = {
+                aula,
+                titulo_aula: null,
+                link_youtube: null,
+                trimestre: `${trimestre}º Trimestre de ${dataAtual.getFullYear()}`,
+                total_visualizacoes: 0,
+                realizado: false,
+            };
+
+            batch.create(aulaRef, dadosAula);
+        });
+
+        await batch.commit();
+
+        const notificao: Notificacao = {
+            actor: {
+                email: user.email,
+                uid: user.uid,
+                ip: request.rawRequest.ip,
+            },
+            dados: {
+                dados_enviados: request.data,
+                dados_importantes: [dadosParaSalvar],
+            },
+            evento: "SALVAR_LICAO_AULAS_PREPARO",
+            message: `Lição cadastrada com sucesso pelo usuário: ${user.uid}`,
+        };
+        console.log(JSON.stringify(notificao));
+        return { message: `Lição atualizada com sucesso.` };
+    }
+);
+
+export const deletarLicaoAulaPreparo = functions.https.onCall(
+    async (request) => {
+        const { db, isSuperAdmin, user } = await validarUsuario(request);
+
+        if (!isSuperAdmin) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Você não tem permissão para fazer isso"
+            );
+        }
+
+        const { licaoPreparoId } = request.data;
+        if (!licaoPreparoId) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "Argumentos inválidos ou ausentes"
+            );
+        }
+
+        const licaoRef = db.collection("licoes_preparo").doc(licaoPreparoId);
+        const licaoSnap = await licaoRef.get();
+        const licaoAntetior = await db
+            .collection("licoes_preparo")
+            .where(admin.firestore.FieldPath.documentId(), "!=", licaoPreparoId)
+            .orderBy("data_inicio", "desc")
+            .limit(1)
+            .get();
+
+        if (
+            !licaoSnap.exists ||
+            user.ministerioId !== licaoSnap.data()?.ministerioId
+        ) {
+            throw new functions.https.HttpsError(
+                "not-found",
+                "Lição não encontrada ou de outro ministério"
+            );
+        }
+
+        const refs = [licaoRef];
+
+        const aulasSnaps = await licaoRef.collection("aulas").get();
+
+        const promises = aulasSnaps.docs.map(async (v) => {
+            refs.push(v.ref);
+
+            const usuariosSnaps = await v.ref.collection("visualizacoes").get();
+            if (!usuariosSnaps.empty)
+                refs.push(...usuariosSnaps.docs.map((v) => v.ref));
+        });
+
+        await Promise.all(promises);
+
+        let batch = db.batch();
+        let count = 0;
+        if (!licaoAntetior.empty && licaoSnap.data()?.ativo === true) {
+            batch.update(licaoAntetior.docs[0].ref, { ativo: true });
+            count++;
+        }
+        const batchs = [batch];
+        for (let i = 0; i < refs.length; i++) {
+            batch.delete(refs[i]);
+            count++;
+
+            if (count >= 499) {
+                batch = db.batch();
+                batchs.push(batch);
+                count = 0;
+            }
+        }
+
+        await Promise.all(batchs.map((v) => v.commit()));
+        const notificao: Notificacao = {
+            actor: {
+                email: user.email,
+                uid: user.uid,
+                ip: request.rawRequest.ip,
+            },
+            dados: {
+                dados_enviados: request.data,
+                dados_importantes: [],
+            },
+            evento: "DELETAR_LICAO_AULAS_PREPARO",
+            message: `Lição e todos os dados associados, foram deletados com sucesso pelo usuário: ${user.uid}`,
+        };
+        console.log(JSON.stringify(notificao));
+        return { message: `Lição deletada com sucesso.` };
+    }
+);
+
+interface AulaPreparoFront {
+    licaoId: string;
+    aulaId: string;
+    dados: { link_youtube: string; titulo_aula: string };
+}
+
+export const salvarAulaPreparo = functions.https.onCall(async (request) => {
+    const { isSuperAdmin, db, user } = await validarUsuario(request);
+
+    const {
+        aulaId,
+        licaoId,
+        dados: { link_youtube, titulo_aula },
+    } = request.data as AulaPreparoFront;
+
+    if (!aulaId || !licaoId || !link_youtube || !titulo_aula) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes"
+        );
+    }
+
+    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
+    const aulaRef = licaoRef.collection("aulas").doc(aulaId);
+    const [aulaSnap, licaoSnap] = await Promise.all([
+        aulaRef.get(),
+        licaoRef.get(),
+    ]);
+
+    if (!aulaSnap.exists || !licaoSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Lição ou aula não foram encontrados"
+        );
+    }
+
+    if (!isSuperAdmin || licaoSnap.data()?.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso."
+        );
+    }
+
+    let link = link_youtube;
+    if (!link_youtube.includes("embed")) {
+        link =
+            "https://youtube.com/embed" +
+            link.slice(link_youtube.lastIndexOf("/"));
+    }
+
+    const status_aulas = {
+        ...licaoSnap.data()!.status_aulas,
+        [String(aulaId)]: true,
+    };
+
+    const ultima_aula = Object.entries(status_aulas).reduce(
+        (prev, [aula, status]) =>
+            status && Number(aula) > prev ? Number(aula) : prev,
+        0
+    );
+
+    await licaoRef.update({
+        status_aulas,
+        ultima_aula: ultima_aula
+            ? licaoRef.collection("aulas").doc(String(ultima_aula))
+            : null,
+    });
+    await aulaRef.update({
+        link_youtube: link,
+        titulo_aula,
+        licaoId,
+        realizado: true,
+    });
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "SALVAR_AULA_PREPARO",
+        message: `Aula salva com sucesso por ${user.uid}`,
+    };
+    console.log(JSON.stringify(notificacao));
+
+    return { message: `Aula salva com sucesso!` };
+});
+
+export const deletarAulaPreparo = functions.https.onCall(async (request) => {
+    const { isSuperAdmin, db, user } = await validarUsuario(request);
+
+    const { aulaId, licaoId } = request.data;
+
+    if (!aulaId || !licaoId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes"
+        );
+    }
+
+    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
+    const aulaRef = licaoRef.collection("aulas").doc(aulaId);
+    const [aulaSnap, licaoSnap] = await Promise.all([
+        aulaRef.get(),
+        licaoRef.get(),
+    ]);
+
+    if (!aulaSnap.exists || !licaoSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Lição ou aula não foram encontrados"
+        );
+    }
+
+    if (!isSuperAdmin || licaoSnap.data()?.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso."
+        );
+    }
+
+    const status_aulas = {
+        ...licaoSnap.data()!.status_aulas,
+        [String(aulaId)]: false,
+    };
+
+    const ultima_aula = Object.entries(status_aulas).reduce(
+        (prev, [aula, status]) =>
+            status && Number(aula) > prev ? Number(aula) : prev,
+        0
+    );
+
+    await licaoRef.update({
+        status_aulas,
+        ultima_aula: ultima_aula
+            ? licaoRef.collection("aulas").doc(String(ultima_aula))
+            : null,
+    });
+    await aulaRef.update({
+        link_youtube: null,
+        titulo_aula: null,
+        realizado: false,
+    });
+    const visualizacoesDocs = await aulaRef.collection("visualizacoes").get();
+    await Promise.all(visualizacoesDocs.docs.map((v) => v.ref.delete()));
+
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "DELETAR_AULA_PREPARO",
+        message: `Aula deletada com sucesso por ${user.uid}`,
+    };
+    console.log(JSON.stringify(notificacao));
+
+    return { message: `Aula deletada com sucesso!` };
+});
+
+export const registrarVisualizacao = functions.https.onCall(async (request) => {
+    const { db, user, isSuperAdmin } = await validarUsuario(request);
+
+    if (user.role === Roles.SECRETARIO_CLASSE || isSuperAdmin) {
+        return {
+            message: "Você não pode registrar uma visualização nesse vídeo",
+        };
+    }
+
+    const { licaoId, aulaId } = request.data;
+
+    if (!licaoId || !aulaId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes"
+        );
+    }
+
+    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
+    const aulaRef = licaoRef.collection("aulas").doc(aulaId);
+
+    const [licaoSnap, aulaSnap] = await Promise.all([
+        licaoRef.get(),
+        aulaRef.get(),
+    ]);
+
+    if (!licaoSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Lição não encontrada"
+        );
+    } else if (!aulaSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Aula não encontrada"
+        );
+    }
+
+    const dadosParaSalvar = {
+        nome: user.nome,
+        igreja: user.igrejaNome,
+        classe: user.classeNome,
+        ultima_visualizacao: Timestamp.now(),
+    };
+
+    const registroRef = aulaRef.collection("visualizacoes").doc(user.uid);
+    const registroSnap = await registroRef.get();
+
+    if (registroSnap.exists) {
+        await registroRef.update({
+            ...dadosParaSalvar,
+            contagem_visualizacoes: FieldValue.increment(1),
+        });
+        const notificacao: Notificacao = {
+            actor: {
+                email: user.email,
+                uid: user.uid,
+                ip: request.rawRequest.ip,
+            },
+            dados: {
+                dados_enviados: request.data,
+                dados_importantes: dadosParaSalvar,
+            },
+            evento: "REGISTRAR_VISUALIZACAO",
+            message: `Visualização do usuário ${user.uid} atualizada com sucesso!`,
+        };
+        console.log(JSON.stringify(notificacao));
+
+        return { message: "Visualização contabilizada com sucesso" };
+    }
+
+    await registroRef.create({ ...dadosParaSalvar, contagem_visualizacoes: 1 });
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: dadosParaSalvar,
+        },
+        evento: "REGISTRAR_VISUALIZACAO",
+        message: `Visualização do usuário ${user.uid} contabilizada com sucesso!`,
+    };
+    console.log(JSON.stringify(notificacao));
+
+    return { message: "Visualização contabilizada com sucesso" };
+});
+
+export const getVisualizacoes = functions.https.onCall(async (request) => {
+    const { db, user, isSuperAdmin } = await validarUsuario(request);
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso."
+        );
+    }
+
+    const { aulaId, licaoId } = request.data;
+    if (!aulaId || !licaoId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes"
+        );
+    }
+
+    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
+    const aulaRef = licaoRef.collection("aulas").doc(aulaId);
+    const visualizacoesRef = aulaRef.collection("visualizacoes");
+
+    const [licaoSnap, aulaSnap, viewsSnap] = await Promise.all([
+        licaoRef.get(),
+        aulaRef.get(),
+        visualizacoesRef.get(),
+    ]);
+
+    if (!licaoSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Lição não encontrada."
+        );
+    } else if (!aulaSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Aula não encontrada."
+        );
+    }
+
+    const usuariosSnaps = await db
+        .collection("usuarios")
+        .where("ministerioId", "==", user.ministerioId)
+        .where("role", "in", [
+            Roles.PASTOR,
+            Roles.PROFESSOR,
+            Roles.SECRETARIO_CONGREGACAO,
+        ])
+        .get();
+
+    const viewsMap = new Map(viewsSnap.docs.map((v) => [v.id, v.data()]));
+    const usuariosMap = new Map();
+
+    usuariosSnaps.docs.forEach((v) => {
+        const usuario = v.data() as User;
+        const view = viewsMap.get(usuario.uid) || {
+            classe: usuario.classeNome,
+            contagem_visualizacoes: 0,
+            igreja: usuario.igrejaNome,
+            nome: usuario.nome,
+            ultima_visualizacao: null,
+        };
+
+        const obj = usuariosMap.get(usuario.igrejaId) || [];
+        obj.push(view);
+
+        usuariosMap.set(usuario.igrejaId, obj);
+    });
+
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "GET_VISUALIZACOES",
+        message: "Mensagens geradas com sucesso",
+    };
+    console.log(JSON.stringify(notificacao));
+
+    return Object.fromEntries(usuariosMap.entries());
+});
+
+export const getLicoesPreparo = functions.https.onCall(async (request) => {
+    const { db, user } = await validarUsuario(request);
+
+    if (user.role === Roles.SECRETARIO_CLASSE) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para isso"
+        );
+    }
+
+    const aulasDocs = await db
+        .collection("licoes_preparo")
+        .where("ministerioId", "==", user.ministerioId)
+        .orderBy("data_inicio", "desc")
+        .limit(10)
+        .get();
+
+    if (aulasDocs.empty) return [];
+
+    const aulas = aulasDocs.docs.map((v) => {
+        const id = v.id;
+        const data = v.data();
+        const aulas = Object.entries(data?.status_aulas || {}).map(
+            ([id, status]) => ({ id, nome: id, status })
+        );
+
+        return {
+            id,
+            nome: `${data?.titulo || "Sem título"} - ${
+                data?.trimestre || 1
+            }º Trimestre de ${data?.data_inicio.toDate().getFullYear()}`,
+            aulas,
+        };
+    });
+
+    console.log("Aulas geradas com sucesso pelo usuário " + user.uid);
+    return aulas;
 });
