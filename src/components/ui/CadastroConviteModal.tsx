@@ -142,6 +142,10 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                             v.id !== ROLES.SUPER_ADMIN
                     )
                 );
+            if (user.role === ROLES.SUPER_ADMIN)
+                setRoles(
+                    ROLES_LIST.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE)
+                );
         }
     }, [user]);
     return (

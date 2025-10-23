@@ -78,6 +78,7 @@ function PreparoAula() {
     );
     const [currentAulaId, setCurrentAulaId] = useState<string | null>(null);
     const [listaLicoes, setListaLicoes] = useState<LicoesDropdown[]>([]);
+    const [isLoadingVideo, setIsLoadingVideo] = useState(true);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
         title: string;
@@ -563,24 +564,26 @@ function PreparoAula() {
 
                     {aula.realizado ? (
                         <div className="preparo-aula__video-container">
+                            {isLoadingVideo && (
+                                <div className="video-loader"></div>
+                            )}
                             <YouTube
                                 videoId={aula.link_youtube?.slice(
                                     aula.link_youtube.lastIndexOf("/") + 1,
                                     aula.link_youtube.lastIndexOf("?")
                                 )}
-                                opts={{
-                                    playerVars: {
-                                        autoplay: 0,
-                                        modestbranding: 1,
-                                        rel: 0,
-                                    },
-                                }}
                                 onPlay={() => {
                                     if (!jaViu.current) {
                                         countVisualizacao();
                                         jaViu.current = true;
                                     }
                                 }}
+                                onReady={() =>
+                                    setTimeout(
+                                        () => setIsLoadingVideo(false),
+                                        500
+                                    )
+                                }
                             />
                         </div>
                     ) : (

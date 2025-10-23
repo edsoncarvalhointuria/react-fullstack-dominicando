@@ -490,13 +490,6 @@ interface Membro {
 export const salvarMembro = functions.https.onCall(async (request) => {
     const { db, user, isSecretario, isAdmin } = await validarUsuario(request);
 
-    if (isSecretario) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso"
-        );
-    }
-
     const { dados, igrejaId, membroId } = request.data as MembroFront;
 
     if (!igrejaId || !dados) {
@@ -507,6 +500,12 @@ export const salvarMembro = functions.https.onCall(async (request) => {
     }
 
     const igreja = await db.collection("igrejas").doc(igrejaId).get();
+    if (isSecretario || user.ministerioId !== igreja.data()?.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso"
+        );
+    }
 
     const dadosParaSalvar: Membro = {
         contato: dados.contato || null,
@@ -599,6 +598,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
         );
     }
     if (
+        membroSnap.data()?.ministerioId !== user.ministerioId ||
         (isAdmin && membroSnap.data()?.igrejaId !== user.igrejaId) ||
         isSecretario
     ) {
@@ -725,6 +725,12 @@ export const salvarAluno = functions.https.onCall(async (request) => {
             "Igreja não encontrada"
         );
     }
+    if (igreja.data()?.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão par isso"
+        );
+    }
 
     const aluno = {
         ...dadosAtualizados,
@@ -849,7 +855,10 @@ export const deletarAluno = functions.https.onCall(async (request) => {
             "Aluno não encontrado"
         );
     }
-    if (!isSuperAdmin && alunosSnap.data()?.igrejaId !== user.igrejaId) {
+    if (
+        (!isSuperAdmin && alunosSnap.data()?.igrejaId !== user.igrejaId) ||
+        alunosSnap.data()?.ministerioId !== user.ministerioId
+    ) {
         throw new functions.https.HttpsError(
             "permission-denied",
             "Você não tem permissão para isso"
@@ -1010,6 +1019,12 @@ export const salvarClasse = functions.https.onCall(async (request) => {
             "Igreja não encontrada"
         );
     }
+    if (igreja.data()!.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso"
+        );
+    }
 
     const dadosAtualizados = {
         igrejaId,
@@ -1150,7 +1165,8 @@ export const deletarClasse = functions.https.onCall(async (request) => {
 
     if (
         isSecretario ||
-        (!isSuperAdmin && classeSnap.data()!.igrejaId !== user.igrejaId)
+        (!isSuperAdmin && classeSnap.data()!.igrejaId !== user.igrejaId) ||
+        (isSuperAdmin && classeSnap.data()!.ministerioId !== user.ministerioId)
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
@@ -1852,9 +1868,17 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         );
     }
 
+    const igreja = await db.collection("igrejas").doc(igrejaId).get();
+    if (!igreja.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Igreja não encontrada."
+        );
+    }
     const naoPodeCriar =
         (!isSuperAdmin && igrejaId !== user.igrejaId) ||
-        (isSecretario && classeId !== user.classeId);
+        (isSecretario && classeId !== user.classeId) ||
+        (isSuperAdmin && user.ministerioId !== igreja.data()?.ministerioId);
     if (naoPodeCriar) {
         throw new functions.https.HttpsError(
             "permission-denied",
@@ -1867,13 +1891,6 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         throw new functions.https.HttpsError(
             "not-found",
             "Classe inválida ou não pertence à igreja selecionada."
-        );
-    }
-    const igreja = await db.collection("igrejas").doc(igrejaId).get();
-    if (!igreja.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada."
         );
     }
 
@@ -2218,7 +2235,8 @@ export const deletarLicao = functions.https.onCall(async (request) => {
 
     if (
         (!isSuperAdmin && licaoSnap.data()?.igrejaId !== user.igrejaId) ||
-        (isSecretario && licaoSnap.data()?.classeId !== user.classeId)
+        (isSecretario && licaoSnap.data()?.classeId !== user.classeId) ||
+        (isSuperAdmin && licaoSnap.data()?.ministerioId !== user.ministerioId)
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
@@ -2227,9 +2245,7 @@ export const deletarLicao = functions.https.onCall(async (request) => {
     }
 
     try {
-        const batch = db.batch();
-
-        batch.delete(licaoRef);
+        const refs = [licaoRef];
 
         const aulasRef = licaoRef.collection("aulas");
         const matriculasRef = db
@@ -2245,35 +2261,48 @@ export const deletarLicao = functions.https.onCall(async (request) => {
             registrosRef.get(),
         ]);
 
-        aulasSnap.docs.forEach((v) => batch.delete(v.ref));
-        matriculasSnap.docs.forEach((v) => batch.delete(v.ref));
-        registrosSnap.docs.forEach((v) => batch.delete(v.ref));
+        aulasSnap.docs.forEach((v) => refs.push(v.ref));
+        matriculasSnap.docs.forEach((v) => refs.push(v.ref));
+        registrosSnap.docs.forEach((v) => refs.push(v.ref));
 
         const chamadasRefs = await Promise.all(
-            registrosSnap.docs.map(async (v) =>
-                v.ref.collection("chamada").get()
-            )
+            registrosSnap.docs.map((v) => v.ref.collection("chamada").get())
         );
 
-        const chamadas: any[] = [];
-        chamadasRefs.forEach((v) =>
-            v.docs.forEach((c) => {
-                chamadas.push(c.ref);
-            })
-        );
-        const newBatch = db.batch();
+        chamadasRefs.forEach((v) => v.docs.forEach((c) => refs.push(c.ref)));
+
+        let batch = db.batch();
         let count = 0;
-        for (let ref of chamadas) {
-            newBatch.delete(ref);
-            count += 1;
+        if (licaoSnap.data()?.ativo) {
+            const ultimaLicao = await db
+                .collection("licoes")
+                .where("classeId", "==", licaoSnap.data()?.classeId)
+                .where(
+                    admin.firestore.FieldPath.documentId(),
+                    "!=",
+                    licaoSnap.id
+                )
+                .orderBy("data_inicio", "desc")
+                .limit(1)
+                .get();
+            if (!ultimaLicao.empty) {
+                batch.update(ultimaLicao.docs[0].ref, { ativo: true });
+                count++;
+            }
+        }
+        const batchs = [batch];
+        for (let ref of refs) {
+            batch.delete(ref);
+            count++;
 
             if (count >= 499) {
-                await newBatch.commit();
+                batch = db.batch();
+                batchs.push(batch);
                 count = 0;
             }
         }
 
-        await Promise.all([batch.commit(), newBatch.commit()]);
+        await Promise.all(batchs.map((v) => v.commit()));
 
         const notificao: Notificacao = {
             evento: "DELETAR_LICAO",

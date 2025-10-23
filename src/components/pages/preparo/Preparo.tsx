@@ -78,7 +78,7 @@ function Preparo() {
             navigate(`licao/${licaoId}/aula/${aulaId}`);
         };
 
-        getCurrentLicao().finally(() => setIsLoading(false));
+        getCurrentLicao();
     }, [user]);
     useEffect(() => {
         if (!isSuperAdmin.current) return;
@@ -126,7 +126,7 @@ function Preparo() {
         return () => window.removeEventListener("popstate", popstate);
     }, [user, update]);
 
-    if (isLoading) <Loading />;
+    if (isLoading) return <Loading />;
     return (
         <>
             <div className="preparo">

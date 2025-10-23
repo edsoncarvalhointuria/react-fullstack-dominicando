@@ -27,20 +27,42 @@ function LicoesGrid({
     onUpdate: () => void;
 }) {
     const TOTAL_ITENS = 6;
-    const [itens, setItens] = useState(revistas);
     const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(
         null
     );
     const [newTrimestre, setNewTrimestre] = useState(false);
     const [editLicao, setEditLicao] = useState<LicaoInterface | null>(null);
     const [paginaAtual, setPaginaAtual] = useState(1);
+    const [pesquisa, setPesquisa] = useState("");
+    const itensMemo = useMemo(() => {
+        let i = revistas;
+        if (pesquisa)
+            i = i.filter(
+                (v) =>
+                    v.titulo.toLocaleLowerCase().includes(pesquisa) ||
+                    `${v?.numero_trimestre || 1} trimestre de ${v.data_inicio
+                        .toDate()
+                        .getFullYear()}`.includes(pesquisa) ||
+                    v.data_inicio
+                        .toDate()
+                        .toLocaleDateString("pt-BR")
+                        .includes(pesquisa) ||
+                    v.data_fim
+                        .toDate()
+                        .toLocaleDateString("pt-BR")
+                        .includes(pesquisa) ||
+                    v.id === pesquisa
+            );
+
+        return i;
+    }, [pesquisa]);
     const itensPaginados = useMemo(() => {
         const indice = (paginaAtual - 1) * TOTAL_ITENS;
         const ultimoIndice = indice + TOTAL_ITENS;
-        return itens.slice(indice, ultimoIndice);
-    }, [itens, paginaAtual]);
+        return itensMemo.slice(indice, ultimoIndice);
+    }, [itensMemo, paginaAtual]);
 
-    const totalPaginas = Math.ceil(itens.length / TOTAL_ITENS);
+    const totalPaginas = Math.ceil(itensMemo.length / TOTAL_ITENS);
     useEffect(() => {
         const popstate = () => {
             setNewTrimestre(false);
@@ -80,34 +102,7 @@ function LicoesGrid({
                         </div>
 
                         <SearchInput
-                            onSearch={(texto: string) => {
-                                setItens(
-                                    revistas.filter(
-                                        (v) =>
-                                            v.titulo
-                                                .toLocaleLowerCase()
-                                                .includes(
-                                                    texto.toLocaleLowerCase()
-                                                ) ||
-                                            `${
-                                                v?.numero_trimestre || 1
-                                            } trimestre de ${v.data_inicio
-                                                .toDate()
-                                                .toLocaleDateString("pt-BR", {
-                                                    year: "numeric",
-                                                })}`.includes(texto) ||
-                                            v.data_inicio
-                                                .toDate()
-                                                .toLocaleDateString("pt-BR")
-                                                .includes(texto) ||
-                                            v.data_fim
-                                                .toDate()
-                                                .toLocaleDateString("pt-BR")
-                                                .includes(texto) ||
-                                            v.id === texto
-                                    )
-                                );
-                            }}
+                            onSearch={(texto: string) => setPesquisa(texto)}
                             texto="Revista"
                         />
                     </div>

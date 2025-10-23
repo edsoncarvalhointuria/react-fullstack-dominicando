@@ -66,7 +66,14 @@ function Aulas() {
             1
         );
 
-        setLicoes([...licaoAtiva, ...licoes]);
+        setLicoes([
+            ...licaoAtiva,
+            ...licoes.sort(
+                (a, b) =>
+                    (b.data_inicio.toDate() as any) -
+                    (a.data_inicio.toDate() as any)
+            ),
+        ]);
     };
     const pastorPresidente = () => {
         if (!igrejaId)
