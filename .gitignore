@@ -27,11 +27,10 @@ dist-ssr
 .env.*
 !.env.example
 
-public
 serviceAccountKey.json
-.public/sw-v2.js
-.public/sw-v3.js
-public/firebase-messaging-sw.js
+sw-v2.js
+sw-v3.js
+firebase-messaging-sw.js
 .firebase/
 firebase.ts
 sw.ts
