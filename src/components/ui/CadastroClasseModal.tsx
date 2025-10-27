@@ -104,7 +104,7 @@ function CadastroClasseModal({
 
     return (
         <>
-            <div
+            <motion.div
                 className="classe-modal-overlay"
                 ref={$container}
                 onClick={onCancel}
@@ -287,7 +287,7 @@ function CadastroClasseModal({
                         </form>
                     </FormProvider>
                 </motion.div>
-            </div>
+            </motion.div>
             <AlertModal
                 isOpen={!!mensagemErro}
                 message={mensagemErro}

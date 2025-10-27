@@ -2,6 +2,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import "./igrejas.scss";
 import {
     faFeather,
+    faFileCsv,
     faPlus,
     faThumbsUp,
 } from "@fortawesome/free-solid-svg-icons";
@@ -18,6 +19,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import { getOrdem } from "../../../utils/getOrdem";
 import OrderInput from "../../ui/OrderInput";
+import ImportarCSVModal from "../../ui/ImportarCSVModal";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -33,6 +35,7 @@ const variantsContainer: Variants = {
 
 const functions = getFunctions();
 const deletarIgreja = httpsCallable(functions, "deletarIgreja");
+const salvarIgrejaCSV = httpsCallable(functions, "salvarIgrejaCSV");
 
 function Igrejas() {
     const OPTIONS = [
@@ -44,10 +47,12 @@ function Igrejas() {
             placeholder: "",
         },
     ];
+    const COLUNAS = ["nome"];
     const { isSuperAdmin } = useAuthContext();
     const { igrejas, isLoadingData, refetchData } = useDataContext();
     const [editIgreja, setEditIgreja] = useState("");
     const [addIgreja, setAddIgreja] = useState(false);
+    const [importCSV, setImportCSV] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [ordemColuna, setOrdemColuna] = useState("");
     const [pesquisa, setPesquisa] = useState("");
@@ -88,6 +93,7 @@ function Igrejas() {
             });
         } finally {
             setIsLoading(false);
+            setPesquisa("");
         }
     };
 
@@ -119,15 +125,27 @@ function Igrejas() {
                         <div className="igrejas-page__title">
                             <h2>Gestão de Igrejas</h2>
                         </div>
-                        <div className="igrejas-page__button">
+                        <div className="igrejas-page__buttons">
                             <button
                                 title="Cadastrar nova igreja"
                                 onClick={() => setAddIgreja(true)}
+                                className="igrejas-page__buttons--cadastro"
                             >
                                 <span>
                                     <FontAwesomeIcon icon={faPlus} />
                                 </span>
                                 Cadastrar nova igreja
+                            </button>
+
+                            <button
+                                title="Importar CSV"
+                                className="igrejas-page__buttons--csv"
+                                onClick={() => setImportCSV(true)}
+                            >
+                                <span>
+                                    <FontAwesomeIcon icon={faFileCsv} />
+                                </span>
+                                Importar CSV
                             </button>
                         </div>
                     </div>
@@ -227,6 +245,16 @@ function Igrejas() {
                             refetchData();
                             setEditIgreja("");
                         }}
+                    />
+                )}
+
+                {importCSV && (
+                    <ImportarCSVModal
+                        key={"importar-csv-modal"}
+                        onCancel={() => setImportCSV(false)}
+                        listaColunas={COLUNAS}
+                        firebaseFunction={salvarIgrejaCSV}
+                        onSave={refetchData}
                     />
                 )}
 

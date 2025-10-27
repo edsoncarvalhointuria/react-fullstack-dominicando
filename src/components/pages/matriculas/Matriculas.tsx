@@ -179,6 +179,7 @@ function Matriculas() {
             });
         } finally {
             setIsLoading(false);
+            setPesquisa("");
         }
     };
 

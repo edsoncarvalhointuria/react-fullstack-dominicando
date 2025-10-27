@@ -43,7 +43,12 @@
         }
     }
 
-    &__button {
+    &__buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
         button {
             display: flex;
             align-items: center;
@@ -51,12 +56,15 @@
             padding: 1rem 2rem;
             border: none;
             border-radius: 0.8rem;
-            background-color: v.$cor-primaria-itens;
-            color: white;
             font-size: 1.5rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease-out;
+        }
+
+        &--cadastro {
+            background-color: v.$cor-primaria-itens;
+            color: white;
 
             &:hover {
                 background-color: color.scale(
@@ -65,6 +73,21 @@
                 );
                 transform: translateY(-2px);
                 box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            }
+        }
+        &--csv {
+            background-color: v.$cor-primaria-fundo;
+            color: v.$cor-primaria-texto;
+            border: 1px solid #d1d5db;
+
+            &:hover {
+                transform: translateY(-2px);
+                border-color: v.$cor-primaria-itens;
+                color: v.$cor-primaria-itens;
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $alpha: -90%
+                );
             }
         }
     }

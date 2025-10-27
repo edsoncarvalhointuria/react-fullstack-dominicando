@@ -199,13 +199,7 @@ function PreparoAula() {
                             link_youtube: aulaData.link_youtube!,
                             titulo_aula: aulaData.titulo_aula!,
                         });
-
-                        // setTimeout(
-                        //     () =>
-                        //         window.scroll({ top: 500, behavior: "smooth" }),
-                        //     1000
-                        // );
-                    }
+                    } else setIsOpenCadastro(true);
                 } else console.log("Aula não encontrada!");
             } catch (error) {
                 console.error("deu esse erro:", error);

@@ -112,7 +112,7 @@ function AuthContext({ children }: { children: ReactNode }) {
             return console.log("Permissão não concedida");
         }
         const { getMessaging, getToken } = await import("firebase/messaging");
-        await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+        await navigator.serviceWorker.register("/firebase-messaging-sw-v2.js");
 
         const registration = await navigator.serviceWorker.ready;
 

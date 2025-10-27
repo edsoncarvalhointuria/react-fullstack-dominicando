@@ -486,6 +486,17 @@ interface Membro {
     alunoId?: string | null;
 }
 
+interface MembrosCSVFront {
+    csv: {
+        nome_completo: string;
+        data_nascimento: string;
+        contato: string;
+        registro: string;
+        validade: string;
+    }[];
+    igrejaId: string;
+}
+
 // Membros
 export const salvarMembro = functions.https.onCall(async (request) => {
     const { db, user, isSecretario, isAdmin } = await validarUsuario(request);
@@ -647,6 +658,120 @@ export const deletarMembro = functions.https.onCall(async (request) => {
         );
     }
 });
+export const salvarMembroCSV = functions.https.onCall(async (request) => {
+    const { db, isSecretario, user } = await validarUsuario(request);
+
+    const { igrejaId, csv } = request.data as MembrosCSVFront;
+    if (!igrejaId || !csv || !csv.length) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados invalidos ou ausentes"
+        );
+    }
+
+    const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+    if (!igrejaSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Igreja não encontrada"
+        );
+    }
+
+    const igreja = igrejaSnap.data() as Igreja;
+
+    if (isSecretario || igreja.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para isso"
+        );
+    }
+
+    let batch = db.batch();
+    const batches = [batch];
+    let count = 0;
+
+    const membrosComErro: string[] = [];
+    csv.forEach((v) => {
+        const { nome_completo, data_nascimento, contato, registro, validade } =
+            v;
+        const [dia, mes, ano] = data_nascimento.split("/");
+        const [_, mesValidade, anoValidade] = validade.split("/");
+        if (!nome_completo) return;
+        if (
+            !dia ||
+            !mes ||
+            !ano ||
+            Number.isNaN(Number(dia)) ||
+            Number.isNaN(Number(mes)) ||
+            Number.isNaN(Number(ano))
+        )
+            return membrosComErro.push(nome_completo);
+
+        const nascimento = Timestamp.fromDate(
+            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0)
+        );
+        const validadeMembro =
+            !Number.isNaN(Number(mesValidade)) &&
+            !Number.isNaN(Number(anoValidade))
+                ? Timestamp.fromDate(
+                      new Date(
+                          Number(anoValidade),
+                          Number(mesValidade) - 1,
+                          1,
+                          12,
+                          0,
+                          0,
+                          0
+                      )
+                  )
+                : null;
+        const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
+        batch.set(db.collection("membros").doc(), {
+            alunoId: null,
+            contato: regex.test(contato) ? contato : null,
+            data_nascimento: nascimento,
+            igrejaId,
+            igrejaNome: igreja.nome,
+            ministerioId: user.ministerioId,
+            nome_completo,
+            registro,
+            validade: validadeMembro,
+        });
+        count++;
+        if (count >= 499) {
+            batch = db.batch();
+            batches.push(batch);
+            count = 0;
+        }
+
+        return;
+    });
+
+    await Promise.all(batches.map((v) => v.commit()));
+
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "SALVAR_MEMBROS_CSV",
+        message: `Membros cadastrados com sucesso pelo usuário: ${user.uid}`,
+    };
+    console.log(JSON.stringify(notificacao));
+    console.log(`Membros cadastrados com sucesso pelo usuário: ${user.uid}`);
+    return {
+        message: membrosComErro.length
+            ? `Os membros a seguir não foram cadastrados devido a erros no arquivo: ${membrosComErro.join(
+                  ","
+              )}`
+            : "Membros cadastrados com sucesso!",
+    };
+});
 
 // --- Aluno ---
 interface AlunoFront {
@@ -655,6 +780,10 @@ interface AlunoFront {
     contato: string;
     isMembro: boolean;
     membroId?: string;
+}
+interface AlunoCSVFront {
+    csv: { nome_completo: string; data_nascimento: string; contato: string }[];
+    igrejaId: string;
 }
 
 export const salvarAluno = functions.https.onCall(async (request) => {
@@ -976,6 +1105,103 @@ export const deletarAluno = functions.https.onCall(async (request) => {
         );
     }
 });
+export const salvarAlunosCSV = functions.https.onCall(async (request) => {
+    const { db, isSecretario, user } = await validarUsuario(request);
+
+    const { csv, igrejaId } = request.data as AlunoCSVFront;
+    if (!igrejaId || !csv || !csv.length) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes"
+        );
+    }
+
+    const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+
+    if (!igrejaSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Igreja não encontrada"
+        );
+    }
+
+    const igreja = igrejaSnap.data() as Igreja;
+
+    if (isSecretario || igreja.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso"
+        );
+    }
+
+    let batch = db.batch();
+    const batches = [batch];
+    let count = 0;
+
+    const alunosComErro: string[] = [];
+    csv.forEach((v) => {
+        const { nome_completo, data_nascimento, contato } = v;
+        const [dia, mes, ano] = data_nascimento.split("/");
+        if (!nome_completo) return;
+        if (
+            !dia ||
+            !mes ||
+            !ano ||
+            Number.isNaN(Number(dia)) ||
+            Number.isNaN(Number(mes)) ||
+            Number.isNaN(Number(ano))
+        )
+            return alunosComErro.push(nome_completo);
+
+        const nascimento = Timestamp.fromDate(
+            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0)
+        );
+        const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
+        batch.set(db.collection("alunos").doc(), {
+            contato: regex.test(contato) ? contato : null,
+            data_nascimento: nascimento,
+            igrejaId,
+            igrejaNome: igreja.nome,
+            isMembro: false,
+            membroId: null,
+            ministerioId: user.ministerioId,
+            nome_completo,
+        });
+        count++;
+        if (count >= 499) {
+            batch = db.batch();
+            batches.push(batch);
+            count = 0;
+        }
+
+        return;
+    });
+
+    await Promise.all(batches.map((v) => v.commit()));
+
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "SALVAR_ALUNOS_CSV",
+        message: `Alunos cadastrados com sucesso pelo usuário: ${user.uid}`,
+    };
+    console.log(JSON.stringify(notificacao));
+    console.log(`Alunos cadastrados com sucesso pelo usuário: ${user.uid}`);
+    return {
+        message: alunosComErro.length
+            ? `Os alunos a seguir não foram cadastrados devido a erros no arquivo: ${alunosComErro.join(
+                  ","
+              )}`
+            : "Alunos cadastrados com sucesso!",
+    };
+});
 
 // Classe
 interface ClasseFront {
@@ -987,6 +1213,11 @@ interface ClasseFront {
 interface Classe extends ClasseFront {
     igrejaNome: string;
     ministerioId: string;
+}
+
+interface ClasseCSVFront {
+    csv: { nome: string; idade_minima: string; idade_maxima: string }[];
+    igrejaId: string;
 }
 
 export const salvarClasse = functions.https.onCall(async (request) => {
@@ -1230,6 +1461,96 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         );
     }
 });
+export const salvarClasseCSV = functions.https.onCall(async (request) => {
+    const { db, isSecretario, user } = await validarUsuario(request);
+
+    const { csv, igrejaId } = request.data as ClasseCSVFront;
+    if (!igrejaId || !csv || !csv.length) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes."
+        );
+    }
+
+    const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+    if (!igrejaSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Igreja não encontrada;"
+        );
+    }
+    const igreja = { id: igrejaSnap.id, ...igrejaSnap.data() } as any;
+
+    if (isSecretario || igreja!.ministerioId != user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso"
+        );
+    }
+
+    let batch = db.batch();
+    const batches = [batch];
+    let count = 0;
+
+    const foraDaFaixa: string[] = [];
+
+    csv.forEach((v) => {
+        const { idade_maxima, idade_minima, nome } = v;
+        const idadeMaxima =
+            idade_maxima && !Number.isNaN(Number(idade_maxima))
+                ? Number(idade_maxima)
+                : null;
+        const idadeMinima =
+            idade_minima && !Number.isNaN(Number(idade_minima))
+                ? Number(idade_minima)
+                : null;
+        if (!nome) return;
+        if (idadeMaxima && idadeMinima && idadeMinima > idadeMaxima)
+            return foraDaFaixa.push(nome);
+
+        batch.set(db.collection("classes").doc(), {
+            nome,
+            idade_maxima: idadeMaxima,
+            idade_minima: idadeMinima,
+            igrejaId,
+            igrejaNome: igreja!.nome,
+            ministerioId: user.ministerioId,
+        });
+        count++;
+
+        if (count >= 499) {
+            batch = db.batch();
+            batches.push(batch);
+            count = 0;
+        }
+        return;
+    });
+
+    await Promise.all(batches.map((v) => v.commit()));
+
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "SALVAR_CLASSE_CSV",
+        message: `Classes cadastradas com sucesso pelo usuário: ${user.uid}`,
+    };
+    console.log(JSON.stringify(notificacao));
+    console.log(`Classes cadastradas com sucesso pelo usuário: ${user.uid}`);
+    return {
+        message: foraDaFaixa.length
+            ? `As classes a seguir estavam com a faixa etária inválida: ${foraDaFaixa.join(
+                  ","
+              )}`
+            : "Classes cadastradas com sucesso!",
+    };
+});
 
 // Igreja
 interface IgrejaFront {
@@ -1238,6 +1559,11 @@ interface IgrejaFront {
 interface Igreja {
     nome: string;
     ministerioId: string;
+}
+
+interface IgrejaCSVFront {
+    csv: { nome: string }[];
+    igrejaId: undefined;
 }
 
 export const salvarIgreja = functions.https.onCall(async (request) => {
@@ -1528,6 +1854,65 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
             "Houve um erro ao deletar a igreja. Tente novamente"
         );
     }
+});
+export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
+    const { isSuperAdmin, user, db } = await validarUsuario(request);
+
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso."
+        );
+    }
+    const { csv } = request.data as IgrejaCSVFront;
+
+    if (!csv || !csv?.length) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes."
+        );
+    }
+
+    let batch = db.batch();
+    const batchs = [batch];
+    let count = 0;
+
+    csv.forEach((v) => {
+        const { nome } = v;
+        if (!nome) return;
+
+        batch.set(db.collection("igrejas").doc(), {
+            nome,
+            ministerioId: user.ministerioId,
+        });
+        count++;
+
+        if (count >= 499) {
+            batch = db.batch();
+            batchs.push(batch);
+            count = 0;
+        }
+    });
+
+    await Promise.all(batchs.map((v) => v.commit()));
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: [],
+        },
+        evento: "SALVAR_IGREJA_CSV",
+        message: `Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`,
+    };
+    console.log(JSON.stringify(notificacao));
+    console.log(`Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`);
+    return {
+        message: "Igrejas cadastradas com sucesso!",
+    };
 });
 
 // usuario

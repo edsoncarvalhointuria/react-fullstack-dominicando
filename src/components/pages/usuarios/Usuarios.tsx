@@ -135,6 +135,7 @@ function Usuarios() {
             });
         } finally {
             setIsLoading(false);
+            setPesquisa("");
         }
     };
 

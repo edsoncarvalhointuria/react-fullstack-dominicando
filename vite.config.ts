@@ -15,7 +15,7 @@ export default defineConfig({
             // strategies: "injectManifest",
             // srcDir: "src",
             // filename: "firebase-messaging-sw.ts",
-            filename: "firebase-messaging-sw.js",
+            // filename: "firebase-messaging-sw.js",
 
             manifest: {
                 name: "Dominicando",
@@ -47,8 +47,14 @@ export default defineConfig({
                     },
                 ],
             },
+            // workbox: {
+            //     importScripts: ["teste-firebase-messaging-sw.js"],
+            // },
             workbox: {
-                importScripts: ["teste-firebase-messaging-sw.js"],
+                skipWaiting: true,
+                clientsClaim: true,
+                cleanupOutdatedCaches: true,
+                cacheId: "dominicando-v2",
             },
         }),
     ],

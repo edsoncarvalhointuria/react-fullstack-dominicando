@@ -6,6 +6,7 @@ import {
     faCalendar,
     faCalendarCheck,
     faFeather,
+    faFileCsv,
     faPhone,
     faPlus,
     faThumbsUp,
@@ -33,6 +34,7 @@ import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import { getIdade } from "../../../utils/getIdade";
 import { getOrdem } from "../../../utils/getOrdem";
+import ImportarCSVModal from "../../ui/ImportarCSVModal";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -48,6 +50,7 @@ const variantsContainer: Variants = {
 
 const functions = getFunctions();
 const deletarMembro = httpsCallable(functions, "deletarMembro");
+const salvarMembroCSV = httpsCallable(functions, "salvarMembroCSV");
 
 function Membros() {
     const OPTIONS = [
@@ -99,9 +102,17 @@ function Membros() {
             placeholder: "-",
         },
     ];
+    const COLUNAS = [
+        "nome_completo",
+        "data_nascimento",
+        "contato(opcional)",
+        "validade(opcional ou DD/MM/AAAA)",
+        "registro(opcional)",
+    ];
     const [isLoading, setIsLoading] = useState(false);
     const [editMembro, setEditMembro] = useState("");
     const [addMembro, setAddMembro] = useState(false);
+    const [importCSV, setImportCSV] = useState(false);
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
         null
     );
@@ -131,7 +142,7 @@ function Membros() {
     const { user } = useAuthContext();
     const navigate = useNavigate();
 
-    const apagarUsuario = async (membroId: string) => {
+    const apagarMembro = async (membroId: string) => {
         setIsLoading(true);
         setMensagem(null);
 
@@ -155,6 +166,7 @@ function Membros() {
             });
         } finally {
             setIsLoading(false);
+            setPesquisa("");
         }
     };
 
@@ -229,20 +241,31 @@ function Membros() {
                         <h2 className="alunos-page__header-title">
                             Gestão de Membros
                         </h2>
-                        <motion.div
-                            className="alunos-page__cadastrar"
-                            whileTap={{ scale: 0.85 }}
-                        >
-                            <button
-                                onClick={() => setAddMembro(true)}
+                        <div className="alunos-page__cadastrar">
+                            <motion.button
+                                whileTap={{ scale: 0.9 }}
+                                onTap={() => setAddMembro(true)}
                                 disabled={!currentIgreja}
+                                className="alunos-page__cadastrar--cadastro"
                             >
                                 <span>
                                     <FontAwesomeIcon icon={faPlus} />
                                 </span>
                                 Cadastrar novo membro
-                            </button>
-                        </motion.div>
+                            </motion.button>
+                            {!isSecretario.current && (
+                                <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => setImportCSV(true)}
+                                    className="alunos-page__cadastrar--csv"
+                                >
+                                    <span>
+                                        <FontAwesomeIcon icon={faFileCsv} />
+                                    </span>
+                                    Importar CSV
+                                </motion.button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="alunos-page__header-filtros">
@@ -317,7 +340,7 @@ function Membros() {
                                                 </span>
                                             </>
                                         ),
-                                        onConfirm: () => apagarUsuario(v.id),
+                                        onConfirm: () => apagarMembro(v.id),
                                     });
                                 }}
                                 onEdit={(v) => {
@@ -382,18 +405,28 @@ function Membros() {
                         igrejaId={currentIgreja?.id || user?.igrejaId || ""}
                     />
                 )}
-                <AlertModal
-                    key={"alert-modal-membros"}
-                    isOpen={!!mensagem}
-                    message={mensagem?.mensagem}
-                    title={mensagem?.titulo || ""}
-                    onCancel={() => setMensagem(null)}
-                    onClose={() => setMensagem(null)}
-                    onConfirm={() => mensagem?.onConfirm()}
-                    confirmText={mensagem?.confirmText}
-                    icon={mensagem?.icon}
-                />
+
+                {importCSV && (
+                    <ImportarCSVModal
+                        key={"importar-csv-membros"}
+                        listaColunas={COLUNAS}
+                        firebaseFunction={salvarMembroCSV}
+                        onCancel={() => setImportCSV(false)}
+                        onSave={() => setUpdate((v) => !v)}
+                        igreja
+                    />
+                )}
             </AnimatePresence>
+            <AlertModal
+                isOpen={!!mensagem}
+                message={mensagem?.mensagem}
+                title={mensagem?.titulo || ""}
+                onCancel={() => setMensagem(null)}
+                onClose={() => setMensagem(null)}
+                onConfirm={() => mensagem?.onConfirm()}
+                confirmText={mensagem?.confirmText}
+                icon={mensagem?.icon}
+            />
         </>
     );
 }

@@ -132,6 +132,7 @@ function Visitas() {
             });
         } finally {
             setIsLoading(false);
+            setPesquisa("");
         }
     };
 
@@ -218,6 +219,7 @@ function Visitas() {
                             <button
                                 onClick={() => setAddVisita(true)}
                                 disabled={!currentIgreja}
+                                className="alunos-page__cadastrar--cadastro"
                             >
                                 <span>
                                     <FontAwesomeIcon icon={faPlus} />

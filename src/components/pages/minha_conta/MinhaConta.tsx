@@ -10,13 +10,14 @@ import {
     faChalkboardUser,
     faKey,
     faThumbsUp,
-    faBell,
+    faBroom,
 } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import Loading from "../../layout/loading/Loading";
 import AlertModal from "../../ui/AlertModal";
 import { useState, type ReactNode } from "react";
 import { RolesLabel } from "../../../roles/Roles";
+import { limparCache } from "../../../utils/limparCache";
 
 // Interface para os dados do formulário de senha
 interface SenhaForm {
@@ -130,65 +131,18 @@ function MinhaConta() {
 
                 <div className="minha-conta__card">
                     <h2 className="minha-conta__card-title">
-                        <FontAwesomeIcon icon={faBell} />
-                        Notificações
+                        <FontAwesomeIcon icon={faBroom} />
+                        Limpar Cache?
                     </h2>
                     <div className="minha-conta__notificao">
                         <div className="minha-conta__notificao--info">
-                            <p>Permitir Notificação?</p>
-                            <div className="minha-conta__notificao--toggle">
-                                <label htmlFor="minha-conta-toggle"></label>
-                                <input
-                                    type="checkbox"
-                                    id="minha-conta-toggle"
-                                    checked={
-                                        Notification.permission === "granted"
-                                    }
-                                    onChange={() => {
-                                        if (
-                                            Notification.permission ===
-                                            "default"
-                                        )
-                                            Notification.requestPermission();
-                                        else
-                                            setMensagem({
-                                                title: "Permissão já solicitada",
-                                                message: (
-                                                    <>
-                                                        <span>
-                                                            🔔 Parece que você
-                                                            já escolheu uma
-                                                            opção sobre as
-                                                            notificações.
-                                                        </span>
-                                                        <span>
-                                                            Para mudar sua
-                                                            decisão, vá até as
-                                                            configurações do seu
-                                                            navegador e altere a
-                                                            permissão de
-                                                            notificações para
-                                                            este site.
-                                                        </span>
-                                                    </>
-                                                ),
-                                                cancelText: "Cancelar",
-                                                confirmText: "OK",
-                                                onCancel: () =>
-                                                    setMensagem(null),
-                                                onClose: () =>
-                                                    setMensagem(null),
-                                                onConfirm: () =>
-                                                    setMensagem(null),
-                                                icon: (
-                                                    <FontAwesomeIcon
-                                                        icon={faBell}
-                                                    />
-                                                ),
-                                            });
-                                    }}
-                                />
-                            </div>
+                            {/* <p>Limpar Cache?</p> */}
+                            <button
+                                className="minha-conta__submit-btn"
+                                onClick={limparCache}
+                            >
+                                Atualizar App
+                            </button>
                         </div>
                     </div>
                 </div>

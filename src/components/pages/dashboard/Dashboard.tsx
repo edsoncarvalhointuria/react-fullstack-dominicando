@@ -13,7 +13,7 @@ import {
     faSackDollar,
 } from "@fortawesome/free-solid-svg-icons";
 import { useEffect, useRef, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import { useAuthContext } from "../../../context/AuthContext";
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -126,10 +126,11 @@ function Dashboard() {
             !isSuperAdmin.current
                 ? where("igrejaId", "==", user.igrejaId)
                 : where("ministerioId", "==", user.ministerioId),
-            where("ativo", "==", true)
+            where("ativo", "==", true),
+            limit(1)
         );
         const licoes = await getDocs(q);
-        const value = licoes.docs.find((v) => v.data().ativo === true)?.data();
+        const value = licoes.docs[0]?.data();
         let inicio = new Date().toISOString().split("T")[0];
         let fim = new Date().toISOString().split("T")[0];
 
@@ -215,16 +216,16 @@ function Dashboard() {
         if (options.length === 1)
             setCurrentOption({ id: options[0].id, nome: options[0].nome });
     }, [options]);
-    useEffect(() => {
-        const jaViuNotificacao = JSON.parse(
-            localStorage.getItem("jaViuNotificacao") || "false"
-        );
-        const isDefault = Notification.permission === "default";
-        if (!jaViuNotificacao && isDefault) {
-            setShowNotificacao(true);
-            localStorage.setItem("jaViuNotificacao", "true");
-        }
-    }, []);
+    // useEffect(() => {
+    //     const jaViuNotificacao = JSON.parse(
+    //         localStorage.getItem("jaViuNotificacao") || "false"
+    //     );
+    //     const isDefault = Notification?.permission === "default";
+    //     if (!jaViuNotificacao && isDefault) {
+    //         setShowNotificacao(true);
+    //         localStorage.setItem("jaViuNotificacao", "true");
+    //     }
+    // }, []);
     return (
         <motion.section className="dashboard-page">
             <motion.h1

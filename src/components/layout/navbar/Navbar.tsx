@@ -21,11 +21,11 @@ function Navbar() {
                 { texto: "Matriculas", caminho: "/matriculas" },
                 { texto: "Visitas", caminho: "/visitas" },
                 { texto: "Usuários", caminho: "/usuarios" },
-                {
-                    texto: "Notificações",
-                    caminho: "/notificacoes",
-                    professor: true,
-                },
+                // {
+                //     texto: "Notificações",
+                //     caminho: "/notificacoes",
+                //     professor: true,
+                // },
                 { texto: "Comp. PIX", caminho: "/comprovantes" },
             ],
         },

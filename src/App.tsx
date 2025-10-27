@@ -37,7 +37,7 @@ function App() {
     const [promptInstall, setPromptInstall] = useState<any>(null);
     const [showModal, setShowModal] = useState(false);
 
-    const { user, mudarPermissaoNotificacao } = useAuthContext();
+    const { user } = useAuthContext();
     const navigate = useNavigate();
     const location = useLocation();
     const { pathname } = location;
@@ -51,15 +51,16 @@ function App() {
         if (from) navigate(from);
         else navigate("/dashboard");
 
-        if ("permissions" in navigator) {
-            navigator.permissions
-                .query({
-                    name: "notifications",
-                })
-                .then((v) => {
-                    v.onchange = mudarPermissaoNotificacao;
-                });
-        }
+        // if ("permissions" in navigator) {
+        //     navigator.permissions
+        //         .query({
+        //             name: "notifications",
+        //         })
+        //         .then((v) => {
+        //             v.onchange = mudarPermissaoNotificacao;
+        //         })
+        //         .catch((v) => console.log("deu erro", v));
+        // }
 
         // if ("serviceWorker" in navigator) {
         //     const setupOnMessageListener = async () => {
@@ -99,17 +100,18 @@ function App() {
         //     };
         // }
 
-        return () => {
-            if ("permissions" in navigator) {
-                navigator.permissions
-                    .query({
-                        name: "notifications",
-                    })
-                    .then((v) => {
-                        if (v) v.onchange = null;
-                    });
-            }
-        };
+        // return () => {
+        //     if ("permissions" in navigator) {
+        //         navigator.permissions
+        //             .query({
+        //                 name: "notifications",
+        //             })
+        //             .then((v) => {
+        //                 if (v) v.onchange = null;
+        //             }).catch((v)=>console.log('deu esse erri')
+        //             );
+        //     }
+        // };
     }, [user]);
     useEffect(() => {
         const event = (evt: Event) => {

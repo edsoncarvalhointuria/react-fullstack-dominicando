@@ -49,7 +49,7 @@ function Preparo() {
                         .toDate()
                         .toLocaleDateString()
                         .includes(pesquisa) ||
-                    `${v.trimestre} de ${v.data_inicio
+                    `${v.trimestre} trimestre de ${v.data_inicio
                         .toDate()
                         .getFullYear()}`.includes(pesquisa)
             );

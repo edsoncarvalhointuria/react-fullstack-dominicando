@@ -248,7 +248,8 @@ function RelatorioLeitura({
                                     icon={faUserCheck}
                                     label="Total Presentes"
                                     value={
-                                        dados.totais_gerais.total_presentes || 0
+                                        dados.totais_gerais.presentes_chamada ||
+                                        0
                                     }
                                 />
                                 <InfoLinha
@@ -266,6 +267,14 @@ function RelatorioLeitura({
                                     label="Total Ausentes"
                                     value={
                                         dados.totais_gerais.total_ausentes || 0
+                                    }
+                                />
+                                <hr />
+                                <InfoLinha
+                                    icon={faListOl}
+                                    label="Total de Pessoas"
+                                    value={
+                                        dados.totais_gerais.total_presentes || 0
                                     }
                                 />
                                 <hr />
