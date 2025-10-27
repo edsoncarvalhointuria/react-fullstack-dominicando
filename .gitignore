@@ -28,12 +28,12 @@ dist-ssr
 !.env.example
 
 serviceAccountKey.json
-
+public
+.public/sw-v2.js
+.public/sw-v3.js
+public/firebase-messaging-sw.js
 .firebase/
 firebase.ts
 sw.ts
-sw-v2.js
-sw-v3.js
-teste-firebase-messaging-sw.js
 scripts
-firebase-messaging-sw.js
+teste-firebase-messaging-sw.js
