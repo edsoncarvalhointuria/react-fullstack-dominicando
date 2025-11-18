@@ -306,6 +306,7 @@ function Dashboard() {
                     ) : (
                         <>
                             <DashboardCard
+                                withIndex={!isSecretario.current}
                                 value={sum(totalOfertas).toLocaleString(
                                     "pt-BR",
                                     {
@@ -320,6 +321,7 @@ function Dashboard() {
                             />
 
                             <DashboardCard
+                                withIndex={!isSecretario.current}
                                 value={sum(totalMissoes).toLocaleString(
                                     "pt-BR",
                                     {
@@ -334,7 +336,10 @@ function Dashboard() {
                             />
 
                             <DashboardCard
-                                value={sum(totalPresentes).toString()}
+                                withIndex={!isSecretario.current}
+                                value={Math.floor(
+                                    sum(totalPresentes) / totalPresentes.length
+                                ).toString()}
                                 title="Total Presentes"
                                 icon={<FontAwesomeIcon icon={faListCheck} />}
                                 datas={totalPresentes}
@@ -342,13 +347,14 @@ function Dashboard() {
                             />
 
                             <DashboardCard
+                                withIndex={!isSecretario.current}
                                 value={sum(totalMatriculados).toString()}
                                 title="Total Matriculados"
                                 icon={
                                     <FontAwesomeIcon icon={faClipboardCheck} />
                                 }
                                 datas={totalMatriculados}
-                                chartType="area"
+                                chartType="bar"
                             />
 
                             {!isSecretario.current &&
@@ -400,7 +406,10 @@ function Dashboard() {
                                 })()}
 
                             <DashboardCard
-                                value={sum(totalRevistas).toString()}
+                                withIndex={!isSecretario.current}
+                                value={Math.floor(
+                                    sum(totalRevistas) / totalRevistas.length
+                                ).toString()}
                                 title="Total Revistas"
                                 icon={<FontAwesomeIcon icon={faBook} />}
                                 datas={totalRevistas}
@@ -408,7 +417,10 @@ function Dashboard() {
                             />
 
                             <DashboardCard
-                                value={sum(totalBiblias).toString()}
+                                withIndex={!isSecretario.current}
+                                value={Math.floor(
+                                    sum(totalBiblias) / totalBiblias.length
+                                ).toString()}
                                 title="Total Bíblias"
                                 icon={<FontAwesomeIcon icon={faBookBible} />}
                                 datas={totalBiblias}

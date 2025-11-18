@@ -30,6 +30,18 @@ function DadosGeraisChamada({
     const totalVisitas = watch("visitas");
     const { imgsPixOfertas, imgsPixMissoes } = watch();
 
+    const editarNumero = (evt: any, campo: string) => {
+        let value = (evt.target.value || "0").replace(",", ".");
+
+        if (!Number.isNaN(value)) setValue(campo, Number(value));
+        else {
+            value = value.replace(".", ".0");
+
+            if (!Number.isNaN(value)) setValue(campo, Number(value));
+            else setValue(campo, 0);
+        }
+    };
+
     useEffect(() => {
         setValue("visitasLista", visitas);
     }, [visitas]);
@@ -147,7 +159,7 @@ function DadosGeraisChamada({
                     type="number"
                     id="ofertaDinheiro"
                     {...register("ofertaDinheiro", {
-                        valueAsNumber: true,
+                        onBlur: (evt) => editarNumero(evt, "ofertaDinheiro"),
                     })}
                 />
             </div>
@@ -159,7 +171,9 @@ function DadosGeraisChamada({
                     <input
                         type="number"
                         id="ofertaPix"
-                        {...register("ofertaPix", { valueAsNumber: true })}
+                        {...register("ofertaPix", {
+                            onBlur: (evt) => editarNumero(evt, "ofertaPix"),
+                        })}
                     />
                     <button
                         className="chamada-page__filtro__button-new"
@@ -269,7 +283,9 @@ function DadosGeraisChamada({
                 <input
                     type="number"
                     id="missoesDinheiro"
-                    {...register("missoesDinheiro", { valueAsNumber: true })}
+                    {...register("missoesDinheiro", {
+                        onBlur: (evt) => editarNumero(evt, "missoesDinheiro"),
+                    })}
                 />
             </div>
 
@@ -281,7 +297,9 @@ function DadosGeraisChamada({
                     <input
                         type="number"
                         id="missoesPix"
-                        {...register("missoesPix", { valueAsNumber: true })}
+                        {...register("missoesPix", {
+                            onBlur: (evt) => editarNumero(evt, "missoesPix"),
+                        })}
                     />
                     <button
                         className="chamada-page__filtro__button-new"

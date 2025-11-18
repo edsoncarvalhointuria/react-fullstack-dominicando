@@ -52,49 +52,44 @@
         display: inline-block;
     }
 
-    &__status--realizada {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-        font-size: 1.4rem;
-        font-weight: 500;
-        padding: 0.5rem 1rem;
-        border-radius: 2rem;
-        background-color: rgba(v.$cor-sucesso, 0.1);
-        color: v.$cor-sucesso;
-
-        svg {
+    &__status {
+        &--realizada,
+        &--rascunho,
+        &--bloqueado {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             font-size: 1.4rem;
+            font-weight: 600;
+            padding: 0.5rem 1.2rem;
+            border-radius: 2rem;
+            border: none;
+
+            svg {
+                font-size: 1.2rem;
+            }
         }
-    }
 
-    &__status--realizada,
-    &__status--rascunho {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-        font-size: 1.4rem;
-        font-weight: 600;
-        padding: 0.5rem 1.2rem;
-        border-radius: 2rem;
-        border: none;
-    }
+        &--realizada {
+            background-color: rgba(v.$cor-sucesso, 0.1);
+            color: color.scale(v.$cor-sucesso, $lightness: -10%);
+        }
+        &--bloqueado {
+            background-color: rgba(v.$cor-erro, 0.1);
+            color: color.scale(v.$cor-erro, $lightness: -10%);
+        }
 
-    &__status--realizada {
-        background-color: rgba(v.$cor-sucesso, 0.1);
-        color: color.scale(v.$cor-sucesso, $lightness: -10%);
-    }
+        &--rascunho {
+            background-color: rgba(v.$cor-aviso, 0.1);
+            color: color.scale(v.$cor-aviso, $lightness: -20%);
+            cursor: pointer;
+            transition: all 0.2s ease-out;
 
-    &__status--rascunho {
-        background-color: rgba(v.$cor-aviso, 0.1);
-        color: color.scale(v.$cor-aviso, $lightness: -20%);
-        cursor: pointer;
-        transition: all 0.2s ease-out;
-
-        &:hover {
-            background-color: rgba(v.$cor-aviso, 0.2);
-            box-shadow: 0 2px 10px rgba(v.$cor-aviso, 0.2);
-            transform: translateY(-2px);
+            &:hover {
+                background-color: rgba(v.$cor-aviso, 0.2);
+                box-shadow: 0 2px 10px rgba(v.$cor-aviso, 0.2);
+                transform: translateY(-2px);
+            }
         }
     }
 
@@ -203,6 +198,13 @@
 
     form {
         width: 100%;
+
+        &.chamada-page__form--bloqueado {
+            .lista-chamada,
+            .dados-gerais-chamada {
+                pointer-events: none;
+            }
+        }
     }
 
     &__navegacao {

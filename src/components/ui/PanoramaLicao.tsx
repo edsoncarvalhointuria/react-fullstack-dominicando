@@ -2,6 +2,7 @@ import {
     faBook,
     faChartPie,
     faChevronDown,
+    faCoins,
     faFileCsv,
     faUsers,
 } from "@fortawesome/free-solid-svg-icons";
@@ -18,8 +19,10 @@ const getCorDaFrequencia = (porcentagem: number) => {
     return "#10B981";
 };
 
-const CardProgresso = ({ titulo, valor, icone, children }: any) => (
-    <motion.div className="card-progresso">
+const CardProgresso = ({ titulo, valor, icone, children, isCentro }: any) => (
+    <motion.div
+        className={`card-progresso ${isCentro ? "card-progresso--centro" : ""}`}
+    >
         <div className="card-progresso__header">
             <span className="card-progresso__icone">
                 <FontAwesomeIcon icon={icone} />
@@ -207,6 +210,15 @@ function PanoramaLicao({
                             titulo="Alunos Matriculados"
                             icone={faUsers}
                             valor={dados.totalAlunos}
+                        />
+                        <CardProgresso
+                            titulo="Total Arrecadado"
+                            icone={faCoins}
+                            valor={dados.totalArrecadado.toLocaleString(
+                                "pt-BR",
+                                { currency: "BRL", style: "currency" }
+                            )}
+                            isCentro={true}
                         />
                     </div>
 

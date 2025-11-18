@@ -393,15 +393,32 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
         "biblias",
         "licoes_trazidas",
         "ofertas_total",
+        "ofertas",
         "missoes_total",
+        "missoes",
     ];
 
     registrosMap.forEach((r) => {
         colunas.forEach((c) => {
             const item = r[c];
             if (item) {
-                const total = (totaisGeraisMap.get(c) || 0) + Number(item);
-                totaisGeraisMap.set(c, total);
+                if (c === "ofertas" || c === "missoes") {
+                    const keyPix = `${c}_pix`;
+                    const keyDinheiro = `${c}_dinheiro`;
+
+                    const totalPix =
+                        (totaisGeraisMap.get(keyPix) || 0) +
+                        Number(item["pix"]);
+                    const totalDinheiro =
+                        (totaisGeraisMap.get(keyDinheiro) || 0) +
+                        Number(item["dinheiro"]);
+
+                    totaisGeraisMap.set(keyPix, totalPix);
+                    totaisGeraisMap.set(keyDinheiro, totalDinheiro);
+                } else {
+                    const total = (totaisGeraisMap.get(c) || 0) + Number(item);
+                    totaisGeraisMap.set(c, total);
+                }
             }
         });
     });

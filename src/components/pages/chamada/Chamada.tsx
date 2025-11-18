@@ -23,6 +23,7 @@ import {
     faBookOpen,
     faCheck,
     faCircleCheck,
+    faCircleXmark,
     faClock,
     faMountainSun,
     faPlus,
@@ -82,6 +83,7 @@ function ChamadaPage() {
     );
     const [matricularNovoAluno, setMatricularNovoAluno] = useState(false);
     const [isEnviando, setIsEnviando] = useState(false);
+    const [isDataAnterior, setIsDataAnterior] = useState(false);
     const [update, setUpdate] = useState(0);
     const [addVisita, setAddVisita] = useState(false);
     const [editAluno, setEditAluno] = useState("");
@@ -106,7 +108,7 @@ function ChamadaPage() {
     const navigate = useNavigate();
     const { classeId, licaoId, numeroAula, igrejaId } = useParams();
     const { classes, isLoadingData } = useDataContext();
-    const { isSuperAdmin, isAdmin, user } = useAuthContext();
+    const { isSuperAdmin, isAdmin, user, isSecretario } = useAuthContext();
     const rascunhoLocalStorage = `rascunho_chamada_${licaoId}_${numeroAula}`;
 
     const methods = useForm<ChamadaForm>({
@@ -180,8 +182,10 @@ function ChamadaPage() {
         else if (isAdmin.current) navigate(`/aulas/classe/${classeId}`);
         else navigate("/aulas");
     };
-    const onSubmit = async (dados: ChamadaForm) => {
+
+    const save = async (dados: ChamadaForm) => {
         setIsEnviando(true);
+        setMensagem(null);
         salvarVisita({ visitas: dados.visitasLista, igrejaId }).catch((v) =>
             console.log(v)
         );
@@ -192,7 +196,6 @@ function ChamadaPage() {
                     ...pixOfertas.map((v) => ({ file: v, tipo: "ofertas" })),
                 ];
                 const storage = getStorage();
-
                 const arquivosSnap = await Promise.all(
                     itens.map(async (v) => {
                         const caminho = `comprovantes-pix/${licaoId}/${numeroAula}/${v.tipo}/${v.file.name}`;
@@ -204,14 +207,12 @@ function ChamadaPage() {
                         return { tipo: v.tipo, arquivo: arquivoSnap };
                     })
                 );
-
                 const links = await Promise.all(
                     arquivosSnap.map(async (v) => {
                         const link = await getDownloadURL(v.arquivo.ref);
                         return { tipo: v.tipo, link: link };
                     })
                 );
-
                 dados.imgsPixMissoes = [
                     ...links
                         .filter((v) => v.tipo === "missoes")
@@ -225,7 +226,6 @@ function ChamadaPage() {
                     ...(dados?.imgsPixOfertas || []),
                 ];
             }
-
             const envio = {
                 dados: {
                     ...dados,
@@ -265,32 +265,64 @@ function ChamadaPage() {
             setIsEnviando(false);
         }
     };
+
+    const onSubmit = (dados: ChamadaForm) => {
+        if (isEdit.current && isDataAnterior && isSecretario.current) {
+            return setMensagem({
+                message: (
+                    <>
+                        <span>Atenção: esta aula já passou.</span>
+                        <span>
+                            Chamadas de dias anteriores são bloqueadas para
+                            evitar perda de dados.
+                        </span>
+                        <br />
+                        <strong>
+                            Para alterações, fale com a secretaria da igreja.
+                        </strong>
+                    </>
+                ),
+                onCancel: navigateChamadaSalva,
+                onClose: navigateChamadaSalva,
+                onConfirm: navigateChamadaSalva,
+                title: "Edição Bloqueada",
+                confirmText: "Sair",
+                cancelText: "Cancelar",
+                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+            });
+        } else if (isDataAnterior && isEdit.current) {
+            return setMensagem({
+                message: (
+                    <>
+                        <span>
+                            Você está editando a chamada de uma aula já
+                            concluída
+                        </span>
+                        <span>
+                            Salvando agora, os dados originais serão{" "}
+                            <strong>substituídos</strong>.
+                        </span>
+                        <br />
+                        <span>Deseja realmente prosseguir?</span>
+                    </>
+                ),
+                onCancel: () => setMensagem(null),
+                onClose: () => setMensagem(null),
+                onConfirm: () => save(dados),
+                title: "Editar Chamada?",
+                confirmText: "Sim, editar chamada",
+                cancelText: "Cancelar",
+                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+            });
+        } else {
+            save(dados);
+        }
+    };
     const limparFomulario = () => {
         localStorage.removeItem(rascunhoLocalStorage);
         window.location.reload();
     };
 
-    useEffect(() => {
-        try {
-            if (matriculasRef.current && !isEdit.current) {
-                const m = matriculasRef.current
-                    .filter((v) => v.possui_revista)
-                    .map((v) => v.alunoId);
-                methods.setValue("licoesTrazidas", m, {
-                    shouldDirty: false,
-                    shouldValidate: false,
-                });
-
-                const b = matriculasRef.current.map((v) => v.alunoId);
-                methods.setValue("bibliasTrazidas", b, {
-                    shouldDirty: false,
-                    shouldValidate: false,
-                });
-            }
-        } catch (err) {
-            console.log("deu esse erro: ", err);
-        }
-    }, [matriculasRef.current]);
     useEffect(() => {
         const popstate = (event: PopStateEvent) => {
             const etapaAnterior = event.state?.etapa || 1;
@@ -329,6 +361,12 @@ function ChamadaPage() {
 
             const domingo = licoes?.data_inicio?.toDate();
             domingo?.setDate(domingo?.getDate() + (n - 1) * 7);
+
+            setIsDataAnterior(
+                new Date(domingo).setHours(12, 0, 0, 0) <
+                    new Date().setHours(12, 0, 0, 0)
+            );
+
             setDomingo(domingo);
             return licoes;
         };
@@ -384,16 +422,20 @@ function ChamadaPage() {
 
             if (!chamada.length) return;
 
+            const licoesTrazidas = chamada
+                .filter((v) => v.trouxe_licao)
+                .map((v) => v.id);
+            const bibliasTrazidas = chamada
+                .filter((v) => v.trouxe_biblia)
+                .map((v) => v.id);
             const formReset = {
                 chamada: Object.fromEntries(
                     chamada.map((v) => [v.id, v.status])
                 ),
-                licoesTrazidas: chamada
-                    .filter((v) => v.trouxe_licao)
-                    .map((v) => v.id),
-                bibliasTrazidas: chamada
-                    .filter((v) => v.trouxe_biblia)
-                    .map((v) => v.id),
+                licoesTrazidas,
+                bibliasTrazidas,
+                totalLicoes: registros.licoes_trazidas || licoesTrazidas.length,
+                totalBiblias: registros.biblias || bibliasTrazidas.length,
                 visitas: registros.visitas,
                 ofertaDinheiro: registros.ofertas.dinheiro,
                 ofertaPix: registros.ofertas.pix,
@@ -428,6 +470,7 @@ function ChamadaPage() {
                 } else {
                     const rascunho = localStorage.getItem(rascunhoLocalStorage);
                     if (rascunho) {
+                        isEdit.current = false;
                         setRealizada("rascunho");
                         console.log("Rascunho recuperado...");
                         const r = JSON.parse(rascunho);
@@ -439,6 +482,12 @@ function ChamadaPage() {
                             imgsPixMissoes: [],
                             imgsPixOfertas: [],
                         });
+                    } else {
+                        const listaAlunos = m.map((v) => v.alunoId);
+                        methods.setValue("bibliasTrazidas", listaAlunos);
+                        methods.setValue("licoesTrazidas", listaAlunos);
+                        methods.setValue("totalBiblias", listaAlunos.length);
+                        methods.setValue("totalLicoes", listaAlunos.length);
                     }
 
                     setMatriculas(m);
@@ -482,7 +531,14 @@ function ChamadaPage() {
                                 Aula: {numeroAula}
                             </p>
 
-                            {realizada === "realizada" ? (
+                            {isEdit.current &&
+                            isDataAnterior &&
+                            isSecretario.current ? (
+                                <span className="chamada-page__status--bloqueado">
+                                    <FontAwesomeIcon icon={faCircleXmark} />
+                                    Edição Bloqueada
+                                </span>
+                            ) : realizada === "realizada" ? (
                                 <span className="chamada-page__status--realizada">
                                     <FontAwesomeIcon icon={faCircleCheck} />
                                     Chamada Realizada
@@ -524,7 +580,16 @@ function ChamadaPage() {
                         </div>
                     </div>
                     <FormProvider {...methods}>
-                        <form onSubmit={methods.handleSubmit(onSubmit)}>
+                        <form
+                            onSubmit={methods.handleSubmit(onSubmit)}
+                            className={
+                                isEdit.current &&
+                                isDataAnterior &&
+                                isSecretario.current
+                                    ? "chamada-page__form--bloqueado"
+                                    : ""
+                            }
+                        >
                             <AnimatePresence mode="wait">
                                 {etapa === 1 ? (
                                     <>
@@ -838,7 +903,6 @@ function ChamadaPage() {
                                         onTap={() => {
                                             if (etapa !== 3) {
                                                 proximo();
-                                                // setMatriculas(matriculasRef.current);
                                             }
                                         }}
                                         className="chamada-page__navegacao--avancar"

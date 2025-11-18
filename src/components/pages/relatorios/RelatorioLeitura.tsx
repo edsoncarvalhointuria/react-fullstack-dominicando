@@ -14,11 +14,13 @@ import {
     faXmark,
     faGhost,
     faAlarmClock,
-    faEarthAfrica, // Adicionado para consistência
+    faEarthAfrica,
+    faMoneyBill, // Adicionado para consistência
 } from "@fortawesome/free-solid-svg-icons";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import "./relatorio-leitura.scss";
 import type { ResponseGetRelatorioDominical } from "../../../interfaces/ResponseGetRelatorioDominical";
+import { faPix } from "@fortawesome/free-brands-svg-icons";
 
 interface RelatorioLeituraProps {
     fila: (ClasseInterface & { id: string })[];
@@ -51,17 +53,29 @@ const InfoLinha = ({
     icon,
     label,
     value,
+    isMenor = false,
 }: {
     icon: any;
     label: string;
     value: string | number;
+    isMenor?: boolean;
 }) => (
     <div className="info-linha">
-        <div className="info-linha__label">
+        <div
+            className={`info-linha__label ${
+                isMenor && "info-linha__label--menor"
+            }`}
+        >
             <FontAwesomeIcon icon={icon} />
             <span>{label}</span>
         </div>
-        <div className="info-linha__valor">{value}</div>
+        <div
+            className={`info-linha__valor ${
+                isMenor && "info-linha__valor--menor"
+            }`}
+        >
+            {value}
+        </div>
     </div>
 );
 
@@ -203,7 +217,9 @@ function RelatorioLeitura({
                                             .licoes_trazidas || 0
                                     }
                                 />
+
                                 <hr />
+
                                 <InfoLinha
                                     icon={faSackDollar}
                                     label="Total Ofertas"
@@ -225,6 +241,56 @@ function RelatorioLeitura({
                                         style: "currency",
                                         currency: "BRL",
                                     })}
+                                />
+
+                                <hr />
+                                <InfoLinha
+                                    icon={faMoneyBill}
+                                    label="Ofertas Dinheiro"
+                                    value={(
+                                        dados.totais_classes[itemAtual.id]
+                                            .ofertas?.dinheiro || 0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
+                                />
+                                <InfoLinha
+                                    icon={faMoneyBill}
+                                    label="Missões Dinheiro"
+                                    value={(
+                                        dados.totais_classes[itemAtual.id]
+                                            .missoes?.dinheiro || 0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
+                                />
+                                <InfoLinha
+                                    icon={faPix}
+                                    label="Ofertas Pix"
+                                    value={(
+                                        dados.totais_classes[itemAtual.id]
+                                            .ofertas?.pix || 0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
+                                />
+                                <InfoLinha
+                                    icon={faPix}
+                                    label="Missões Pix"
+                                    value={(
+                                        dados.totais_classes[itemAtual.id]
+                                            .missoes?.pix || 0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
                                 />
                             </motion.div>
                         )}
@@ -310,6 +376,55 @@ function RelatorioLeitura({
                                         style: "currency",
                                         currency: "BRL",
                                     })}
+                                />
+
+                                <hr />
+                                <InfoLinha
+                                    icon={faMoneyBill}
+                                    label="Ofertas Dinheiro"
+                                    value={(
+                                        dados.totais_gerais.ofertas_dinheiro ||
+                                        0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
+                                />
+                                <InfoLinha
+                                    icon={faMoneyBill}
+                                    label="Missões Dinheiro"
+                                    value={(
+                                        dados.totais_gerais.missoes_dinheiro ||
+                                        0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
+                                />
+                                <InfoLinha
+                                    icon={faPix}
+                                    label="Ofertas Pix"
+                                    value={(
+                                        dados.totais_gerais.ofertas_pix || 0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
+                                />
+
+                                <InfoLinha
+                                    icon={faPix}
+                                    label="Missões Pix"
+                                    value={(
+                                        dados.totais_gerais.missoes_pix || 0
+                                    ).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                    isMenor={true}
                                 />
                             </motion.div>
                         )}

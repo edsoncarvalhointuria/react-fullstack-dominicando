@@ -7,6 +7,7 @@ import {
     faChartPie,
     faChartSimple,
     faFaceSmileBeam,
+    faUpRightAndDownLeftFromCenter,
 } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "../../ui/Dropdown";
 import {
@@ -18,12 +19,13 @@ import {
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Form, useSearchParams } from "react-router-dom";
 import GraficoDinamico from "../../ui/GraficoDinamico";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
+import DashboardCardModal from "../../ui/DashboardCardModal";
 
 const METRICAS = [
     { nome: "Ofertas (Detalhado)", id: "ofertas" }, //ok
@@ -84,6 +86,7 @@ function RelatoriosGraficos() {
     >([]);
     const [title, setTitle] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [modal, setModal] = useState(false);
     const { isSuperAdmin, user, isAdmin, isSecretario } = useAuthContext();
     const { classes, igrejas, isLoadingData } = useDataContext();
     const [params, setParams] = useSearchParams();
@@ -156,285 +159,337 @@ function RelatoriosGraficos() {
 
     if (isLoadingData) return <Loading />;
     return (
-        <div className="relatorios-graficos">
-            <div className="relatorios-graficos__header">
-                <div className="relatorios-graficos__title">
-                    <h2>Relatórios Gráficos</h2>
-                </div>
-                <FormProvider {...methods}>
-                    <form
-                        className="relatorios-graficos__form"
-                        onSubmit={handleSubmit(onSave)}
-                    >
-                        <div className="relatorios-graficos__filtros">
-                            <div className="relatorios-graficos__group-filtro">
-                                {/* Métricas */}
-                                <div className="relatorios-graficos__filtro">
-                                    <p>Métrica</p>
-                                    <Controller
-                                        name="metrica"
-                                        control={control}
-                                        rules={{
-                                            required: "A métrica é obrigatória",
-                                        }}
-                                        render={({ field }) => (
-                                            <Dropdown
-                                                current={
-                                                    METRICAS.find(
-                                                        (v) =>
-                                                            v.id === field.value
-                                                    )?.nome || null
-                                                }
-                                                lista={METRICAS}
-                                                onSelect={(v) => {
-                                                    field.onChange(
-                                                        v?.id || null
-                                                    );
-                                                    setValue("agrupamento", "");
-                                                }}
-                                                isAll={false}
-                                                isErro={!!errors.metrica}
-                                                selectId={field.value}
-                                            />
-                                        )}
-                                    />
-                                    {errors.metrica && (
-                                        <ErroComponent erro={errors.metrica} />
-                                    )}
-                                </div>
-
-                                {/* Agrupamentos  */}
-                                <div className="relatorios-graficos__filtro">
-                                    <p>Agrupamento</p>
-                                    <Controller
-                                        control={control}
-                                        name="agrupamento"
-                                        rules={{
-                                            required:
-                                                "O agrupamento é obrigatório",
-                                        }}
-                                        render={({ field }) => (
-                                            <Dropdown
-                                                current={
-                                                    agrupamentosMemo.find(
-                                                        (v) =>
-                                                            v.id === field.value
-                                                    )?.nome || null
-                                                }
-                                                lista={agrupamentosMemo}
-                                                isAll={false}
-                                                onSelect={(v) =>
-                                                    field.onChange(
-                                                        v?.id || null
-                                                    )
-                                                }
-                                                isErro={!!errors.agrupamento}
-                                                selectId={field.value}
-                                            />
-                                        )}
-                                    />
-                                    {errors.agrupamento && (
-                                        <ErroComponent
-                                            erro={errors.agrupamento}
-                                        />
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Periodo */}
-                            <div className="relatorios-graficos__group-filtro">
-                                <motion.div
-                                    layout
-                                    className="relatorios-graficos__filtro"
-                                >
-                                    <label htmlFor="relatorios-graficos-inicio-input">
-                                        Início
-                                    </label>
-                                    <input
-                                        type="date"
-                                        className={
-                                            errors.dataInicio && "input-error"
-                                        }
-                                        id="relatorios-graficos-inicio-input"
-                                        {...register("dataInicio", {
-                                            required:
-                                                "A data de início é obrigatória",
-                                        })}
-                                    />
-                                    {errors.dataInicio && (
-                                        <ErroComponent
-                                            erro={errors.dataInicio}
-                                        />
-                                    )}
-                                </motion.div>
-                                <motion.div
-                                    layout
-                                    className="relatorios-graficos__filtro"
-                                >
-                                    <label htmlFor="relatorios-graficos-fim-input">
-                                        Fim
-                                    </label>
-                                    <input
-                                        type="date"
-                                        className={
-                                            errors.dataFim && "input-error"
-                                        }
-                                        id="relatorios-graficos-fim-input"
-                                        {...register("dataFim", {
-                                            required:
-                                                "A data de fim é obrigatória",
-                                            validate: (v) => {
-                                                if (!dataInicio) return true;
-
-                                                return (
-                                                    new Date(v) >=
-                                                        new Date(dataInicio) ||
-                                                    "A data final deve ser igual ou posterior à data inicial."
-                                                );
-                                            },
-                                        })}
-                                    />
-
-                                    {errors.dataFim && (
-                                        <ErroComponent erro={errors.dataFim} />
-                                    )}
-                                </motion.div>
-                            </div>
-
-                            {/* Escopo */}
-                            {!isSecretario.current && (
+        <>
+            <div className="relatorios-graficos">
+                <div className="relatorios-graficos__header">
+                    <div className="relatorios-graficos__title">
+                        <h2>Relatórios Gráficos</h2>
+                    </div>
+                    <FormProvider {...methods}>
+                        <form
+                            className="relatorios-graficos__form"
+                            onSubmit={handleSubmit(onSave)}
+                        >
+                            <div className="relatorios-graficos__filtros">
                                 <div className="relatorios-graficos__group-filtro">
-                                    {isSuperAdmin.current && (
-                                        <div className="relatorios-graficos__filtro">
-                                            <p>Igrejas</p>
-                                            <Controller
-                                                control={control}
-                                                name="igrejas"
-                                                render={({ field }) => (
-                                                    <MultiSelectDropdown
-                                                        lista={igrejas}
-                                                        currentListIds={
-                                                            field.value || []
-                                                        }
-                                                        onChange={(v) => {
-                                                            setValue(
-                                                                "classes",
-                                                                undefined
-                                                            );
-                                                            field.onChange(v);
-                                                        }}
-                                                        texto="Todas as igrejas"
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                    )}
-
-                                    {(isAdmin.current ||
-                                        isSuperAdmin.current) && (
-                                        <div className="relatorios-graficos__filtro">
-                                            <p>Classes</p>
-                                            <Controller
-                                                control={control}
-                                                name="classes"
-                                                render={({ field }) => (
-                                                    <MultiSelectDropdown
-                                                        lista={classesMemo}
-                                                        currentListIds={
-                                                            field.value || []
-                                                        }
-                                                        onChange={(v) =>
-                                                            field.onChange(v)
-                                                        }
-                                                        texto="Todas as classes"
-                                                    />
-                                                )}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Gráfico */}
-                            <div className="relatorios-graficos__tipos">
-                                {GRAFICOS.map((v) => (
-                                    <div
-                                        key={v.id}
-                                        className="relatorios-graficos__grafico"
-                                    >
-                                        <label
-                                            htmlFor={
-                                                "relatorios-graficos-grafico-" +
-                                                v.id
-                                            }
-                                        >
-                                            <span>
-                                                <FontAwesomeIcon
-                                                    icon={v.icon}
+                                    {/* Métricas */}
+                                    <div className="relatorios-graficos__filtro">
+                                        <p>Métrica</p>
+                                        <Controller
+                                            name="metrica"
+                                            control={control}
+                                            rules={{
+                                                required:
+                                                    "A métrica é obrigatória",
+                                            }}
+                                            render={({ field }) => (
+                                                <Dropdown
+                                                    current={
+                                                        METRICAS.find(
+                                                            (v) =>
+                                                                v.id ===
+                                                                field.value
+                                                        )?.nome || null
+                                                    }
+                                                    lista={METRICAS}
+                                                    onSelect={(v) => {
+                                                        field.onChange(
+                                                            v?.id || null
+                                                        );
+                                                        setValue(
+                                                            "agrupamento",
+                                                            ""
+                                                        );
+                                                    }}
+                                                    isAll={false}
+                                                    isErro={!!errors.metrica}
+                                                    selectId={field.value}
                                                 />
-                                            </span>
-                                            {v.nome}
+                                            )}
+                                        />
+                                        {errors.metrica && (
+                                            <ErroComponent
+                                                erro={errors.metrica}
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* Agrupamentos  */}
+                                    <div className="relatorios-graficos__filtro">
+                                        <p>Agrupamento</p>
+                                        <Controller
+                                            control={control}
+                                            name="agrupamento"
+                                            rules={{
+                                                required:
+                                                    "O agrupamento é obrigatório",
+                                            }}
+                                            render={({ field }) => (
+                                                <Dropdown
+                                                    current={
+                                                        agrupamentosMemo.find(
+                                                            (v) =>
+                                                                v.id ===
+                                                                field.value
+                                                        )?.nome || null
+                                                    }
+                                                    lista={agrupamentosMemo}
+                                                    isAll={false}
+                                                    onSelect={(v) =>
+                                                        field.onChange(
+                                                            v?.id || null
+                                                        )
+                                                    }
+                                                    isErro={
+                                                        !!errors.agrupamento
+                                                    }
+                                                    selectId={field.value}
+                                                />
+                                            )}
+                                        />
+                                        {errors.agrupamento && (
+                                            <ErroComponent
+                                                erro={errors.agrupamento}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Periodo */}
+                                <div className="relatorios-graficos__group-filtro">
+                                    <motion.div
+                                        layout
+                                        className="relatorios-graficos__filtro"
+                                    >
+                                        <label htmlFor="relatorios-graficos-inicio-input">
+                                            Início
                                         </label>
                                         <input
-                                            type="radio"
-                                            id={
-                                                "relatorios-graficos-grafico-" +
-                                                v.id
+                                            type="date"
+                                            className={
+                                                errors.dataInicio &&
+                                                "input-error"
                                             }
-                                            value={v.id}
-                                            {...register("grafico")}
+                                            id="relatorios-graficos-inicio-input"
+                                            {...register("dataInicio", {
+                                                required:
+                                                    "A data de início é obrigatória",
+                                            })}
                                         />
+                                        {errors.dataInicio && (
+                                            <ErroComponent
+                                                erro={errors.dataInicio}
+                                            />
+                                        )}
+                                    </motion.div>
+                                    <motion.div
+                                        layout
+                                        className="relatorios-graficos__filtro"
+                                    >
+                                        <label htmlFor="relatorios-graficos-fim-input">
+                                            Fim
+                                        </label>
+                                        <input
+                                            type="date"
+                                            className={
+                                                errors.dataFim && "input-error"
+                                            }
+                                            id="relatorios-graficos-fim-input"
+                                            {...register("dataFim", {
+                                                required:
+                                                    "A data de fim é obrigatória",
+                                                validate: (v) => {
+                                                    if (!dataInicio)
+                                                        return true;
+
+                                                    return (
+                                                        new Date(v) >=
+                                                            new Date(
+                                                                dataInicio
+                                                            ) ||
+                                                        "A data final deve ser igual ou posterior à data inicial."
+                                                    );
+                                                },
+                                            })}
+                                        />
+
+                                        {errors.dataFim && (
+                                            <ErroComponent
+                                                erro={errors.dataFim}
+                                            />
+                                        )}
+                                    </motion.div>
+                                </div>
+
+                                {/* Escopo */}
+                                {!isSecretario.current && (
+                                    <div className="relatorios-graficos__group-filtro">
+                                        {isSuperAdmin.current && (
+                                            <div className="relatorios-graficos__filtro">
+                                                <p>Igrejas</p>
+                                                <Controller
+                                                    control={control}
+                                                    name="igrejas"
+                                                    render={({ field }) => (
+                                                        <MultiSelectDropdown
+                                                            lista={igrejas}
+                                                            currentListIds={
+                                                                field.value ||
+                                                                []
+                                                            }
+                                                            onChange={(v) => {
+                                                                setValue(
+                                                                    "classes",
+                                                                    undefined
+                                                                );
+                                                                field.onChange(
+                                                                    v
+                                                                );
+                                                            }}
+                                                            texto="Todas as igrejas"
+                                                        />
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {(isAdmin.current ||
+                                            isSuperAdmin.current) && (
+                                            <div className="relatorios-graficos__filtro">
+                                                <p>Classes</p>
+                                                <Controller
+                                                    control={control}
+                                                    name="classes"
+                                                    render={({ field }) => (
+                                                        <MultiSelectDropdown
+                                                            lista={classesMemo}
+                                                            currentListIds={
+                                                                field.value ||
+                                                                []
+                                                            }
+                                                            onChange={(v) =>
+                                                                field.onChange(
+                                                                    v
+                                                                )
+                                                            }
+                                                            texto="Todas as classes"
+                                                        />
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
+                                )}
 
-                        <div className="relatorios-graficos__buttons">
-                            <div className="relatorios-graficos__gerar">
-                                <motion.button
-                                    whileTap={{ scale: 0.9 }}
-                                    title="Gerar Relatório Gráfico"
-                                    type="submit"
-                                >
+                                {/* Gráfico */}
+                                <div className="relatorios-graficos__tipos">
+                                    {GRAFICOS.map((v) => (
+                                        <div
+                                            key={v.id}
+                                            className="relatorios-graficos__grafico"
+                                        >
+                                            <label
+                                                htmlFor={
+                                                    "relatorios-graficos-grafico-" +
+                                                    v.id
+                                                }
+                                            >
+                                                <span>
+                                                    <FontAwesomeIcon
+                                                        icon={v.icon}
+                                                    />
+                                                </span>
+                                                {v.nome}
+                                            </label>
+                                            <input
+                                                type="radio"
+                                                id={
+                                                    "relatorios-graficos-grafico-" +
+                                                    v.id
+                                                }
+                                                value={v.id}
+                                                {...register("grafico")}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="relatorios-graficos__buttons">
+                                <div className="relatorios-graficos__gerar">
+                                    <motion.button
+                                        whileTap={{ scale: 0.9 }}
+                                        title="Gerar Relatório Gráfico"
+                                        type="submit"
+                                    >
+                                        <span>
+                                            <FontAwesomeIcon
+                                                icon={faChartArea}
+                                            />
+                                        </span>
+                                        Gerar Relatório
+                                    </motion.button>
+                                </div>
+                            </div>
+                        </form>
+                    </FormProvider>
+                </div>
+
+                <div className="relatorios-graficos__body">
+                    <div className="relatorios-graficos__rechart">
+                        {isLoading ? (
+                            <DashboardCardSkeleton key={"ss"} />
+                        ) : dados.length > 0 ? (
+                            <>
+                                <div className="relatorios-graficos__rechart-container">
+                                    <h3 className="relatorios-graficos__rechart--title">
+                                        {title}
+                                    </h3>
+                                    <button
+                                        onClick={() => setModal(true)}
+                                        className="relatorios-graficos__rechart--button"
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={
+                                                faUpRightAndDownLeftFromCenter
+                                            }
+                                        />
+                                    </button>
+                                </div>
+                                <GraficoDinamico
+                                    dados={dados as any}
+                                    tipoGrafico={tipoGrafico}
+                                    title={title}
+                                />
+                            </>
+                        ) : (
+                            <div className="relatorios-graficos__vazio">
+                                <p>
+                                    Nenhum resultado encontrado. Faça uma nova
+                                    consulta!
                                     <span>
-                                        <FontAwesomeIcon icon={faChartArea} />
+                                        <FontAwesomeIcon
+                                            icon={faFaceSmileBeam}
+                                        />
                                     </span>
-                                    Gerar Relatório
-                                </motion.button>
+                                </p>
                             </div>
-                        </div>
-                    </form>
-                </FormProvider>
-            </div>
-
-            <div className="relatorios-graficos__body">
-                <div className="relatorios-graficos__rechart">
-                    {isLoading ? (
-                        <DashboardCardSkeleton key={"ss"} />
-                    ) : dados.length > 0 ? (
-                        <>
-                            <h3 className="relatorios-graficos__rechart--title">
-                                {title}
-                            </h3>
-                            <GraficoDinamico
-                                dados={dados as any}
-                                tipoGrafico={tipoGrafico}
-                            />
-                        </>
-                    ) : (
-                        <div className="relatorios-graficos__vazio">
-                            <p>
-                                Nenhum resultado encontrado. Faça uma nova
-                                consulta!
-                                <span>
-                                    <FontAwesomeIcon icon={faFaceSmileBeam} />
-                                </span>
-                            </p>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+            <AnimatePresence>
+                {modal && (
+                    <DashboardCardModal
+                        key={"dashboard-card"}
+                        chartType="bar"
+                        datas={dados}
+                        onClose={() => setModal(false)}
+                        title={title}
+                    />
+                )}
+            </AnimatePresence>
+        </>
     );
 }
 

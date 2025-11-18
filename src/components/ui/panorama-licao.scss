@@ -86,6 +86,14 @@
         aspect-ratio: 2/1;
     }
 
+    &--centro {
+        grid-column: 2;
+
+        @media all and (max-width: 34em) {
+            grid-column: 1;
+        }
+    }
+
     .grafico-rosca {
         flex-shrink: 0;
     }

@@ -191,8 +191,14 @@ function Usuarios() {
                 return usuarios.filter(
                     (v) => v.role !== ROLES.PASTOR_PRESIDENTE
                 );
+            if (user?.role === ROLES.SECRETARIO_CONGREGACAO)
+                return usuarios.filter((v) => v.role !== ROLES.PASTOR);
             if (isSecretario.current)
-                usuarios.filter((v) => v.role !== ROLES.PASTOR);
+                usuarios.filter(
+                    (v) =>
+                        v.role !== ROLES.PASTOR &&
+                        v.role !== ROLES.SECRETARIO_CONGREGACAO
+                );
             if (user?.role === ROLES.SECRETARIO_CLASSE)
                 return usuarios.filter((v) => v.role !== ROLES.PROFESSOR);
             return usuarios;

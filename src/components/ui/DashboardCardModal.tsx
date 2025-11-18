@@ -4,124 +4,119 @@ import {
     Bar,
     BarChart,
     Brush,
-    Cell,
-    Pie,
-    PieChart,
     ResponsiveContainer,
     Tooltip,
+    XAxis,
+    YAxis,
 } from "recharts";
-import "./dashboard-card.scss";
-import { AnimatePresence, motion } from "framer-motion";
+import "./dashboard-card-modal.scss";
+import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUpRightAndDownLeftFromCenter } from "@fortawesome/free-solid-svg-icons";
+import {
+    faChartLine,
+    faChartSimple,
+    faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
-import DashboardCardModal from "./DashboardCardModal";
+import useIsMobile from "../../hooks/useIsMobile";
 
-function DashboardCard({
+function DashboardCardModal({
     title,
     value,
     icon,
     datas,
-    chartType = "area",
-    withIndex = false,
+    chartType,
+    onClose,
 }: {
     title: string;
-    value: string;
-    icon: React.ReactNode;
+    value?: string;
+    icon?: React.ReactNode;
     datas: DashboardInterface[];
-    chartType: "bar" | "area" | "pie";
-    withIndex?: boolean;
+    chartType: "bar" | "area";
+    onClose: () => void;
 }) {
     const CORES_GRAFICO = [
         "#3B82F6",
         "#10B981",
         "#F59E0B",
         "#EF4444",
-        "#14B8A6",
+        "#D946EF",
         "#FACC15",
         "#EC4899",
         "#22C55E",
+        "#14B8A6",
         "#6366F1",
         "#F43F5E",
         "#0EA5E9",
-        "#D946EF",
         "#84CC16",
         "#A855F7",
     ];
-    const [expandirCard, setExpandirCard] = useState(false);
-    const dataKeys = Object.keys(datas[0] || {}).filter((v) => v !== "name");
-    const condition =
-        (chartType === "area" || datas.length >= 14) && datas.length > 1;
-    const index = withIndex ? Math.max(0, datas.length - 5) : 0;
 
+    const [chart, setChart] = useState<"bar" | "area">(chartType);
+    const isMobile = useIsMobile(500);
+
+    const dataKeys = Object.keys(datas[0] || {}).filter((v) => v !== "name");
     return (
-        <>
-            <motion.div className="dashboard-card" layoutId={title}>
-                <div className="dashboard-card__header">
-                    <div className="dashboard-card__infos">
-                        <div className="dashboard-card__icon">{icon}</div>
-                        <h2 className="dashboard-card__title">{title}</h2>
+        <div className="dashboard-card-modal-overlay" onClick={onClose}>
+            <motion.div
+                className="dashboard-card-modal"
+                layoutId={title}
+                onClick={(evt) => evt.stopPropagation()}
+            >
+                <div className="dashboard-card-modal__header">
+                    <div className="dashboard-card-modal__header--top">
+                        <div className="dashboard-card-modal__infos">
+                            <div className="dashboard-card-modal__title">
+                                {icon && (
+                                    <div className="dashboard-card-modal__icon">
+                                        {icon}
+                                    </div>
+                                )}
+                                <h2 className="">{title}</h2>
+                            </div>
+                            {value && (
+                                <div className="dashboard-card-modal__value">
+                                    <p>{value}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            className="dashboard-card-modal__header--close"
+                            onClick={onClose}
+                        >
+                            <FontAwesomeIcon icon={faXmark} />
+                        </button>
                     </div>
 
-                    {chartType !== "pie" ? (
-                        <div className="dashboard-card__expandir">
-                            <button onClick={() => setExpandirCard(true)}>
-                                <FontAwesomeIcon
-                                    icon={faUpRightAndDownLeftFromCenter}
-                                />
-                            </button>
-                        </div>
-                    ) : (
-                        <></>
-                    )}
+                    <div className="dashboard-card-modal__filtros">
+                        <button
+                            title="Gráfico de Barras"
+                            className={`${chart === "bar" ? "selected" : ""}`}
+                            onClick={() => setChart("bar")}
+                        >
+                            <FontAwesomeIcon icon={faChartSimple} />
+                        </button>
+                        <button
+                            title="Gráfico de Linhas"
+                            className={`${chart === "area" ? "selected" : ""}`}
+                            onClick={() => setChart("area")}
+                        >
+                            <FontAwesomeIcon icon={faChartLine} />
+                        </button>
+                    </div>
                 </div>
 
-                <div
-                    className={`dashboard-card__body dashboard-card__body--${chartType}`}
-                >
-                    <p className="dashboard-card__value">{value}</p>
-                    <div className="dashboard-card__chart">
+                <div className={`dashboard-card-modal__body`}>
+                    <div className="dashboard-card-modal__chart">
                         <ResponsiveContainer width="100%" height="100%">
-                            {chartType === "pie" ? (
-                                <PieChart>
-                                    <Tooltip
-                                        position={{ y: 20 }}
-                                        cursor={{
-                                            stroke: "#3B82F6",
-                                            strokeWidth: 1,
-                                            strokeDasharray: "3 3",
-                                        }}
-                                        contentStyle={{
-                                            border: "1px solid #3B82F6",
-                                            borderRadius: "0.8rem",
-                                        }}
-                                        labelStyle={{ color: "#111827" }}
-                                        labelFormatter={(i) => datas[i].name}
-                                    />
-
-                                    <Pie
-                                        data={datas}
-                                        nameKey="name"
-                                        dataKey="value"
-                                        innerRadius="60%"
-                                        outerRadius="90%"
-                                    >
-                                        {datas.map((_, i) => (
-                                            <Cell
-                                                key={i}
-                                                fill={
-                                                    CORES_GRAFICO[
-                                                        i +
-                                                            (1 %
-                                                                CORES_GRAFICO.length)
-                                                    ]
-                                                }
-                                            />
-                                        ))}
-                                    </Pie>
-                                </PieChart>
-                            ) : condition ? (
-                                <AreaChart data={datas}>
+                            {chart === "area" ? (
+                                <AreaChart
+                                    data={datas}
+                                    layout={
+                                        isMobile ? "vertical" : "horizontal"
+                                    }
+                                >
                                     <Tooltip
                                         position={{ y: 20 }}
                                         cursor={{
@@ -143,8 +138,8 @@ function DashboardCard({
                                                         justifyContent:
                                                             "space-between",
                                                         alignItems: "center",
-                                                        gap: 5,
                                                         marginBottom: 5,
+                                                        gap: 2,
                                                     }}
                                                 >
                                                     <span>
@@ -175,13 +170,27 @@ function DashboardCard({
                                             );
                                         }}
                                     />
+                                    {isMobile ? (
+                                        <>
+                                            <XAxis type="number" />
+                                            <YAxis
+                                                dataKey="name"
+                                                type="category"
+                                                width={80}
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                        </>
+                                    )}
 
                                     <Brush
                                         dataKey="name"
                                         height={15}
                                         key={Math.random()}
                                         stroke="#3B82F6"
-                                        startIndex={index}
                                     />
 
                                     {dataKeys.map((v, i) => (
@@ -203,7 +212,12 @@ function DashboardCard({
                                     ))}
                                 </AreaChart>
                             ) : (
-                                <BarChart data={datas}>
+                                <BarChart
+                                    data={datas}
+                                    layout={
+                                        isMobile ? "vertical" : "horizontal"
+                                    }
+                                >
                                     <Tooltip
                                         position={{ y: 20 }}
                                         cursor={{
@@ -225,8 +239,8 @@ function DashboardCard({
                                                         justifyContent:
                                                             "space-between",
                                                         alignItems: "center",
-                                                        gap: 5,
                                                         marginBottom: 5,
+                                                        gap: 2,
                                                     }}
                                                 >
                                                     <span>
@@ -257,13 +271,26 @@ function DashboardCard({
                                             );
                                         }}
                                     />
-
+                                    {isMobile ? (
+                                        <>
+                                            <XAxis type="number" />
+                                            <YAxis
+                                                dataKey="name"
+                                                type="category"
+                                                width={80}
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <XAxis dataKey="name" />
+                                            <YAxis />
+                                        </>
+                                    )}
                                     <Brush
                                         dataKey="name"
                                         height={15}
                                         stroke="#3B82F6"
                                         key={Math.random()}
-                                        startIndex={index}
                                     />
 
                                     {dataKeys.map((v, i) => (
@@ -275,7 +302,11 @@ function DashboardCard({
                                                     i % CORES_GRAFICO.length
                                                 ]
                                             }
-                                            radius={[4, 4, 0, 0]}
+                                            radius={
+                                                isMobile
+                                                    ? [0, 4, 4, 0]
+                                                    : [4, 4, 0, 0]
+                                            }
                                         />
                                     ))}
                                 </BarChart>
@@ -284,17 +315,8 @@ function DashboardCard({
                     </div>
                 </div>
             </motion.div>
-            <AnimatePresence>
-                {expandirCard && (
-                    <DashboardCardModal
-                        chartType={chartType as any}
-                        onClose={() => setExpandirCard(false)}
-                        {...{ title, value, icon, datas }}
-                    />
-                )}
-            </AnimatePresence>
-        </>
+        </div>
     );
 }
 
-export default DashboardCard;
+export default DashboardCardModal;

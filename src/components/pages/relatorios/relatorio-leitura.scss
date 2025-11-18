@@ -54,7 +54,7 @@
         position: relative;
         display: grid;
         place-items: center;
-        padding: 2rem;
+        padding: 2rem 1rem;
         margin-top: 10rem;
     }
 
@@ -114,6 +114,10 @@
             color: v.$cor-secundaria-texto;
             font-weight: 500;
 
+            &--menor {
+                font-size: 1.6rem;
+            }
+
             svg {
                 color: v.$cor-primaria-itens;
                 width: 2rem;
@@ -124,6 +128,9 @@
         &__valor {
             font-weight: 700;
             color: v.$cor-primaria-texto;
+            &--menor {
+                font-size: 1.6rem;
+            }
         }
     }
 

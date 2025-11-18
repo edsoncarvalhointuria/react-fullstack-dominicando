@@ -69,7 +69,11 @@ function Preparo() {
             );
             const licaoDocs = await getDocs(q);
 
-            if (licaoDocs.empty) setVazio(true);
+            if (licaoDocs.empty) {
+                setIsLoading(false);
+                setVazio(true);
+                return;
+            }
 
             const licaoSnap = licaoDocs.docs[0];
             const licaoId = licaoSnap.id;

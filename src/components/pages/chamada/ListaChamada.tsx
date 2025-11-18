@@ -19,26 +19,28 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
     const chamada = watch("chamada");
     const biblias = watch("bibliasTrazidas");
     const revistas = watch("licoesTrazidas");
+    const totalLicoes = watch("totalLicoes");
+    const totalBiblias = watch("totalBiblias");
 
     useEffect(() => {
+        const ausentes: string[] = [];
+
         for (let id in chamada) {
             const status = chamada[id];
             if (status === "Falta" || status === "Falta Justificada") {
-                setValue(
-                    "licoesTrazidas",
-                    revistas.filter((v: any) => v !== id)
-                );
-                setValue(
-                    "bibliasTrazidas",
-                    biblias.filter((v: any) => v !== id)
-                );
+                ausentes.push(id);
             }
         }
+
+        setValue(
+            "licoesTrazidas",
+            revistas.filter((v: any) => !ausentes.includes(v))
+        );
+        setValue(
+            "bibliasTrazidas",
+            biblias.filter((v: any) => !ausentes.includes(v))
+        );
     }, [chamada]);
-    useEffect(() => {
-        setValue("totalBiblias", biblias.length);
-        setValue("totalLicoes", revistas.length);
-    }, [biblias, revistas]);
     return (
         <motion.ul
             className="lista-chamada"
@@ -171,11 +173,22 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
                                                                 aluno.alunoId
                                                         )
                                                     );
-                                                } else
+
+                                                    setValue(
+                                                        "totalLicoes",
+                                                        (totalLicoes || 1) - 1
+                                                    );
+                                                } else {
                                                     setValue("licoesTrazidas", [
                                                         ...revistas,
                                                         aluno.alunoId,
                                                     ]);
+
+                                                    setValue(
+                                                        "totalLicoes",
+                                                        (totalLicoes || 0) + 1
+                                                    );
+                                                }
                                             }}
                                         />
                                         <label
@@ -206,7 +219,11 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
                                                                 aluno.alunoId
                                                         )
                                                     );
-                                                } else
+                                                    setValue(
+                                                        "totalBiblias",
+                                                        (totalBiblias || 1) - 1
+                                                    );
+                                                } else {
                                                     setValue(
                                                         "bibliasTrazidas",
                                                         [
@@ -214,6 +231,11 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
                                                             aluno.alunoId,
                                                         ]
                                                     );
+                                                    setValue(
+                                                        "totalBiblias",
+                                                        (totalBiblias || 0) + 1
+                                                    );
+                                                }
                                             }}
                                         />
                                         <label
