@@ -10,6 +10,12 @@
     overflow-x: hidden;
     scrollbar-width: thin;
 
+    &--download {
+        position: static;
+        overflow: visible;
+        scrollbar-width: auto;
+    }
+
     &__header {
         display: flex;
         justify-content: space-between;
@@ -22,6 +28,10 @@
         z-index: 10;
         border-bottom: 1px solid #e5e7eb;
         background-color: v.$cor-secundaria-fundo;
+
+        &--download {
+            position: static;
+        }
 
         h2 {
             display: grid;
@@ -101,8 +111,9 @@
     }
 
     .info-linha {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 0.2rem;
         align-items: center;
         font-size: 1.8rem;
         padding: 1rem 0;
@@ -123,6 +134,11 @@
                 width: 2rem;
                 text-align: center;
             }
+        }
+
+        &__linha {
+            border-bottom: dotted 2px v.$cor-secundaria-texto;
+            height: 60%;
         }
 
         &__valor {

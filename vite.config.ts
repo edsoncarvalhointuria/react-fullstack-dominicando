@@ -55,6 +55,7 @@ export default defineConfig({
                 clientsClaim: true,
                 cleanupOutdatedCaches: true,
                 cacheId: "dominicando-v2",
+                maximumFileSizeToCacheInBytes: 3000000,
             },
         }),
     ],

@@ -5,6 +5,7 @@ import {
     faCoins,
     faFileCsv,
     faUsers,
+    faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { AnimatePresence, motion } from "framer-motion";
@@ -56,7 +57,7 @@ const GraficoRosca = ({
     </div>
 );
 
-const AcordeaoAluno = ({ aluno }: any) => {
+const AcordeaoAluno = ({ aluno, verDetalhes }: any) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
         <div className="acordeao-aluno">
@@ -101,10 +102,72 @@ const AcordeaoAluno = ({ aluno }: any) => {
                                 <span>{aluno.falta_justificada}</span>
                             </li>
                         </ul>
+
+                        <motion.button
+                            onTap={verDetalhes}
+                            className="acordeao-aluno__detalhes"
+                        >
+                            Ver detalhes
+                        </motion.button>
                     </motion.div>
                 )}
             </AnimatePresence>
         </div>
+    );
+};
+
+const Detalhes = ({
+    aluno,
+    onClose,
+}: {
+    aluno: { [key: string]: any };
+    onClose: () => void;
+}) => {
+    return (
+        <motion.div
+            className="detalhes-aluno__overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+        >
+            <div
+                className="detalhes-aluno"
+                onClick={(evt) => evt.stopPropagation()}
+            >
+                <div className="detalhes-aluno__header">
+                    <h3>{aluno.nome}</h3>
+                    <button onClick={onClose}>
+                        <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                </div>
+
+                <ul className="detalhes-aluno__lista">
+                    {aluno.detalhes
+                        .sort((a: any, b: any) => {
+                            const [dd, mm, aa] = a.data.split("/");
+                            const aData = new Date(aa, mm, dd);
+                            const [dd2, mm2, aa2] = b.data.split("/");
+                            const bData = new Date(aa2, mm2, dd2);
+
+                            return aData.getTime() - bData.getTime();
+                        })
+                        .map((v: any, i: number) => {
+                            return (
+                                <li key={aluno.id + i}>
+                                    <p className="detalhes-aluno__lista--data">
+                                        {v.data}
+                                    </p>
+                                    <div className="detalhes-aluno__lista--linha"></div>
+                                    <p className="detalhes-aluno__lista--status">
+                                        {v.status}
+                                    </p>
+                                </li>
+                            );
+                        })}
+                </ul>
+            </div>
+        </motion.div>
     );
 };
 
@@ -157,6 +220,7 @@ function PanoramaLicao({
     licaoNome: string;
 }) {
     const [pesquisa, setPesquisa] = useState("");
+    const [detalhes, setDetalhes] = useState<any>(null);
     const alunosMemo = useMemo(() => {
         let alunos = dados?.frequenciaAlunos.filter((v) =>
             v.nome?.toLowerCase().includes(pesquisa)
@@ -166,96 +230,116 @@ function PanoramaLicao({
     }, [dados?.frequenciaAlunos, pesquisa]);
 
     return (
-        <div className="panorama-licao">
-            {isLoading ? (
-                <LoadingModal isEnviando={isLoading} mensagem="Carregando" />
-            ) : (
-                <>
-                    <div className="panorama-licao__cards-container">
-                        <CardProgresso
-                            titulo="Progresso do Trimestre"
-                            icone={faBook}
-                        >
-                            <div className="barra-progresso">
-                                <motion.div
-                                    className="barra-progresso__preenchimento"
-                                    initial={{ width: 0 }}
-                                    animate={{
-                                        width: `${
-                                            (dados.progresso.concluidas /
-                                                dados.progresso.total) *
-                                            100
-                                        }%`,
-                                    }}
-                                    transition={{
-                                        duration: 1,
-                                        ease: "easeOut",
-                                    }}
+        <>
+            <div className="panorama-licao">
+                {isLoading ? (
+                    <LoadingModal
+                        isEnviando={isLoading}
+                        mensagem="Carregando"
+                    />
+                ) : (
+                    <>
+                        <div className="panorama-licao__cards-container">
+                            <CardProgresso
+                                titulo="Progresso do Trimestre"
+                                icone={faBook}
+                            >
+                                <div className="barra-progresso">
+                                    <motion.div
+                                        className="barra-progresso__preenchimento"
+                                        initial={{ width: 0 }}
+                                        animate={{
+                                            width: `${
+                                                (dados.progresso.concluidas /
+                                                    dados.progresso.total) *
+                                                100
+                                            }%`,
+                                        }}
+                                        transition={{
+                                            duration: 1,
+                                            ease: "easeOut",
+                                        }}
+                                    />
+                                </div>
+                                <p className="barra-progresso__texto">
+                                    {dados.progresso.concluidas} de{" "}
+                                    {dados.progresso.total} aulas concluídas
+                                </p>
+                            </CardProgresso>
+
+                            <CardProgresso
+                                titulo="Média de Presença"
+                                icone={faChartPie}
+                            >
+                                <GraficoRosca
+                                    porcentagem={dados.mediaPresenca}
                                 />
-                            </div>
-                            <p className="barra-progresso__texto">
-                                {dados.progresso.concluidas} de{" "}
-                                {dados.progresso.total} aulas concluídas
-                            </p>
-                        </CardProgresso>
+                            </CardProgresso>
 
-                        <CardProgresso
-                            titulo="Média de Presença"
-                            icone={faChartPie}
-                        >
-                            <GraficoRosca porcentagem={dados.mediaPresenca} />
-                        </CardProgresso>
-
-                        <CardProgresso
-                            titulo="Alunos Matriculados"
-                            icone={faUsers}
-                            valor={dados.totalAlunos}
-                        />
-                        <CardProgresso
-                            titulo="Total Arrecadado"
-                            icone={faCoins}
-                            valor={dados.totalArrecadado.toLocaleString(
-                                "pt-BR",
-                                { currency: "BRL", style: "currency" }
-                            )}
-                            isCentro={true}
-                        />
-                    </div>
-
-                    <div className="panorama-licao__lista-alunos">
-                        <div className="panorama-licao__lista-alunos-header">
-                            <h3>Frequência Alunos</h3>
-                            <div className="panorama-licao__lista-alunos-header--container">
-                                <SearchInput
-                                    onSearch={(v) => setPesquisa(v)}
-                                    texto="Aluno"
-                                />
-                                <button
-                                    title="Gerar CSV"
-                                    className="panorama-licao__lista-alunos-header--btn"
-                                    onClick={() =>
-                                        gerarCSV(
-                                            dados.frequenciaAlunos,
-                                            igrejaNome,
-                                            classeNome,
-                                            licaoNome
-                                        )
-                                    }
-                                >
-                                    <FontAwesomeIcon icon={faFileCsv} />
-                                </button>
-                            </div>
+                            <CardProgresso
+                                titulo="Alunos Matriculados"
+                                icone={faUsers}
+                                valor={dados.totalAlunos}
+                            />
+                            <CardProgresso
+                                titulo="Total Arrecadado"
+                                icone={faCoins}
+                                valor={dados.totalArrecadado.toLocaleString(
+                                    "pt-BR",
+                                    { currency: "BRL", style: "currency" }
+                                )}
+                                isCentro={true}
+                            />
                         </div>
 
-                        {alunosMemo
-                            .sort((a, b) => b.presenca - a.presenca)
-                            .map((aluno) => (
-                                <AcordeaoAluno key={aluno.id} aluno={aluno} />
-                            ))}
-                    </div>
-                </>
-            )}
-        </div>
+                        <div className="panorama-licao__lista-alunos">
+                            <div className="panorama-licao__lista-alunos-header">
+                                <h3>Frequência Alunos</h3>
+                                <div className="panorama-licao__lista-alunos-header--container">
+                                    <SearchInput
+                                        onSearch={(v) => setPesquisa(v)}
+                                        texto="Aluno"
+                                    />
+                                    <button
+                                        title="Gerar CSV"
+                                        className="panorama-licao__lista-alunos-header--btn"
+                                        onClick={() =>
+                                            gerarCSV(
+                                                dados.frequenciaAlunos,
+                                                igrejaNome,
+                                                classeNome,
+                                                licaoNome
+                                            )
+                                        }
+                                    >
+                                        <FontAwesomeIcon icon={faFileCsv} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {alunosMemo
+                                .sort((a, b) => b.presenca - a.presenca)
+                                .map((aluno) => (
+                                    <AcordeaoAluno
+                                        key={aluno.id}
+                                        aluno={aluno}
+                                        verDetalhes={() => setDetalhes(aluno)}
+                                    />
+                                ))}
+                        </div>
+                    </>
+                )}
+            </div>
+            <AnimatePresence>
+                {!isLoading && detalhes && (
+                    <Detalhes
+                        aluno={detalhes}
+                        onClose={() => setDetalhes(null)}
+                        key={"detalhes-aluno"}
+                    />
+                )}
+            </AnimatePresence>
+        </>
     );
 }
 

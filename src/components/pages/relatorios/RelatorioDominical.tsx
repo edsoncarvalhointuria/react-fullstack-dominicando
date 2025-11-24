@@ -8,6 +8,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faBan,
     faCalendarDay,
+    faDownload,
+    faFloppyDisk,
     faGripLines,
     faUndo,
 } from "@fortawesome/free-solid-svg-icons";
@@ -18,6 +20,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import RelatorioLeitura from "./RelatorioLeitura";
 import type { ResponseGetRelatorioDominical } from "../../../interfaces/ResponseGetRelatorioDominical";
 import CadastroIgrejaModal from "../../ui/CadastroIgrejaModal";
+import RelatorioLeituraDownload from "./RelatorioLeituraDownload";
 
 const functions = getFunctions();
 const getRelatorioDominical = httpsCallable(functions, "getRelatorioDominical");
@@ -29,6 +32,7 @@ function RelatorioDominical() {
         useState<ResponseGetRelatorioDominical | null>(null);
 
     const [showRelatorio, setShowRelatorio] = useState(false);
+    const [downloadRelatorio, setDownloadRelatorio] = useState(false);
     const [filaClasses, setFilaClasses] = useState<ClasseInterface[]>([]);
     const [classesExcluidas, setClassesExcluidas] = useState<ClasseInterface[]>(
         []
@@ -191,7 +195,24 @@ function RelatorioDominical() {
 
                 <div className="relatorio-dominical__body">
                     <div className="relatorio-dominical__fila">
-                        <h3>Fila de Leitura</h3>
+                        <div className="relatorio-dominical__fila-title">
+                            <h3>Fila de Leitura </h3>
+                            {filaClasses.length ? (
+                                <button
+                                    title="Baixar Relatório PDF"
+                                    onClick={() => setDownloadRelatorio(true)}
+                                    disabled={downloadRelatorio}
+                                >
+                                    {!downloadRelatorio ? (
+                                        <FontAwesomeIcon icon={faFloppyDisk} />
+                                    ) : (
+                                        <FontAwesomeIcon icon={faDownload} />
+                                    )}
+                                </button>
+                            ) : (
+                                <></>
+                            )}
+                        </div>
 
                         <Reorder.Group
                             values={filaClasses}
@@ -331,6 +352,14 @@ function RelatorioDominical() {
                         domingo={domingo}
                         fila={filaClasses}
                         onSair={() => setShowRelatorio(false)}
+                    />
+                )}
+                {domingo && registros && downloadRelatorio && (
+                    <RelatorioLeituraDownload
+                        dados={registros}
+                        domingo={domingo}
+                        fila={filaClasses}
+                        onSair={() => setDownloadRelatorio(false)}
                     />
                 )}
             </AnimatePresence>

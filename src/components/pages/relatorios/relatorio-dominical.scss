@@ -93,6 +93,27 @@
         }
     }
 
+    &__fila {
+        &-title {
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+
+            button {
+                background: none;
+                border: none;
+                font-size: 2.4rem;
+                transition: all ease 0.4s;
+                color: v.$cor-primaria-itens;
+                cursor: pointer;
+
+                &:hover {
+                    color: v.$cor-sucesso;
+                }
+            }
+        }
+    }
+
     &__lista {
         display: flex;
         align-items: center;

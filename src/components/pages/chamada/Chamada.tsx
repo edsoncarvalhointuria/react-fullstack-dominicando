@@ -484,10 +484,16 @@ function ChamadaPage() {
                         });
                     } else {
                         const listaAlunos = m.map((v) => v.alunoId);
+                        const listaAlunosLicao = m
+                            .filter((v) => v.possui_revista)
+                            .map((v) => v.alunoId);
                         methods.setValue("bibliasTrazidas", listaAlunos);
-                        methods.setValue("licoesTrazidas", listaAlunos);
+                        methods.setValue("licoesTrazidas", listaAlunosLicao);
                         methods.setValue("totalBiblias", listaAlunos.length);
-                        methods.setValue("totalLicoes", listaAlunos.length);
+                        methods.setValue(
+                            "totalLicoes",
+                            listaAlunosLicao.length
+                        );
                     }
 
                     setMatriculas(m);

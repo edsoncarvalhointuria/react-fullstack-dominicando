@@ -69,6 +69,7 @@ const InfoLinha = ({
             <FontAwesomeIcon icon={icon} />
             <span>{label}</span>
         </div>
+        <div className="info-linha__linha"></div>
         <div
             className={`info-linha__valor ${
                 isMenor && "info-linha__valor--menor"

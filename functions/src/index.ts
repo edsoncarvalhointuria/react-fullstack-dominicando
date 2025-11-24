@@ -425,7 +425,7 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
 
     //Pegando aniversariantes da semana
     const inicioSemana = new Date(fimDia);
-    inicioSemana.setDate(inicioSemana.getDate() - 6);
+    inicioSemana.setDate(inicioSemana.getDate() - 7);
     const fimSemana = new Date(fimDia);
 
     const alunosSnap = await db
@@ -3736,12 +3736,17 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
                 atrasado: 0,
                 falta: 0,
                 falta_justificada: 0,
+                detalhes: [],
             };
 
             const key = chamada.status.toLowerCase().replace(/\s/g, "_");
             if (key === "falta_justificada") totalPresenca.push(1);
 
             item[key] = (item[key] || 0) + 1;
+            item["detalhes"].push({
+                data: registro.data.toDate().toLocaleDateString("pt-BR"),
+                status: chamada.status,
+            });
 
             alunosMap.set(c.id, item);
         });
