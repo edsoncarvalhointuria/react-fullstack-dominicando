@@ -154,6 +154,18 @@ function ChamadaPage() {
         if (label === "Falta" || label === "Falta Justificada") {
             methods.setValue("bibliasTrazidas", []);
             methods.setValue("licoesTrazidas", []);
+
+            methods.setValue("totalBiblias", 0);
+            methods.setValue("totalLicoes", 0);
+        } else {
+            const idsRevista = matriculasRef.current
+                .filter((v) => v.possui_revista)
+                .map((v) => v.alunoId);
+            const idsBiblias = Object.keys(presentes);
+            methods.setValue("bibliasTrazidas", idsBiblias);
+            methods.setValue("licoesTrazidas", idsRevista);
+            methods.setValue("totalBiblias", idsBiblias.length);
+            methods.setValue("totalLicoes", idsRevista.length);
         }
         setOpenAction(false);
     };
@@ -162,8 +174,11 @@ function ChamadaPage() {
         acao: "remover" | "adicionar"
     ) => {
         const opcao = item === "biblia" ? "bibliasTrazidas" : "licoesTrazidas";
-        if (acao === "remover") methods.setValue(opcao, []);
-        else {
+        const opcaoTotal = item === "biblia" ? "totalBiblias" : "totalLicoes";
+        if (acao === "remover") {
+            methods.setValue(opcao, []);
+            methods.setValue(opcaoTotal, 0);
+        } else {
             const ids = matriculasRef.current
                 .filter((v) => (item === "licao" ? v.possui_revista : true))
                 .map((v) => v.alunoId)
@@ -173,6 +188,7 @@ function ChamadaPage() {
                         chamada[v] !== "Falta Justificada"
                 );
             methods.setValue(opcao, ids);
+            methods.setValue(opcaoTotal, ids.length);
         }
         setOpenAction(false);
     };
@@ -676,7 +692,7 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T.
+                                                                        Tds.
                                                                         Presente
                                                                     </button>
                                                                     <button
@@ -695,7 +711,7 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T.
+                                                                        Tds.
                                                                         Atrasado
                                                                     </button>
                                                                     <button
@@ -714,7 +730,8 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T. Falta
+                                                                        Tds.
+                                                                        Falta
                                                                     </button>
                                                                     <button
                                                                         type="button"
@@ -732,7 +749,7 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T. F.
+                                                                        Tds. F.
                                                                         Justificada
                                                                     </button>
                                                                 </div>
@@ -755,7 +772,7 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T. c/
+                                                                        Tds. com
                                                                         Revista
                                                                     </button>
                                                                     <button
@@ -775,7 +792,7 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T. s/
+                                                                        Tds. sem
                                                                         Revista
                                                                     </button>
                                                                     <button
@@ -795,7 +812,7 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T. c/
+                                                                        Tds. com
                                                                         Bíblia
                                                                     </button>
                                                                     <button
@@ -815,7 +832,7 @@ function ChamadaPage() {
                                                                                 }
                                                                             />
                                                                         </span>
-                                                                        T. s/
+                                                                        Tds. sem
                                                                         Bíblia
                                                                     </button>
                                                                 </div>

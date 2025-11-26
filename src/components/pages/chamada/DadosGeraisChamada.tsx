@@ -6,7 +6,7 @@ import {
     faPlus,
     faTimes,
 } from "@fortawesome/free-solid-svg-icons";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { reduzirImagem } from "../../../utils/reduzirImagem";
 
 function DadosGeraisChamada({
@@ -26,14 +26,20 @@ function DadosGeraisChamada({
     pixOfertas: File[];
     pixMissoes: File[];
 }) {
+    const [showErro, setShowErro] = useState(false);
     const { register, setValue, watch } = useFormContext();
     const totalVisitas = watch("visitas");
-    const { imgsPixOfertas, imgsPixMissoes } = watch();
+    const { imgsPixOfertas, imgsPixMissoes, chamada, totalLicoes } = watch();
+
+    const presentes = Object.values(chamada || {}).filter(
+        (v) => v === "Presente" || v === "Atrasado"
+    ).length;
 
     const editarNumero = (evt: any, campo: string) => {
         let value = (evt.target.value || "0").replace(",", ".");
 
-        if (!Number.isNaN(value)) setValue(campo, Number(value));
+        if (!Number.isNaN(value))
+            setValue(campo, Number(value) < 0 ? 0 : Number(value));
         else {
             value = value.replace(".", ".0");
 
@@ -45,6 +51,9 @@ function DadosGeraisChamada({
     useEffect(() => {
         setValue("visitasLista", visitas);
     }, [visitas]);
+    useEffect(() => {
+        if (totalLicoes > presentes) setValue("totalLicoes", presentes);
+    }, []);
     return (
         <motion.div
             className="dados-gerais-chamada"
@@ -132,24 +141,59 @@ function DadosGeraisChamada({
                 </AnimatePresence>
             </div>
             <div className="form-group">
-                <label htmlFor="visitas">Total Bíblias</label>
+                <label htmlFor="biblias">Total Bíblias</label>
                 <input
                     type="number"
+                    step={1}
                     id="biblias"
                     {...register("totalBiblias", {
                         valueAsNumber: true,
+                        onBlur: (evt) => {
+                            const v = Math.floor(evt.target.value);
+
+                            if (v < 0) setValue("totalBiblias", 0);
+                            else setValue("totalBiblias", v || 0);
+                        },
                     })}
                 />
             </div>
             <div className="form-group">
-                <label htmlFor="visitas">Total Revistas</label>
+                <label htmlFor="revistas">Total Revistas</label>
                 <input
                     type="number"
                     id="revistas"
+                    step={1}
                     {...register("totalLicoes", {
                         valueAsNumber: true,
+                        maxLength: presentes,
+                        onBlur: (evt) => {
+                            const v = Math.floor(evt.target.value);
+
+                            if (v < 0) setValue("totalLicoes", 0);
+                            else if (v > presentes) {
+                                setValue("totalLicoes", presentes);
+                                setShowErro(true);
+
+                                setTimeout(() => setShowErro(false), 9000);
+                            } else setValue("totalLicoes", v || 0);
+                        },
                     })}
                 />
+                <AnimatePresence>
+                    {showErro && (
+                        <motion.p
+                            className="form-group--erro"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            key={"erro-mensagem"}
+                        >
+                            <span>(Valor corrigido)</span> Você não pode
+                            contabilizar mais revistas do que alunos presentes (
+                            {presentes}).
+                        </motion.p>
+                    )}
+                </AnimatePresence>
             </div>
 
             <h4>Ofertas</h4>

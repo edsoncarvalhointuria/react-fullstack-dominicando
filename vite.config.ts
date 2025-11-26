@@ -11,7 +11,12 @@ export default defineConfig({
         react(),
         VitePWA({
             registerType: "autoUpdate",
-            includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+            includeAssets: [
+                "sitemap.xml",
+                "robots.txt",
+                "favicon.svg",
+                "apple-touch-icon.png",
+            ],
             // strategies: "injectManifest",
             // srcDir: "src",
             // filename: "firebase-messaging-sw.ts",

@@ -2781,6 +2781,7 @@ interface RegistroAulaInterface {
     imgsPixMissoes: string[] | null;
     ofertas: { dinheiro: number; pix: number };
     imgsPixOfertas: string[] | null;
+    numero_aula: number;
 }
 
 export const salvarChamada = functions.https.onCall(async (request) => {
@@ -2855,6 +2856,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             dados.totalPresentes + dados.totalAtrasados + dados.visitas,
         visitas: dados.visitas,
         visitas_lista: dados.visitasLista,
+        numero_aula: aula.data()?.numero_aula || 1,
     };
 
     try {
@@ -3728,24 +3730,65 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
 
         chamadaRef.docs.forEach((c) => {
             const chamada = c.data();
+            const data = registro.data.toDate().toLocaleDateString("pt-BR");
+            const aula = registro.numero_aula;
 
             const item = alunosMap.get(c.id) || {
                 id: c.id,
                 nome: chamada.nome,
-                presente: 0,
-                atrasado: 0,
-                falta: 0,
-                falta_justificada: 0,
-                detalhes: [],
+                chamada: {
+                    presente: 0,
+                    atrasado: 0,
+                    falta: 0,
+                    falta_justificada: 0,
+                    detalhes: [],
+                },
+                licoes: {
+                    trouxe: 0,
+                    naoTrouxe: 0,
+                    detalhes: [],
+                },
+                biblias: {
+                    trouxe: 0,
+                    naoTrouxe: 0,
+                    detalhes: [],
+                },
             };
 
             const key = chamada.status.toLowerCase().replace(/\s/g, "_");
             if (key === "falta_justificada") totalPresenca.push(1);
 
-            item[key] = (item[key] || 0) + 1;
-            item["detalhes"].push({
-                data: registro.data.toDate().toLocaleDateString("pt-BR"),
+            // Chamada
+            item["chamada"][key] = (item["chamada"][key] || 0) + 1;
+            item["chamada"]["detalhes"].push({
+                data,
                 status: chamada.status,
+                aula,
+            });
+
+            //Licoes
+            if (chamada.trouxe_licao === true)
+                item["licoes"]["trouxe"] = (item["licoes"]["trouxe"] || 0) + 1;
+            else
+                item["licoes"]["naoTrouxe"] =
+                    (item["licoes"]["naoTrouxe"] || 0) + 1;
+            item["licoes"]["detalhes"].push({
+                data,
+                aula,
+                status: chamada.trouxe_licao,
+            });
+
+            //Biblias
+            if (chamada.trouxe_biblia === true)
+                item["biblias"]["trouxe"] =
+                    (item["biblias"]["trouxe"] || 0) + 1;
+            else
+                item["biblias"]["naoTrouxe"] =
+                    (item["biblias"]["naoTrouxe"] || 0) + 1;
+            item["biblias"]["detalhes"].push({
+                data,
+                aula,
+                status: chamada.trouxe_biblia,
             });
 
             alunosMap.set(c.id, item);
@@ -3764,14 +3807,39 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
     );
 
     const frequenciaAlunos = Array.from(alunosMap.values()).map((v) => {
+        const c = v["chamada"];
+        const l = v["licoes"];
+        const b = v["biblias"];
+
         const totalPontos =
-            (v.presente || 0) +
-            (v.atrasado || 0) * 0.9 +
-            (v.falta_justificada || 0) * 0.5;
-        const porcentagem = (totalPontos / (progresso.concluidas || 0)) * 100;
+            (c.presente || 0) +
+            (c.atrasado || 0) * 0.9 +
+            (c.falta_justificada || 0) * 0.5;
+        const porcentagemPresenca =
+            (totalPontos / (progresso.concluidas || 0)) * 100;
+
+        const porcentagemLicao =
+            ((l["trouxe"] || 0) / progresso.concluidas) * 100;
+        const porcentagemBiblias =
+            ((b["trouxe"] || 0) / progresso.concluidas) * 100;
+
         return {
             ...v,
-            presenca: Number.parseFloat(porcentagem.toFixed(1)) || 0,
+            chamada: {
+                ...c,
+                porcentagem:
+                    Number.parseFloat(porcentagemPresenca.toFixed(1)) || 0,
+            },
+            licoes: {
+                ...l,
+                porcentagem:
+                    Number.parseFloat(porcentagemLicao.toFixed(1)) || 0,
+            },
+            biblias: {
+                ...b,
+                porcentagem:
+                    Number.parseFloat(porcentagemBiblias.toFixed(1)) || 0,
+            },
         };
     });
 

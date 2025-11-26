@@ -1,13 +1,14 @@
 import { useFormContext } from "react-hook-form";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+    faCircleCheck,
     faSquareCheck,
     faSquareXmark,
     faUserPen,
+    faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import type { MatriculasInterface } from "../../../interfaces/MatriculasInterface";
 import { motion } from "framer-motion";
-import { useEffect } from "react";
 
 interface Props {
     matriculas: MatriculasInterface[];
@@ -22,25 +23,28 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
     const totalLicoes = watch("totalLicoes");
     const totalBiblias = watch("totalBiblias");
 
-    useEffect(() => {
-        const ausentes: string[] = [];
-
-        for (let id in chamada) {
-            const status = chamada[id];
-            if (status === "Falta" || status === "Falta Justificada") {
-                ausentes.push(id);
-            }
-        }
-
+    const removeLicao = (aluno: MatriculasInterface) => {
         setValue(
             "licoesTrazidas",
-            revistas.filter((v: any) => !ausentes.includes(v))
+            revistas.filter((v: any) => v !== aluno.alunoId)
         );
+        setValue("totalLicoes", (totalLicoes || 1) - 1);
+    };
+    const removeBiblia = (aluno: MatriculasInterface) => {
         setValue(
             "bibliasTrazidas",
-            biblias.filter((v: any) => !ausentes.includes(v))
+            biblias.filter((v: any) => v !== aluno.alunoId)
         );
-    }, [chamada]);
+        setValue("totalBiblias", (totalBiblias || 1) - 1);
+    };
+    const addLicao = (aluno: MatriculasInterface) => {
+        setValue("licoesTrazidas", [...revistas, aluno.alunoId]);
+        setValue("totalLicoes", (totalLicoes || 0) + 1);
+    };
+    const addBiblia = (aluno: MatriculasInterface) => {
+        setValue("bibliasTrazidas", [...biblias, aluno.alunoId]);
+        setValue("totalBiblias", (totalBiblias || 0) + 1);
+    };
     return (
         <motion.ul
             className="lista-chamada"
@@ -119,22 +123,32 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
                                                         "Falta Justificada" ||
                                                     status === "Falta"
                                                 ) {
-                                                    setValue(
-                                                        "bibliasTrazidas",
-                                                        biblias.filter(
-                                                            (b: any) =>
-                                                                b !==
-                                                                aluno.alunoId
+                                                    if (
+                                                        biblias.includes(
+                                                            aluno.alunoId
                                                         )
-                                                    );
-                                                    setValue(
-                                                        "licoesTrazidas",
-                                                        revistas.filter(
-                                                            (r: any) =>
-                                                                r !==
-                                                                aluno.alunoId
+                                                    )
+                                                        removeBiblia(aluno);
+                                                    if (
+                                                        revistas.includes(
+                                                            aluno.alunoId
                                                         )
-                                                    );
+                                                    )
+                                                        removeLicao(aluno);
+                                                } else {
+                                                    if (
+                                                        !biblias.includes(
+                                                            aluno.alunoId
+                                                        )
+                                                    )
+                                                        addBiblia(aluno);
+                                                    if (
+                                                        !revistas.includes(
+                                                            aluno.alunoId
+                                                        ) &&
+                                                        aluno.possui_revista
+                                                    )
+                                                        addLicao(aluno);
                                                 }
                                             }}
                                         />
@@ -154,6 +168,7 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
                                 <div className="lista-chamada__checks">
                                     <div>
                                         <input
+                                            title="Clique para Atualizar"
                                             type="checkbox"
                                             value={aluno.alunoId}
                                             checked={revistas.includes(
@@ -165,40 +180,41 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
                                                         aluno.alunoId
                                                     )
                                                 ) {
-                                                    setValue(
-                                                        "licoesTrazidas",
-                                                        revistas.filter(
-                                                            (v: any) =>
-                                                                v !==
-                                                                aluno.alunoId
-                                                        )
-                                                    );
-
-                                                    setValue(
-                                                        "totalLicoes",
-                                                        (totalLicoes || 1) - 1
-                                                    );
+                                                    removeLicao(aluno);
                                                 } else {
-                                                    setValue("licoesTrazidas", [
-                                                        ...revistas,
-                                                        aluno.alunoId,
-                                                    ]);
-
-                                                    setValue(
-                                                        "totalLicoes",
-                                                        (totalLicoes || 0) + 1
-                                                    );
+                                                    addLicao(aluno);
                                                 }
                                             }}
                                         />
                                         <label
                                             htmlFor={`revista-${aluno.alunoId}`}
                                         >
-                                            Trouxe Lição?
+                                            {revistas.includes(
+                                                aluno.alunoId
+                                            ) ? (
+                                                <>
+                                                    <span>
+                                                        <FontAwesomeIcon
+                                                            icon={faCircleCheck}
+                                                        />
+                                                    </span>
+                                                    Trouxe Lição
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>
+                                                        <FontAwesomeIcon
+                                                            icon={faXmark}
+                                                        />
+                                                    </span>
+                                                    Não Trouxe Lição
+                                                </>
+                                            )}
                                         </label>
                                     </div>
                                     <div>
                                         <input
+                                            title="Clique para Atualizar"
                                             type="checkbox"
                                             id={`biblia-${aluno.alunoId}`}
                                             value={aluno.alunoId}
@@ -211,37 +227,34 @@ function ListaChamada({ matriculas, setEditAluno }: Props) {
                                                         aluno.alunoId
                                                     )
                                                 ) {
-                                                    setValue(
-                                                        "bibliasTrazidas",
-                                                        biblias.filter(
-                                                            (v: any) =>
-                                                                v !==
-                                                                aluno.alunoId
-                                                        )
-                                                    );
-                                                    setValue(
-                                                        "totalBiblias",
-                                                        (totalBiblias || 1) - 1
-                                                    );
+                                                    removeBiblia(aluno);
                                                 } else {
-                                                    setValue(
-                                                        "bibliasTrazidas",
-                                                        [
-                                                            ...biblias,
-                                                            aluno.alunoId,
-                                                        ]
-                                                    );
-                                                    setValue(
-                                                        "totalBiblias",
-                                                        (totalBiblias || 0) + 1
-                                                    );
+                                                    addBiblia(aluno);
                                                 }
                                             }}
                                         />
                                         <label
                                             htmlFor={`biblia-${aluno.alunoId}`}
                                         >
-                                            Trouxe Bíblia?
+                                            {biblias.includes(aluno.alunoId) ? (
+                                                <>
+                                                    <span>
+                                                        <FontAwesomeIcon
+                                                            icon={faCircleCheck}
+                                                        />
+                                                    </span>
+                                                    Trouxe Bíblia
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>
+                                                        <FontAwesomeIcon
+                                                            icon={faXmark}
+                                                        />
+                                                    </span>
+                                                    Não Trouxe Bíblia
+                                                </>
+                                            )}
                                         </label>
                                     </div>
                                 </div>

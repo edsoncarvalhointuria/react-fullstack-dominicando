@@ -24,4 +24,5 @@ export interface RegistroAulaInterface {
     imgsPixMissoes: string[] | null;
     ofertas: { dinheiro: number; pix: number };
     imgsPixOfertas: string[] | null;
+    numero_aula: number;
 }

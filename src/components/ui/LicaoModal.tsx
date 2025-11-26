@@ -130,16 +130,6 @@ function LicaoModal({
                 setIsLoading(false);
             }
         };
-
-        if (licao.id) {
-            setLoadingPanorama(true);
-            getResumoDaLicao({ licaoId: licao.id })
-                .then(({ data }) => {
-                    setPanoramaDados(data);
-                    setLoadingPanorama(false);
-                })
-                .catch((err) => console.log(err));
-        }
         getAulas();
     }, [licao.id]);
     return (
@@ -190,15 +180,34 @@ function LicaoModal({
                                             />
                                             <p>Editar Revista</p>
                                         </div>
-                                        <div
+                                        <motion.div
                                             className="licao-modal__header-option"
-                                            onClick={() => setIsPanorama(true)}
+                                            onTap={() => {
+                                                setIsPanorama(true);
+                                                if (!panoramaDados) {
+                                                    setLoadingPanorama(true);
+                                                    getResumoDaLicao({
+                                                        licaoId: licao.id,
+                                                    })
+                                                        .then(({ data }) => {
+                                                            setPanoramaDados(
+                                                                data
+                                                            );
+                                                            setLoadingPanorama(
+                                                                false
+                                                            );
+                                                        })
+                                                        .catch((err) =>
+                                                            console.log(err)
+                                                        );
+                                                }
+                                            }}
                                         >
                                             <FontAwesomeIcon
                                                 icon={faChartSimple}
                                             />
                                             <p>Panorama Lição</p>
-                                        </div>
+                                        </motion.div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>

@@ -30,7 +30,56 @@
         gap: 2rem;
     }
 
+    &__opcoes {
+        display: flex;
+        gap: 1rem;
+        justify-content: space-evenly;
+        align-items: center;
+
+        &-check {
+            position: relative;
+
+            input {
+                position: absolute;
+                opacity: 0;
+                cursor: pointer;
+                height: 100%;
+                width: 100%;
+            }
+
+            label {
+                display: inline-block;
+                padding: 0.8rem 2rem;
+                background-color: v.$cor-primaria-fundo;
+                border: 1px solid #d1d5db;
+                border-radius: 2rem;
+                font-size: 1.4rem;
+                font-weight: 500;
+                color: v.$cor-secundaria-texto;
+                cursor: pointer;
+                transition: all 0.2s ease-in-out;
+                user-select: none;
+
+                &:hover {
+                    border-color: v.$cor-primaria-itens;
+                    color: v.$cor-primaria-itens;
+                }
+            }
+
+            input:checked + label {
+                background-color: v.$cor-primaria-itens;
+                color: white;
+                border-color: v.$cor-primaria-itens;
+                box-shadow: 0 4px 12px rgba(v.$cor-primaria-itens, 0.3); // Um brilho suave
+                font-weight: 600;
+                transform: translateY(-1px);
+            }
+        }
+    }
+
     &__lista-alunos {
+        display: grid;
+        gap: 1rem;
         h3 {
             font-size: 1.8rem;
             font-weight: 600;
