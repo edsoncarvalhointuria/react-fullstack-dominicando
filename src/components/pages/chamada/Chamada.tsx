@@ -283,7 +283,34 @@ function ChamadaPage() {
     };
 
     const onSubmit = (dados: ChamadaForm) => {
-        if (isEdit.current && isDataAnterior && isSecretario.current) {
+        if (licao?.relatorio_enviado)
+            return setMensagem({
+                message: (
+                    <>
+                        <span>
+                            <strong>Atenção:</strong> Esta lição está bloqueada.
+                        </span>
+                        <span>
+                            Depois que o relatório trimestral é enviado, a lição
+                            não pode mais ser editada para evitar mudanças nos
+                            registros.
+                        </span>
+                        <br />
+                        <strong>
+                            Se precisar fazer alguma alteração, procure a
+                            secretaria do ministério.
+                        </strong>
+                    </>
+                ),
+                onCancel: navigateChamadaSalva,
+                onClose: navigateChamadaSalva,
+                onConfirm: navigateChamadaSalva,
+                title: "Edição Bloqueada",
+                confirmText: "Sair",
+                cancelText: "Cancelar",
+                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+            });
+        else if (isEdit.current && isDataAnterior && isSecretario.current) {
             return setMensagem({
                 message: (
                     <>
@@ -553,9 +580,10 @@ function ChamadaPage() {
                                 Aula: {numeroAula}
                             </p>
 
-                            {isEdit.current &&
-                            isDataAnterior &&
-                            isSecretario.current ? (
+                            {(isEdit.current &&
+                                isDataAnterior &&
+                                isSecretario.current) ||
+                            licao?.relatorio_enviado ? (
                                 <span className="chamada-page__status--bloqueado">
                                     <FontAwesomeIcon icon={faCircleXmark} />
                                     Edição Bloqueada
@@ -605,9 +633,10 @@ function ChamadaPage() {
                         <form
                             onSubmit={methods.handleSubmit(onSubmit)}
                             className={
-                                isEdit.current &&
-                                isDataAnterior &&
-                                isSecretario.current
+                                (isEdit.current &&
+                                    isDataAnterior &&
+                                    isSecretario.current) ||
+                                licao?.relatorio_enviado
                                     ? "chamada-page__form--bloqueado"
                                     : ""
                             }

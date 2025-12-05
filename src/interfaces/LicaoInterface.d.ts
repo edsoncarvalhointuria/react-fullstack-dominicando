@@ -15,4 +15,5 @@ interface LicaoInterface {
     numero_trimestre: number | null;
     titulo: string;
     total_matriculados: number;
+    relatorio_enviado?: boolean;
 }

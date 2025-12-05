@@ -33,6 +33,7 @@ interface TabelaDeGestaoProps {
     currentList: { [key: string]: any }[];
     onEdit: (value: any) => void;
     onDelete: (value: any) => void;
+    notDelete?: boolean;
 }
 
 function TabelaDeGestao({
@@ -43,6 +44,7 @@ function TabelaDeGestao({
     currentList,
     onEdit,
     onDelete,
+    notDelete = false,
 }: TabelaDeGestaoProps) {
     return (
         <motion.table variants={variantsItem} className="tabela-gestao__table">
@@ -127,12 +129,14 @@ function TabelaDeGestao({
                                 >
                                     <FontAwesomeIcon icon={faUserPen} />
                                 </div>
-                                <div
-                                    className="tabela-gestao__table-acao"
-                                    onClick={() => onDelete(v)}
-                                >
-                                    <FontAwesomeIcon icon={faTrash} />
-                                </div>
+                                {!notDelete && (
+                                    <div
+                                        className="tabela-gestao__table-acao"
+                                        onClick={() => onDelete(v)}
+                                    >
+                                        <FontAwesomeIcon icon={faTrash} />
+                                    </div>
+                                )}
                             </div>
                         </td>
                     </tr>

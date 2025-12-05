@@ -243,6 +243,150 @@ async function getTotalMembros(
     return membrosSnap;
 }
 
+async function calcTrimestre(
+    trimestreId: string,
+    igrejaId: string,
+    naoTemPermissao: boolean,
+    user: User,
+    db: admin.firestore.Firestore
+) {
+    if (!igrejaId || !trimestreId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes."
+        );
+    }
+
+    const [igrejaSnap, trimestreSnap] = await Promise.all([
+        db.collection("igrejas").doc(igrejaId).get(),
+        db.collection("trimestres").doc(trimestreId).get(),
+    ]);
+    if (!igrejaSnap.exists || !trimestreSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Coleções não encontradas."
+        );
+    }
+    if (
+        naoTemPermissao ||
+        user.ministerioId !== trimestreSnap.data()?.ministerioId
+    ) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso."
+        );
+    }
+
+    const trimestre = trimestreSnap.data() as Trimestre;
+
+    const dataInicio = trimestre.data_inicio.toDate();
+    dataInicio.setHours(0, 0, 0, 0);
+    const dataFim = trimestre.data_fim.toDate();
+    dataFim.setHours(23, 59, 59, 59);
+
+    const licoes = await db
+        .collection("licoes")
+        .where("data_inicio", ">=", dataInicio)
+        .where("data_fim", "<=", dataFim)
+        .where("igrejaId", "==", igrejaId)
+        .get();
+
+    const datas = new Map();
+
+    const aulasSnaps = await Promise.all(
+        licoes.docs.map(async (v) => v.ref.collection("aulas").get())
+    );
+
+    const aulasRealizadas = aulasSnaps
+        .flatMap((v) => v.docs)
+        .filter((v) => {
+            const aula = v.data();
+            const data = aula.data_prevista
+                .toDate()
+                .toLocaleDateString("pt-BR");
+            const d = datas.get(data) || {
+                aula: aula.numero_aula,
+                realizada: aula.realizada,
+                data,
+            };
+
+            datas.set(data, {
+                ...d,
+                realizada: d.realizada ? true : aula.realizada,
+            });
+
+            return aula?.realizada;
+        });
+
+    const registrosSnaps = await Promise.all(
+        aulasRealizadas.map((v) => v.data().registroRef.get())
+    );
+
+    const totais = {
+        total: 0,
+        total_ofertas_pix: 0,
+        total_ofertas_dinheiro: 0,
+        total_missoes_pix: 0,
+        total_missoes_dinheiro: 0,
+    };
+
+    registrosSnaps.forEach((r) => {
+        const registro = r.data() as RegistroAulaInterface;
+
+        const valores = {
+            total_ofertas_pix: registro.ofertas.pix || 0,
+            total_ofertas_dinheiro: registro.ofertas.dinheiro || 0,
+            total_missoes_pix: registro.missoes.pix || 0,
+            total_missoes_dinheiro: registro.missoes.dinheiro || 0,
+            total: registro.ofertas_total + registro.missoes_total || 0,
+        };
+        const colunas: Array<
+            | "total"
+            | "total_ofertas_pix"
+            | "total_ofertas_dinheiro"
+            | "total_missoes_pix"
+            | "total_missoes_dinheiro"
+        > = [
+            "total",
+            "total_ofertas_pix",
+            "total_ofertas_dinheiro",
+            "total_missoes_pix",
+            "total_missoes_dinheiro",
+        ];
+
+        const aula =
+            datas.get(registro.data.toDate().toLocaleDateString("pt-BR")) || {};
+
+        const classes = aula["classes"] || {};
+        const classe = classes[registro.classeId] || {
+            nome: registro.classeNome,
+            id: registro.classeId,
+            licaoId: registro.licaoId,
+            igrejaId: registro.igrejaId,
+            total: 0.0,
+            total_ofertas_pix: 0.0,
+            total_ofertas_dinheiro: 0.0,
+            total_missoes_pix: 0.0,
+            total_missoes_dinheiro: 0.0,
+            comprovantes: [],
+        };
+
+        colunas.forEach((v) => {
+            aula[v] = (aula[v] || 0) + valores[v];
+            classe[v] = (classe[v] || 0) + valores[v];
+            totais[v] = (totais[v] || 0) + valores[v];
+        });
+        classe["comprovantes"].push(
+            ...(registro.imgsPixMissoes || []),
+            ...(registro.imgsPixOfertas || [])
+        );
+
+        aula["classes"] = { ...classes, [registro.classeId]: classe };
+    });
+
+    return { totais, datas, trimestre, licoes };
+}
+
 admin.initializeApp();
 
 export const getDashboard = functions.https.onCall(async (request) => {
@@ -477,7 +621,370 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     };
 });
 
-// Abaixo as funções de adicionar dados
+interface Trimestre {
+    id: string;
+    ano: number;
+    data_fim: Timestamp;
+    data_inicio: Timestamp;
+    ministerioId: string;
+    nome: string;
+    numero_trimestre: number;
+}
+
+export const getRelatorioTrimestral = functions.https.onCall(
+    async (request) => {
+        const { db, isSecretario, user } = await validarUsuario(request);
+
+        const { igrejaId, trimestreId } = request.data;
+
+        const { datas, totais, trimestre } = await calcTrimestre(
+            trimestreId,
+            igrejaId,
+            isSecretario,
+            user,
+            db
+        );
+
+        const relatorioSnap = await db
+            .collection("relatorios_trimestre")
+            .where("igrejaId", "==", igrejaId)
+            .where("data_inicio", "==", trimestre.data_inicio)
+            .where("data_fim", "==", trimestre.data_fim)
+            .limit(1)
+            .get();
+
+        const relatorio = relatorioSnap.docs[0]?.data() as RelatoriosTrimestres;
+        let totalRelatorio;
+
+        if (!relatorioSnap.empty) {
+            const {
+                total,
+                total_missoes_dinheiro,
+                total_missoes_pix,
+                total_ofertas_dinheiro,
+                total_ofertas_pix,
+                data_envio,
+            } = relatorio;
+
+            totalRelatorio = {
+                total,
+                total_missoes_dinheiro,
+                total_missoes_pix,
+                total_ofertas_dinheiro,
+                total_ofertas_pix,
+            };
+
+            relatorio["data_envio"] = data_envio
+                .toDate()
+                .toLocaleDateString("pt-BR") as any;
+        }
+
+        const listaDatas = Array.from(datas.values());
+
+        listaDatas.forEach((v) => {
+            v["classes"] = Object.values(v["classes"] || {});
+        });
+
+        const notificacao: Notificacao = {
+            actor: {
+                email: user.email,
+                uid: user.uid,
+                ip: request.rawRequest.ip,
+            },
+            dados: {
+                dados_enviados: request.data,
+                dados_importantes: totais,
+            },
+            evento: "GET_RELATORIO_TRIMESTRAL",
+            message: `Relatório gerado com sucesso pelo usuário: ${user.uid}`,
+        };
+        console.log(JSON.stringify(notificacao));
+
+        return {
+            bloqueado: !!relatorio?.bloqueado,
+            datas: listaDatas,
+            resumo_final:
+                !!relatorio?.bloqueado && totalRelatorio
+                    ? totalRelatorio
+                    : totais,
+            relatorio,
+        };
+    }
+);
+
+interface RelatoriosTrimestres {
+    id: string;
+    data_envio: Timestamp;
+    assinado_por: {
+        nome: string;
+        email: string;
+        uid: string;
+        ip: string;
+    };
+    total: number;
+    total_ofertas_pix: number;
+    total_ofertas_dinheiro: number;
+    total_missoes_pix: number;
+    total_missoes_dinheiro: number;
+    igrejaId: string;
+    ministerioId: string;
+    data_inicio: Timestamp;
+    data_fim: Timestamp;
+    bloqueado: boolean;
+}
+
+export const salvarRelatorioTrimestral = functions.https.onCall(
+    async (request) => {
+        const { isAdmin, db, user } = await validarUsuario(request);
+
+        const { igrejaId, trimestreId, confirmacao, valor_final, descricao } =
+            request.data;
+
+        if (
+            !confirmacao ||
+            igrejaId !== user.igrejaId ||
+            Number.isNaN(Number(valor_final))
+        ) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "Dados inválidos ou ausentes."
+            );
+        }
+
+        const { totais, trimestre, licoes } = await calcTrimestre(
+            trimestreId,
+            igrejaId,
+            !isAdmin,
+            user,
+            db
+        );
+
+        const relatorioSnap = await db
+            .collection("relatorios_trimestre")
+            .where("igrejaId", "==", igrejaId)
+            .where("data_inicio", "==", trimestre.data_inicio)
+            .where("data_fim", "==", trimestre.data_fim)
+            .limit(1)
+            .get();
+
+        if (!relatorioSnap.empty && relatorioSnap.docs[0].data().bloqueado) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Esse relatório já foi enviado, somente os administradores do ministério podem liberar a edição."
+            );
+        }
+
+        try {
+            const batch = db.batch();
+
+            const dados = {
+                data_envio: Timestamp.now(),
+                assinado_por: {
+                    nome: user.nome,
+                    email: user.email,
+                    uid: user.uid,
+                    ip: request.rawRequest.ip,
+                },
+                ...totais,
+                valor_enviado: valor_final,
+                descricao: descricao || null,
+                igrejaId,
+                ministerioId: user.ministerioId,
+                data_inicio: trimestre.data_inicio,
+                data_fim: trimestre.data_fim,
+                bloqueado: true,
+            };
+
+            const isEdit = !relatorioSnap.empty;
+            const relatorioTrimestreRef = isEdit
+                ? relatorioSnap.docs[0].ref
+                : db.collection("relatorios_trimestre").doc();
+
+            if (isEdit) batch.update(relatorioTrimestreRef, dados);
+            else batch.set(relatorioTrimestreRef, dados);
+
+            licoes.docs.forEach((v) =>
+                batch.update(v.ref, { relatorio_enviado: true })
+            );
+
+            await batch.commit();
+
+            const notificacao: Notificacao = {
+                actor: {
+                    email: user.email,
+                    uid: user.uid,
+                    ip: request.rawRequest.ip,
+                },
+                dados: {
+                    dados_enviados: request.data,
+                    dados_importantes: totais,
+                },
+                evento: "SALVAR_RELATORIO_TRIMESTRAL",
+                message: `Relatório salvo com sucesso pelo usuário: ${user.uid}`,
+            };
+
+            console.log(JSON.stringify(notificacao));
+
+            return { message: "Relatório salvo com sucesso." };
+        } catch (error: any) {
+            console.log("Erro ao salvar relatório", error);
+            throw new functions.https.HttpsError("internal", error.message);
+        }
+    }
+);
+
+export const desbloquearRelatorio = functions.https.onCall(async (request) => {
+    const { db, isSuperAdmin, user } = await validarUsuario(request);
+    const { trimestreId, igrejaId } = request.data;
+
+    if (!trimestreId || !igrejaId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes."
+        );
+    }
+
+    const [igrejaSnap, trimestreSnap] = await Promise.all([
+        db.collection("igrejas").doc(igrejaId).get(),
+        db.collection("trimestres").doc(trimestreId).get(),
+    ]);
+
+    if (!igrejaSnap.exists || !trimestreSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Coleções não encontradas"
+        );
+    }
+
+    const trimestre = trimestreSnap.data();
+    if (!isSuperAdmin || trimestre?.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso."
+        );
+    }
+
+    const dataInicio = trimestre.data_inicio.toDate();
+    dataInicio.setHours(0, 0, 0, 0);
+    const dataFim = trimestre.data_fim.toDate();
+    dataFim.setHours(23, 59, 59, 59);
+
+    const licoesSnap = await db
+        .collection("licoes")
+        .where("data_inicio", ">=", dataInicio)
+        .where("data_fim", "<=", dataFim)
+        .where("igrejaId", "==", igrejaId)
+        .get();
+
+    const relatorioSnap = await db
+        .collection("relatorios_trimestre")
+        .where("data_inicio", "==", trimestre?.data_inicio)
+        .where("data_fim", "==", trimestre?.data_fim)
+        .where("igrejaId", "==", igrejaId)
+        .limit(1)
+        .get();
+
+    if (relatorioSnap.empty) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Relatório não encontrado"
+        );
+    }
+
+    const batch = db.batch();
+
+    batch.update(relatorioSnap.docs[0].ref, { bloqueado: false });
+    licoesSnap.forEach((v) =>
+        batch.update(v.ref, { relatorio_enviado: false })
+    );
+
+    await batch.commit();
+
+    return { message: "Relatório atualizado com sucesso" };
+});
+
+interface AtualizarTrimestreFront {
+    trimestreId: string;
+    dados: {
+        data_inicio: string;
+        numero_aulas: number;
+        numero_trimestre: number;
+    };
+}
+
+export const atualizarTrimestre = functions.https.onCall(async (request) => {
+    const { db, isSuperAdmin, user } = await validarUsuario(request);
+
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para isso."
+        );
+    }
+
+    const {
+        trimestreId,
+        dados: { data_inicio, numero_aulas, numero_trimestre },
+    } = request.data as AtualizarTrimestreFront;
+
+    if (!data_inicio || !numero_aulas || !numero_trimestre) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes."
+        );
+    }
+
+    const trimestreRef = db.collection("trimestres").doc(trimestreId);
+    const trimestreSnap = await trimestreRef.get();
+
+    if (!trimestreSnap.exists) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Trimestre não encontrado"
+        );
+    }
+
+    const trimestre = trimestreSnap.data();
+
+    const dataInicioAnterior = trimestre?.data_inicio.toDate();
+    dataInicioAnterior.setHours(0, 0, 0, 0);
+    const dataFimAnterior = trimestre?.data_fim.toDate();
+    dataFimAnterior.setHours(23, 59, 59, 59);
+
+    const licoesSnap = await db
+        .collection("licoes")
+        .where("ministerioId", "==", user.ministerioId)
+        .where("data_inicio", ">=", dataInicioAnterior)
+        .where("data_fim", "<=", dataFimAnterior)
+        .where("numero_trimestre", "==", trimestre?.numero_trimestre)
+        .get();
+
+    try {
+        const batch = db.batch();
+
+        const dataInicioNova = new Date(data_inicio + "T12:00:00");
+        const dataFimNova = new Date(dataInicioNova);
+        dataFimNova.setDate(dataFimNova.getDate() + (numero_aulas - 1) * 7);
+
+        licoesSnap.docs.forEach((v) => {
+            batch.update(v.ref, {
+                data_inicio: Timestamp.fromDate(dataInicioNova),
+                data_fim: Timestamp.fromDate(dataFimNova),
+                numero_trimestre,
+                numero_aulas,
+            });
+        });
+
+        batch.delete(trimestreRef);
+
+        await batch.commit();
+
+        return { message: "Dados atualizados com sucesso." };
+    } catch (error: any) {
+        console.log("Erro ao atualizar trimestre", error);
+        throw new functions.https.HttpsError("internal", error.message);
+    }
+});
 
 interface MembroFront {
     igrejaId: string;
@@ -1765,6 +2272,8 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
             registrosSnap,
             usuariosSnap,
             visitasSnap,
+            membrosSnap,
+            relatoriosSnap,
         ] = await Promise.all([
             db.collection("classes").where("igrejaId", "==", igrejaId).get(),
             db.collection("alunos").where("igrejaId", "==", igrejaId).get(),
@@ -1776,6 +2285,11 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
                 .get(),
             db.collection("usuarios").where("igrejaId", "==", igrejaId).get(),
             db.collection("visitas").where("igrejaId", "==", igrejaId).get(),
+            db.collection("membros").where("igrejaId", "==", igrejaId).get(),
+            db
+                .collection("relatorios_trimestre")
+                .where("igrejaId", "==", igrejaId)
+                .get(),
         ]);
 
         if (!classesSnap.empty) {
@@ -1825,6 +2339,14 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
 
         if (!visitasSnap.empty) {
             visitasSnap.forEach((v) => refs.push(v.ref));
+        }
+
+        if (!membrosSnap.empty) {
+            membrosSnap.forEach((v) => refs.push(v.ref));
+        }
+
+        if (!relatoriosSnap.empty) {
+            relatoriosSnap.forEach((v) => refs.push(v.ref));
         }
 
         let count = 0;
@@ -2245,6 +2767,7 @@ interface Licao {
     ministerioId: string;
     numero_aulas: number;
     titulo: string;
+    numero_trimestre: string;
     total_matriculados: number;
 }
 
@@ -2514,6 +3037,26 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             });
         }
 
+        const trimestre = {
+            ano: dataInicio.getFullYear(),
+            data_fim: dadosParaSalvar.data_fim,
+            data_inicio: dadosParaSalvar.data_inicio,
+            ministerioId: dadosParaSalvar.ministerioId,
+            nome: `${
+                dadosParaSalvar.numero_trimestre
+            }º Trimestre de ${dataInicio.getFullYear()}`,
+            numero_trimestre: dadosParaSalvar.numero_trimestre,
+        };
+        const idTrimestre = `${dadosParaSalvar.ministerioId}-${dataInicio
+            .toLocaleDateString("pt-BR")
+            .replace(/\//g, "-")}-${dataFim
+            .toLocaleDateString("pt-BR")
+            .replace(/\//g, "-")}-${dadosParaSalvar.numero_trimestre}`;
+
+        batch.set(db.collection("trimestres").doc(idTrimestre), trimestre, {
+            merge: true,
+        });
+
         await batch.commit();
 
         const notificao: Notificacao = {
@@ -2590,6 +3133,31 @@ export const onLicaoUpdate = onDocumentUpdated(
                         .toLocaleDateString("pt-BR")}`
                 );
 
+                const ano = dadosNovos.data_inicio.toDate().getFullYear();
+                const trimestre = {
+                    ano,
+                    data_fim: dadosNovos.data_fim,
+                    data_inicio: dadosNovos.data_inicio,
+                    ministerioId: dadosNovos.ministerioId,
+                    nome: `${dadosNovos.numero_trimestre}º Trimestre de ${ano}`,
+                    numero_trimestre: dadosNovos.numero_trimestre,
+                };
+                const idTrimestre = `${
+                    dadosNovos.ministerioId
+                }-${dadosNovos.data_inicio
+                    .toDate()
+                    .toLocaleDateString("pt-BR")
+                    .replace(/\//g, "-")}-${dadosNovos.data_fim
+                    .toDate()
+                    .toLocaleDateString("pt-BR")
+                    .replace(/\//g, "-")}-${dadosNovos.numero_trimestre}`;
+
+                batch.set(
+                    db.collection("trimestres").doc(idTrimestre),
+                    trimestre,
+                    { merge: true }
+                );
+
                 for (let i = 0; i < dadosNovos.numero_aulas; i++) {
                     const data = dadosNovos.data_inicio.toDate();
                     data.setDate(data.getDate() + i * 7);
@@ -2598,9 +3166,17 @@ export const onLicaoUpdate = onDocumentUpdated(
                     const aulaRef = licaoRef
                         .collection("aulas")
                         .doc(String(i + 1));
+
+                    const aula = (await aulaRef.get()).data();
+
                     batch.update(aulaRef, {
                         data_prevista: Timestamp.fromDate(data),
                     });
+
+                    if (aula?.realizada)
+                        batch.update(aula.registroRef, {
+                            data: Timestamp.fromDate(data),
+                        });
                 }
             }
 
@@ -2643,6 +3219,13 @@ export const deletarLicao = functions.https.onCall(async (request) => {
         throw new functions.https.HttpsError(
             "permission-denied",
             "Você não tem permissão de deletar essa lição"
+        );
+    }
+
+    if (licaoSnap.data()?.relatorio_enviado === true) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear."
         );
     }
 
@@ -2824,6 +3407,13 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         throw new functions.https.HttpsError(
             "permission-denied",
             "Você não tem permissão para fazer essa chamada"
+        );
+    }
+
+    if (licao.data()?.relatorio_enviado === true) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear."
         );
     }
 

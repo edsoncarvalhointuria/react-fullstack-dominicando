@@ -262,6 +262,7 @@ function Dashboard() {
                                 lista={options}
                                 onSelect={(v) => setCurrentOption(v)}
                                 current={currentOption?.nome || null}
+                                selectId={currentOption?.id}
                             />
                         </div>
                     )}

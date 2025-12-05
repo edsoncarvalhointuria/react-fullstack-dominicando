@@ -235,7 +235,7 @@ function DadosGeraisChamada({
                                 if (files)
                                     Promise.all(
                                         Array.from(files).map((v) =>
-                                            reduzirImagem(v, 700, 700)
+                                            reduzirImagem(v, 1000, 1000, 0.85)
                                         )
                                     ).then((v) => setPixOfertas(v));
                             }}
@@ -360,7 +360,7 @@ function DadosGeraisChamada({
                                 if (files)
                                     Promise.all(
                                         Array.from(files).map((v) =>
-                                            reduzirImagem(v, 700, 700)
+                                            reduzirImagem(v, 1000, 1000, 0.85)
                                         )
                                     ).then((v) => setPixMissoes(v));
                             }}

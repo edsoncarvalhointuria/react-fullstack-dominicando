@@ -3,8 +3,8 @@ import "./dropdown.scss";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 
 const variantsLista: Variants = {
-    hidden: { scale: 0, y: -100, opacity: 0 },
-    visible: { scale: 1, y: 0, opacity: 1 },
+    hidden: { y: -100, opacity: 0 },
+    visible: { y: 0, opacity: 1 },
     exit: { height: 0, opacity: 0 },
 };
 

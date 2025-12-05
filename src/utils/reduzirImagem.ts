@@ -1,7 +1,8 @@
 export async function reduzirImagem(
     file: File,
     maxWidth: number,
-    maxHeight: number
+    maxHeight: number,
+    qualidade: number = 0.7
 ): Promise<File> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -36,7 +37,7 @@ export async function reduzirImagem(
                         resolve(novoArquivo);
                     },
                     "image/jpeg",
-                    0.7
+                    qualidade
                 );
             };
             img.src = event.target?.result as string;

@@ -241,12 +241,12 @@ const Detalhes = ({
                                             ? `Trouxe ${
                                                   opt === "licoes"
                                                       ? "Lição"
-                                                      : "Biblía"
+                                                      : "Bíblia"
                                               }`
                                             : `Não Trouxe ${
                                                   opt === "licoes"
                                                       ? "Lição"
-                                                      : "Biblía"
+                                                      : "Bíblia"
                                               }`}
                                     </p>
                                 </li>
@@ -473,7 +473,7 @@ function PanoramaLicao({
                                         id="biblia"
                                         onChange={() => setOpt("biblias")}
                                     />
-                                    <label htmlFor="biblia">Biblías</label>
+                                    <label htmlFor="biblia">Bíblias</label>
                                 </div>
                             </div>
 

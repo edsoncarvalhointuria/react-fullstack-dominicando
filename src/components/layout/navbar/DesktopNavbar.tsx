@@ -74,12 +74,11 @@ function DesktopNavbar({
                                                 y: 0,
                                             }}
                                             exit={{
-                                                scale: 0,
                                                 opacity: 0,
-                                                y: -100,
+                                                y: -10,
                                                 transition: {
                                                     duration: 0.5,
-                                                    delay: 0.2,
+                                                    delay: 0.5,
                                                 },
                                             }}
                                         >

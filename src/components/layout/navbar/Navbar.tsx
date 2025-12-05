@@ -27,6 +27,11 @@ function Navbar() {
                 //     professor: true,
                 // },
                 { texto: "Comp. PIX", caminho: "/comprovantes" },
+                {
+                    texto: "Trimestres",
+                    caminho: "/trimestres",
+                    superAdmin: true,
+                },
             ],
         },
         {

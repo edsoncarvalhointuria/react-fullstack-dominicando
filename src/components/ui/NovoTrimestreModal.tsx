@@ -1070,11 +1070,19 @@ function NovoTrimestreModal({
 
                                     <div
                                         className={`novo-trimestre__actions ${
-                                            licaoReference &&
+                                            ((licaoReference &&
+                                                isSuperAdmin.current) ||
+                                                (licaoReference &&
+                                                    !licaoReference?.relatorio_enviado &&
+                                                    !isSuperAdmin.current)) &&
                                             "novo-trimestre__actions--edit"
                                         }`}
                                     >
-                                        {licaoReference && (
+                                        {((licaoReference &&
+                                            isSuperAdmin.current) ||
+                                            (licaoReference &&
+                                                !licaoReference?.relatorio_enviado &&
+                                                !isSuperAdmin.current)) && (
                                             <button
                                                 type="button"
                                                 className="button-delete"

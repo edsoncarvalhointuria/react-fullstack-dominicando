@@ -31,6 +31,8 @@ import Ajuda from "./components/pages/ajuda/Ajuda";
 import AjudaArtigo from "./components/pages/ajuda/AjudaArtigo";
 import Preparo from "./components/pages/preparo/Preparo";
 import PreparoAula from "./components/pages/preparo/PreparoAula";
+import RelatorioTrimestral from "./components/pages/relatorios/RelatorioTrimestral";
+import Trimestres from "./components/pages/trimestres/Trimestres";
 // import { app } from "./utils/firebase";
 
 function App() {
@@ -226,6 +228,7 @@ function App() {
                             path="/comprovantes"
                             element={<Comprovantes />}
                         />
+                        <Route path="/trimestres" element={<Trimestres />} />
                         <Route path="/relatorios">
                             <Route
                                 path="dominical/:igrejaId"
@@ -234,6 +237,14 @@ function App() {
                             <Route
                                 path="dominical"
                                 element={<RelatorioDominical />}
+                            />
+                            <Route
+                                path="trimestral/:igrejaId?"
+                                element={<RelatorioTrimestral />}
+                            />
+                            <Route
+                                path="trimestral"
+                                element={<RelatorioTrimestral />}
                             />
                             <Route
                                 path="graficos"
