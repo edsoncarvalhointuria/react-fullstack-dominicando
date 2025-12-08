@@ -80,12 +80,7 @@ const InfoLinha = ({
     </div>
 );
 
-function RelatorioLeitura({
-    fila,
-    dados,
-    domingo,
-    onSair,
-}: RelatorioLeituraProps) {
+function RelatorioLeitura({ fila, dados, domingo }: RelatorioLeituraProps) {
     const filaCompleta = [
         ...fila,
         { id: "totais", nome: "Totais Gerais" },
@@ -126,7 +121,7 @@ function RelatorioLeitura({
                     </span>
                 </h2>
                 <button
-                    onClick={onSair}
+                    onClick={() => window.history.back()}
                     className="relatorio-leitura__sair-btn"
                     title="Sair do modo leitura"
                 >

@@ -117,6 +117,7 @@ function Preparo() {
 
         const popstate = () => {
             setNovoTrimestre(false);
+            setOpenLicao(null);
         };
         window.addEventListener("popstate", popstate);
 

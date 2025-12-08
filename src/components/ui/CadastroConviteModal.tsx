@@ -52,6 +52,7 @@ const ROLES_LIST: { nome: string; id: Roles }[] = [
         nome: RolesLabel[ROLES.SECRETARIO_CONGREGACAO],
         id: ROLES.SECRETARIO_CONGREGACAO,
     },
+    { nome: RolesLabel[ROLES.PROFESSOR], id: ROLES.PROFESSOR },
     { nome: RolesLabel[ROLES.SECRETARIO_CLASSE], id: ROLES.SECRETARIO_CLASSE },
 ];
 
@@ -147,6 +148,32 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                     ROLES_LIST.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE)
                 );
         }
+    }, [user]);
+
+    useEffect(() => {
+        if (user)
+            if (isSecretario.current) onCancel();
+            else if (user.role === ROLES.SECRETARIO_CONGREGACAO)
+                setRoles(
+                    ROLES_LIST.filter(
+                        (v) =>
+                            v.id !== "pastor_presidente" &&
+                            v.id !== "super_admin" &&
+                            v.id !== "pastor"
+                    )
+                );
+            else if (user.role === ROLES.SUPER_ADMIN)
+                setRoles(
+                    ROLES_LIST.filter((v) => v.id !== "pastor_presidente")
+                );
+            else if (isAdmin.current)
+                setRoles(
+                    ROLES_LIST.filter(
+                        (v) =>
+                            v.id !== "pastor_presidente" &&
+                            v.id !== "super_admin"
+                    )
+                );
     }, [user]);
     return (
         <>
@@ -286,7 +313,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                         control={control}
                                                         rules={{
                                                             required:
-                                                                'O cargo "secretário de classe", exige que uma classe seja selecionada',
+                                                                "Esse cargo exige que uma classe seja selecionada",
                                                         }}
                                                         render={({ field }) => (
                                                             <Dropdown

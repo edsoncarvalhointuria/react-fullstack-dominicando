@@ -143,7 +143,7 @@ function LicaoModal({
                 <div className="licao-modal__header-config">
                     <div
                         className={`licao-modal__header--close`}
-                        onClick={() => closeModal(null)}
+                        onClick={() => window.history.back()}
                     >
                         <FontAwesomeIcon icon={faXmark} />
                     </div>
@@ -382,7 +382,7 @@ function LicaoModal({
 
             <div
                 className="licao-modal--close"
-                onClick={() => closeModal(null)}
+                onClick={() => window.history.back()}
             ></div>
         </motion.div>
     );

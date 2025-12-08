@@ -270,7 +270,7 @@ function NovoTrimestreAulasModal({
 
                             <div
                                 className="novo-trimestre__header--close"
-                                onClick={() => onClose()}
+                                onClick={() => window.history.back()}
                             >
                                 <FontAwesomeIcon icon={faXmark} />
                             </div>
@@ -592,7 +592,7 @@ function NovoTrimestreAulasModal({
 
                 <div
                     className="novo-trimestre-close"
-                    onClick={() => (!isEnviando ? onClose() : null)}
+                    onClick={() => (!isEnviando ? window.history.back() : null)}
                 ></div>
             </motion.div>
 

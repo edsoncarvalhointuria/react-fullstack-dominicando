@@ -5548,7 +5548,7 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
 
         const licaoRef = db.collection("licoes_preparo").doc(licaoPreparoId);
         const licaoSnap = await licaoRef.get();
-        const licaoAntetior = await db
+        const licaoAnterior = await db
             .collection("licoes_preparo")
             .where(admin.firestore.FieldPath.documentId(), "!=", licaoPreparoId)
             .orderBy("data_inicio", "desc")
@@ -5581,8 +5581,8 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
 
         let batch = db.batch();
         let count = 0;
-        if (!licaoAntetior.empty && licaoSnap.data()?.ativo === true) {
-            batch.update(licaoAntetior.docs[0].ref, { ativo: true });
+        if (!licaoAnterior.empty && licaoSnap.data()?.ativo === true) {
+            batch.update(licaoAnterior.docs[0].ref, { ativo: true });
             count++;
         }
         const batchs = [batch];

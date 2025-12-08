@@ -84,11 +84,11 @@ function SelectionGrid({
                                 className="selection-grid__item"
                                 key={v.id}
                                 whileHover={{
-                                    scale: 1.05,
+                                    scale: 1,
                                     y: -10,
                                 }}
                                 transition={{ duration: 0.2 }}
-                                whileTap={{ scale: 0.8 }}
+                                whileTap={{ scale: 0.9 }}
                                 onTap={() => onSelect(v.id)}
                                 layoutId={v.id}
                             >
