@@ -12,13 +12,17 @@ interface RelatoriosTrimestresInterface {
     total: number;
     total_ofertas_pix: number;
     total_ofertas_dinheiro: number;
+    total_ofertas: number;
     total_missoes_pix: number;
     total_missoes_dinheiro: number;
+    total_missoes: number;
     igrejaId: string;
     ministerioId: string;
     data_inicio: Timestamp;
     data_fim: Timestamp;
     bloqueado: boolean;
-    valor_enviado: number;
-    descricao?: string;
+    valor_enviado_missoes: number;
+    valor_enviado_ofertas: number;
+    descricao_missao?: string;
+    descricao_oferta?: string;
 }

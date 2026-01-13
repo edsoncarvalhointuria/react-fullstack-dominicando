@@ -4,6 +4,7 @@ import {
     faSackDollar,
     faMoneyBill,
     faChalkboardUser,
+    faCalculator,
 } from "@fortawesome/free-solid-svg-icons";
 import "./relatorio-leitura.scss";
 import { faPix } from "@fortawesome/free-brands-svg-icons";
@@ -18,8 +19,10 @@ interface DadosAcordeaoClasse {
     total: number;
     total_ofertas_pix: number;
     total_ofertas_dinheiro: number;
+    total_ofertas: number;
     total_missoes_pix: number;
     total_missoes_dinheiro: number;
+    total_missoes: number;
     comprovantes: string[];
 }
 
@@ -30,8 +33,10 @@ interface DadosAcordeao {
     realizada: boolean;
     total_ofertas_pix: number;
     total_ofertas_dinheiro: number;
+    total_ofertas: number;
     total_missoes_pix: number;
     total_missoes_dinheiro: number;
+    total_missoes: number;
     classes: DadosAcordeaoClasse[];
 }
 
@@ -43,8 +48,10 @@ interface DadosTrimestre {
         total: number;
         total_ofertas_pix: number;
         total_ofertas_dinheiro: number;
+        total_ofertas: number;
         total_missoes_pix: number;
         total_missoes_dinheiro: number;
+        total_missoes: number;
     };
 }
 
@@ -234,6 +241,18 @@ function RelatorioTrimestralDownload({
                                 isMenor={v.classes.length > 13}
                             />
                             <InfoLinha
+                                icon={faCalculator}
+                                label="Total Missões"
+                                value={(v.total_missoes || 0).toLocaleString(
+                                    "pt-BR",
+                                    {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    }
+                                )}
+                                isMenor={v.classes.length > 13}
+                            />
+                            <InfoLinha
                                 icon={faMoneyBill}
                                 label="Ofertas Dinheiro"
                                 value={(
@@ -253,6 +272,18 @@ function RelatorioTrimestralDownload({
                                     style: "currency",
                                     currency: "BRL",
                                 })}
+                                isMenor={v.classes.length > 13}
+                            />
+                            <InfoLinha
+                                icon={faCalculator}
+                                label="Total Ofertas"
+                                value={(v.total_ofertas || 0).toLocaleString(
+                                    "pt-BR",
+                                    {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    }
+                                )}
                                 isMenor={v.classes.length > 13}
                             />
 
@@ -342,6 +373,16 @@ function RelatorioTrimestralDownload({
                             })}
                         />
                         <InfoLinha
+                            icon={faCalculator}
+                            label="Total Missões"
+                            value={(
+                                dados.resumo_final.total_missoes || 0
+                            ).toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                            })}
+                        />
+                        <InfoLinha
                             icon={faMoneyBill}
                             label="Ofertas Dinheiro"
                             value={(
@@ -356,6 +397,16 @@ function RelatorioTrimestralDownload({
                             label="Ofertas Pix"
                             value={(
                                 dados.resumo_final.total_ofertas_pix || 0
+                            ).toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                            })}
+                        />
+                        <InfoLinha
+                            icon={faCalculator}
+                            label="Total Ofertas"
+                            value={(
+                                dados.resumo_final.total_ofertas || 0
                             ).toLocaleString("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",

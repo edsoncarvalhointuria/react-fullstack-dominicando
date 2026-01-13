@@ -149,13 +149,19 @@
         }
 
         &-total {
-            font-size: 2rem;
             font-weight: 700;
-            color: v.$cor-sucesso;
-            text-align: right;
-            margin-top: auto;
             padding-top: 1rem;
             border-top: 1px dashed #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            p {
+                font-size: 2rem;
+                color: v.$cor-sucesso;
+
+                &:first-child {
+                    color: v.$cor-primaria-texto;
+                }
+            }
         }
 
         &-pendente {
@@ -630,75 +636,41 @@
             margin-bottom: 0.8rem;
             font-size: 1.6rem;
 
+            &:last-child {
+                justify-content: center;
+            }
+
             span {
+                color: v.$cor-sucesso;
+            }
+
+            h3 {
+                font-size: 2.2rem;
+                font-weight: 700;
                 color: v.$cor-sucesso;
             }
         }
 
         &-total_geral {
-            text-align: right;
+            text-align: center;
             display: flex;
-            flex-direction: column;
-            align-items: flex-end;
+            flex-direction: row;
+            justify-content: space-around;
             gap: 1rem;
-
-            @media all and (max-width: 30em) {
-                &:has(.relatorio-trimestral__resumo-total-enviado) {
-                    align-items: center;
-                }
-            }
-            h3 {
-                font-size: 3rem;
-                font-weight: 700;
-                color: v.$cor-sucesso;
-            }
-        }
-
-        &-total-calculado {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            @media all and (max-width: 30em) {
-                align-items: center;
-            }
-
-            &:has(+ .relatorio-trimestral__resumo-total-enviado) {
-                opacity: 0.6;
-                transform: scale(0.95);
-                transform-origin: right center;
-
-                h3 {
-                    text-decoration: line-through;
-                    text-decoration-thickness: 2px;
-                    text-decoration-color: rgba(255, 255, 255, 0.3);
-                }
-            }
-
-            h3 {
-                font-size: 2.5rem;
-                font-weight: 700;
-                color: v.$cor-secundaria-fundo;
-                margin: 0;
-                line-height: 1;
-            }
         }
 
         &-total-enviado {
             display: flex;
             flex-direction: column;
-            align-items: flex-end;
+            align-items: center;
             position: relative;
-
-            @media all and (max-width: 30em) {
-                align-items: center;
-            }
 
             p {
                 color: v.$cor-aviso;
             }
 
             h3 {
-                font-size: 3rem;
+                font-size: 2.4rem;
                 font-weight: 800;
                 color: v.$cor-aviso;
                 margin: 0;

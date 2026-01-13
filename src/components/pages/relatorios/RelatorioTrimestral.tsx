@@ -2,6 +2,7 @@ import { AnimatePresence, motion, type Variants } from "framer-motion";
 import "./relatorio-trimestral.scss";
 import {
     faAngleRight,
+    faCalculator,
     faCalendar,
     faFilePdf,
     faFileZipper,
@@ -34,8 +35,10 @@ interface DadosAcordeaoClasse {
     total: number;
     total_ofertas_pix: number;
     total_ofertas_dinheiro: number;
+    total_ofertas: number;
     total_missoes_pix: number;
     total_missoes_dinheiro: number;
+    total_missoes: number;
     comprovantes: string[];
 }
 
@@ -46,8 +49,10 @@ interface DadosAcordeao {
     realizada: boolean;
     total_ofertas_pix: number;
     total_ofertas_dinheiro: number;
+    total_ofertas: number;
     total_missoes_pix: number;
     total_missoes_dinheiro: number;
+    total_missoes: number;
     classes: DadosAcordeaoClasse[];
 }
 
@@ -59,14 +64,20 @@ interface DadosTrimestre {
         total: number;
         total_ofertas_pix: number;
         total_ofertas_dinheiro: number;
+        total_ofertas: number;
         total_missoes_pix: number;
         total_missoes_dinheiro: number;
+        total_missoes: number;
     };
 }
 
 const variantsAcordeao: Variants = {
     initial: { height: 0, padding: "0" },
-    animate: { height: "auto", padding: "1.5rem" },
+    animate: {
+        height: "auto",
+        padding: "1.5rem",
+        transition: { ease: "linear", duration: 0.4 },
+    },
     exit: { height: 0, padding: 0 },
 };
 
@@ -147,33 +158,50 @@ const AcordeaoEnviado = ({
                 {isOpen && (
                     <motion.div
                         key={"acordeao-dados"}
-                        className="relatorio-enviado__infos"
                         variants={variantsAcordeao}
                         initial="initial"
-                        animate="animate"
+                        animate={{ height: "auto" }}
                         exit="exit"
-                        transition={{ duration: 0.2, ease: "linear" }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
                     >
-                        <div className="relatorio-enviado__info">
-                            <p>
-                                Assinado por:{" "}
-                                <strong>{relatorio.assinado_por.nome}</strong>
-                            </p>
-                        </div>
-                        <div className="relatorio-enviado__info">
-                            <p>
-                                Email:{" "}
-                                <strong>{relatorio.assinado_por.email}</strong>
-                            </p>
-                        </div>
-                        {relatorio.descricao && (
+                        <div className="relatorio-enviado__infos">
                             <div className="relatorio-enviado__info">
                                 <p>
-                                    Justificativa:{" "}
-                                    <strong>{relatorio.descricao}</strong>
+                                    Assinado por:{" "}
+                                    <strong>
+                                        {relatorio.assinado_por.nome}
+                                    </strong>
                                 </p>
                             </div>
-                        )}
+                            <div className="relatorio-enviado__info">
+                                <p>
+                                    Email:{" "}
+                                    <strong>
+                                        {relatorio.assinado_por.email}
+                                    </strong>
+                                </p>
+                            </div>
+                            {relatorio.descricao_missao && (
+                                <div className="relatorio-enviado__info">
+                                    <p>
+                                        Justificativa Missões:{" "}
+                                        <strong>
+                                            {relatorio.descricao_missao}
+                                        </strong>
+                                    </p>
+                                </div>
+                            )}
+                            {relatorio.descricao_oferta && (
+                                <div className="relatorio-enviado__info">
+                                    <p>
+                                        Justificativa Ofertas:{" "}
+                                        <strong>
+                                            {relatorio.descricao_oferta}
+                                        </strong>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -252,6 +280,19 @@ const AcordeaoClasse = ({
                                         )}
                                     </p>
                                 </div>
+                                <div className="relatorio-classes__valor">
+                                    <span>
+                                        <FontAwesomeIcon icon={faCalculator} />
+                                    </span>
+                                    <p>
+                                        {(
+                                            classe.total_missoes || 0
+                                        ).toLocaleString("pt-BR", {
+                                            currency: "BRL",
+                                            style: "currency",
+                                        })}
+                                    </p>
+                                </div>
                             </div>
                             <div className="relatorio-classes__total">
                                 <h4>Ofertas</h4>
@@ -281,6 +322,19 @@ const AcordeaoClasse = ({
                                                 style: "currency",
                                             }
                                         )}
+                                    </p>
+                                </div>
+                                <div className="relatorio-classes__valor">
+                                    <span>
+                                        <FontAwesomeIcon icon={faCalculator} />
+                                    </span>
+                                    <p>
+                                        {(
+                                            classe.total_ofertas || 0
+                                        ).toLocaleString("pt-BR", {
+                                            currency: "BRL",
+                                            style: "currency",
+                                        })}
                                     </p>
                                 </div>
                             </div>
@@ -391,6 +445,19 @@ const Acordeao = ({ data }: { data: DadosAcordeao }) => {
                                         )}
                                     </p>
                                 </div>
+                                <div className="relatorio-acordeao__classes-valor">
+                                    <span>
+                                        <FontAwesomeIcon icon={faCalculator} />
+                                    </span>
+                                    <p>
+                                        {(
+                                            data.total_missoes || 0
+                                        ).toLocaleString("pt-BR", {
+                                            currency: "BRL",
+                                            style: "currency",
+                                        })}
+                                    </p>
+                                </div>
                             </div>
                             <div className="relatorio-acordeao__classes-total">
                                 <h4>Ofertas</h4>
@@ -420,6 +487,19 @@ const Acordeao = ({ data }: { data: DadosAcordeao }) => {
                                                 style: "currency",
                                             }
                                         )}
+                                    </p>
+                                </div>
+                                <div className="relatorio-acordeao__classes-valor">
+                                    <span>
+                                        <FontAwesomeIcon icon={faCalculator} />
+                                    </span>
+                                    <p>
+                                        {(
+                                            data.total_ofertas || 0
+                                        ).toLocaleString("pt-BR", {
+                                            currency: "BRL",
+                                            style: "currency",
+                                        })}
                                     </p>
                                 </div>
                             </div>
@@ -498,7 +578,6 @@ function RelatorioTrimestral() {
                     trimestreId: currentTrimestre?.id,
                 });
                 const dados = data as DadosTrimestre;
-
                 setDadosTrimestre(dados);
             } catch (err: any) {
                 setMensagem({
@@ -710,15 +789,38 @@ function RelatorioTrimestral() {
                                                         </span>
                                                     </p>
 
-                                                    <p className="relatorio-trimestral__igreja-total">
-                                                        {v.valor_enviado.toLocaleString(
-                                                            "pt-BR",
-                                                            {
-                                                                currency: "BRL",
-                                                                style: "currency",
-                                                            }
-                                                        )}
-                                                    </p>
+                                                    <div className="relatorio-trimestral__igreja-total">
+                                                        <p>Missões:</p>
+                                                        <p>
+                                                            {(
+                                                                v?.valor_enviado_missoes ||
+                                                                0
+                                                            ).toLocaleString(
+                                                                "pt-BR",
+                                                                {
+                                                                    currency:
+                                                                        "BRL",
+                                                                    style: "currency",
+                                                                }
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <div className="relatorio-trimestral__igreja-total">
+                                                        <p>Ofertas:</p>
+                                                        <p>
+                                                            {(
+                                                                v?.valor_enviado_ofertas ||
+                                                                0
+                                                            ).toLocaleString(
+                                                                "pt-BR",
+                                                                {
+                                                                    currency:
+                                                                        "BRL",
+                                                                    style: "currency",
+                                                                }
+                                                            )}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -809,6 +911,17 @@ function RelatorioTrimestral() {
                                                 )}
                                             </p>
                                         </div>
+                                        <div className="relatorio-trimestral__resumo-valor">
+                                            <h3>
+                                                {(
+                                                    dadosTrimestre.resumo_final
+                                                        .total_missoes || 0
+                                                ).toLocaleString("pt-BR", {
+                                                    currency: "BRL",
+                                                    style: "currency",
+                                                })}
+                                            </h3>
+                                        </div>
                                     </div>
                                     <div className="relatorio-trimestral__resumo-total">
                                         <h4>Ofertas</h4>
@@ -842,54 +955,51 @@ function RelatorioTrimestral() {
                                                 )}
                                             </p>
                                         </div>
+                                        <div className="relatorio-trimestral__resumo-valor">
+                                            <h3>
+                                                {(
+                                                    dadosTrimestre.resumo_final
+                                                        .total_ofertas || 0
+                                                ).toLocaleString("pt-BR", {
+                                                    currency: "BRL",
+                                                    style: "currency",
+                                                })}
+                                            </h3>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="relatorio-trimestral__resumo-total_geral">
-                                    {dadosTrimestre.bloqueado &&
-                                    dadosTrimestre.relatorio.valor_enviado !==
-                                        Number(
-                                            dadosTrimestre.resumo_final.total.toFixed(
-                                                2
-                                            )
-                                        ) ? (
+                                    {dadosTrimestre.bloqueado && (
                                         <>
-                                            <div className="relatorio-trimestral__resumo-total-calculado">
-                                                <p>Total Calculado</p>
+                                            <div className="relatorio-trimestral__resumo-total-enviado">
+                                                <p>Total Enviado</p>
                                                 <h3>
-                                                    {dadosTrimestre.resumo_final.total.toLocaleString(
-                                                        "pt-BR",
-                                                        {
-                                                            currency: "BRL",
-                                                            style: "currency",
-                                                        }
-                                                    )}
+                                                    {(
+                                                        dadosTrimestre.relatorio
+                                                            .valor_enviado_missoes ||
+                                                        0
+                                                    ).toLocaleString("pt-BR", {
+                                                        currency: "BRL",
+                                                        style: "currency",
+                                                    })}
                                                 </h3>
                                             </div>
 
                                             <div className="relatorio-trimestral__resumo-total-enviado">
                                                 <p>Total Enviado</p>
                                                 <h3>
-                                                    {dadosTrimestre.relatorio.valor_enviado.toLocaleString(
-                                                        "pt-BR",
-                                                        {
-                                                            currency: "BRL",
-                                                            style: "currency",
-                                                        }
-                                                    )}
+                                                    {(
+                                                        dadosTrimestre.relatorio
+                                                            .valor_enviado_ofertas ||
+                                                        0
+                                                    ).toLocaleString("pt-BR", {
+                                                        currency: "BRL",
+                                                        style: "currency",
+                                                    })}
                                                 </h3>
                                             </div>
                                         </>
-                                    ) : (
-                                        <h3>
-                                            {dadosTrimestre.resumo_final.total.toLocaleString(
-                                                "pt-BR",
-                                                {
-                                                    currency: "BRL",
-                                                    style: "currency",
-                                                }
-                                            )}
-                                        </h3>
                                     )}
                                 </div>
                                 <div className="relatorio-trimestral__resumo-buttons">
@@ -1117,8 +1227,15 @@ function RelatorioTrimestral() {
                                 ),
                             })
                         }
-                        valorFinal={Number(
-                            (dadosTrimestre?.resumo_final.total || 0).toFixed(2)
+                        valorFinalMissao={Number(
+                            (
+                                dadosTrimestre?.resumo_final.total_missoes || 0
+                            ).toFixed(2)
+                        )}
+                        valorFinalOferta={Number(
+                            (
+                                dadosTrimestre?.resumo_final.total_ofertas || 0
+                            ).toFixed(2)
                         )}
                     />
                 )}

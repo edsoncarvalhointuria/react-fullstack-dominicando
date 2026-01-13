@@ -24,21 +24,25 @@ function ConfirmacaoModal({
     setMenssageError,
     igrejaId,
     trimestreId,
-    valorFinal,
+    valorFinalMissao,
+    valorFinalOferta,
 }: {
     onCancel: () => void;
     onConfirm: () => void;
     setMenssageError: (error: string) => void;
     igrejaId: string;
     trimestreId: string;
-    valorFinal: number;
+    valorFinalMissao: number;
+    valorFinalOferta: number;
 }) {
     const [isEnviando, setIsEnviando] = useState(false);
     const { user } = useAuthContext();
     const methods = useForm<{
         confirmacao: boolean;
-        valor_final: number;
-        descricao?: string;
+        valor_final_missao: number;
+        valor_final_oferta: number;
+        descricao_missao?: string;
+        descricao_oferta?: string;
     }>();
     const {
         register,
@@ -47,7 +51,7 @@ function ConfirmacaoModal({
         handleSubmit,
         formState: { errors },
     } = methods;
-    const { confirmacao, valor_final } = watch();
+    const { confirmacao, valor_final_missao, valor_final_oferta } = watch();
 
     const onSubmit = async (v: any) => {
         setIsEnviando(true);
@@ -100,13 +104,6 @@ function ConfirmacaoModal({
                                 <span>
                                     <strong>Atenção:</strong> O sistema calculou
                                     o total com base nos registros da chamada.
-                                    Confira se esse valor está correto:{" "}
-                                    <strong>
-                                        {valorFinal.toLocaleString("pt-BR", {
-                                            currency: "BRL",
-                                            style: "currency",
-                                        })}
-                                    </strong>
                                 </span>
 
                                 <span>
@@ -118,25 +115,25 @@ function ConfirmacaoModal({
 
                         <div
                             className={`confirmacao-modal__valor ${
-                                valor_final < valorFinal
+                                valor_final_missao < valorFinalMissao
                                     ? "confirmacao-modal__valor--abaixo"
                                     : ""
                             } ${
-                                valor_final > valorFinal
+                                valor_final_missao > valorFinalMissao
                                     ? "confirmacao-modal__valor--maior"
                                     : ""
                             }`}
                         >
                             <label htmlFor="confirmacao-valor-final">
-                                Valor Final
+                                Valor Final Missões
                             </label>
                             <input
                                 type="number"
-                                defaultValue={valorFinal}
+                                defaultValue={valorFinalMissao}
                                 step={0.01}
                                 id="confirmacao-valor-final"
                                 placeholder="Valor final"
-                                {...register("valor_final", {
+                                {...register("valor_final_missao", {
                                     required:
                                         "Você precisa digitar o valor final para salvar o relatório.",
                                     onBlur: (evt) => {
@@ -145,47 +142,144 @@ function ConfirmacaoModal({
                                         );
 
                                         if (Number.isNaN(valor))
-                                            setValue("valor_final", 0);
-                                        else setValue("valor_final", valor);
+                                            setValue("valor_final_missao", 0);
+                                        else
+                                            setValue(
+                                                "valor_final_missao",
+                                                valor
+                                            );
                                     },
                                     valueAsNumber: true,
                                 })}
                             />
-                            {errors.valor_final && (
+                            {errors.valor_final_missao && (
                                 <div className="confirmacao-modal__error">
-                                    <p>{errors.valor_final.message}</p>
+                                    <p>{errors.valor_final_missao.message}</p>
                                 </div>
                             )}
                         </div>
-
                         <AnimatePresence>
-                            {(valor_final < valorFinal ||
-                                valor_final > valorFinal) && (
+                            {(valor_final_missao < valorFinalMissao ||
+                                valor_final_missao > valorFinalMissao) && (
                                 <motion.div
                                     initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 1, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     className={`confirmacao-modal__desc`}
                                     key={"confirmacao-descricao"}
                                 >
                                     <label htmlFor="confirmacao-descricao">
-                                        Justificativa
+                                        Justificativa Missões
                                     </label>
                                     <textarea
                                         id="confirmacao-descricao"
-                                        {...register("descricao", {
+                                        {...register("descricao_missao", {
                                             required:
                                                 !(
-                                                    valor_final < valorFinal ||
-                                                    valor_final > valorFinal
+                                                    valor_final_missao <
+                                                        valorFinalMissao ||
+                                                    valor_final_missao >
+                                                        valorFinalMissao
                                                 ) ||
-                                                "Você precisa adicionar uma justificativa para diferença de valor.",
+                                                "Você precisa adicionar uma justificativa para diferença do valor de missões.",
                                         })}
                                     ></textarea>
 
-                                    {errors.descricao && (
+                                    {errors.descricao_missao && (
                                         <div className="confirmacao-modal__error">
-                                            <p>{errors.descricao.message}</p>
+                                            <p>
+                                                {
+                                                    errors.descricao_missao
+                                                        .message
+                                                }
+                                            </p>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div
+                            className={`confirmacao-modal__valor ${
+                                valor_final_oferta < valorFinalOferta
+                                    ? "confirmacao-modal__valor--abaixo"
+                                    : ""
+                            } ${
+                                valor_final_oferta > valorFinalOferta
+                                    ? "confirmacao-modal__valor--maior"
+                                    : ""
+                            }`}
+                        >
+                            <label htmlFor="confirmacao-valor-final">
+                                Valor Final Ofertas
+                            </label>
+                            <input
+                                type="number"
+                                defaultValue={valorFinalOferta}
+                                step={0.01}
+                                id="confirmacao-valor-final"
+                                placeholder="Valor final"
+                                {...register("valor_final_oferta", {
+                                    required:
+                                        "Você precisa digitar o valor final para salvar o relatório.",
+                                    onBlur: (evt) => {
+                                        const valor = Number(
+                                            evt.target.value.replace(",", ".")
+                                        );
+
+                                        if (Number.isNaN(valor))
+                                            setValue("valor_final_oferta", 0);
+                                        else
+                                            setValue(
+                                                "valor_final_oferta",
+                                                valor
+                                            );
+                                    },
+                                    valueAsNumber: true,
+                                })}
+                            />
+                            {errors.valor_final_oferta && (
+                                <div className="confirmacao-modal__error">
+                                    <p>{errors.valor_final_oferta.message}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <AnimatePresence>
+                            {(valor_final_oferta < valorFinalOferta ||
+                                valor_final_oferta > valorFinalOferta) && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className={`confirmacao-modal__desc`}
+                                    key={"confirmacao-descricao"}
+                                >
+                                    <label htmlFor="confirmacao-descricao">
+                                        Justificativa Ofertas
+                                    </label>
+                                    <textarea
+                                        id="confirmacao-descricao"
+                                        {...register("descricao_oferta", {
+                                            required:
+                                                !(
+                                                    valor_final_oferta <
+                                                        valorFinalOferta ||
+                                                    valor_final_oferta >
+                                                        valorFinalOferta
+                                                ) ||
+                                                "Você precisa adicionar uma justificativa para diferença do valor de ofertas.",
+                                        })}
+                                    ></textarea>
+
+                                    {errors.descricao_oferta && (
+                                        <div className="confirmacao-modal__error">
+                                            <p>
+                                                {
+                                                    errors.descricao_oferta
+                                                        .message
+                                                }
+                                            </p>
                                         </div>
                                     )}
                                 </motion.div>

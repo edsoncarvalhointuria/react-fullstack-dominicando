@@ -326,8 +326,10 @@ async function calcTrimestre(
         total: 0,
         total_ofertas_pix: 0,
         total_ofertas_dinheiro: 0,
+        total_ofertas: 0,
         total_missoes_pix: 0,
         total_missoes_dinheiro: 0,
+        total_missoes: 0,
     };
 
     registrosSnaps.forEach((r) => {
@@ -336,22 +338,30 @@ async function calcTrimestre(
         const valores = {
             total_ofertas_pix: registro.ofertas.pix || 0,
             total_ofertas_dinheiro: registro.ofertas.dinheiro || 0,
+            total_ofertas:
+                (registro.ofertas.dinheiro || 0) + (registro.ofertas.pix || 0),
             total_missoes_pix: registro.missoes.pix || 0,
             total_missoes_dinheiro: registro.missoes.dinheiro || 0,
+            total_missoes:
+                (registro.missoes.dinheiro || 0) + (registro.missoes.pix || 0),
             total: registro.ofertas_total + registro.missoes_total || 0,
         };
         const colunas: Array<
             | "total"
             | "total_ofertas_pix"
             | "total_ofertas_dinheiro"
+            | "total_ofertas"
             | "total_missoes_pix"
             | "total_missoes_dinheiro"
+            | "total_missoes"
         > = [
             "total",
             "total_ofertas_pix",
             "total_ofertas_dinheiro",
+            "total_ofertas",
             "total_missoes_pix",
             "total_missoes_dinheiro",
+            "total_missoes",
         ];
 
         const aula =
@@ -366,8 +376,10 @@ async function calcTrimestre(
             total: 0.0,
             total_ofertas_pix: 0.0,
             total_ofertas_dinheiro: 0.0,
+            total_ofertas: 0.0,
             total_missoes_pix: 0.0,
             total_missoes_dinheiro: 0.0,
+            total_missoes: 0.0,
             comprovantes: [],
         };
 
@@ -661,8 +673,10 @@ export const getRelatorioTrimestral = functions.https.onCall(
                 total,
                 total_missoes_dinheiro,
                 total_missoes_pix,
+                total_missoes,
                 total_ofertas_dinheiro,
                 total_ofertas_pix,
+                total_ofertas,
                 data_envio,
             } = relatorio;
 
@@ -670,7 +684,9 @@ export const getRelatorioTrimestral = functions.https.onCall(
                 total,
                 total_missoes_dinheiro,
                 total_missoes_pix,
+                total_missoes,
                 total_ofertas_dinheiro,
+                total_ofertas,
                 total_ofertas_pix,
             };
 
@@ -724,8 +740,10 @@ interface RelatoriosTrimestres {
     total: number;
     total_ofertas_pix: number;
     total_ofertas_dinheiro: number;
+    total_ofertas: number;
     total_missoes_pix: number;
     total_missoes_dinheiro: number;
+    total_missoes: number;
     igrejaId: string;
     ministerioId: string;
     data_inicio: Timestamp;
@@ -737,13 +755,21 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
     async (request) => {
         const { isAdmin, db, user } = await validarUsuario(request);
 
-        const { igrejaId, trimestreId, confirmacao, valor_final, descricao } =
-            request.data;
+        const {
+            igrejaId,
+            trimestreId,
+            confirmacao,
+            valor_final_missao,
+            valor_final_oferta,
+            descricao_missao,
+            descricao_oferta,
+        } = request.data;
 
         if (
             !confirmacao ||
             igrejaId !== user.igrejaId ||
-            Number.isNaN(Number(valor_final))
+            Number.isNaN(Number(valor_final_missao)) ||
+            Number.isNaN(Number(valor_final_oferta))
         ) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
@@ -786,8 +812,10 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
                     ip: request.rawRequest.ip,
                 },
                 ...totais,
-                valor_enviado: valor_final,
-                descricao: descricao || null,
+                valor_enviado_missoes: valor_final_missao,
+                valor_enviado_ofertas: valor_final_oferta,
+                descricao_missao: descricao_missao || null,
+                descricao_oferta: descricao_oferta || null,
                 igrejaId,
                 ministerioId: user.ministerioId,
                 data_inicio: trimestre.data_inicio,
