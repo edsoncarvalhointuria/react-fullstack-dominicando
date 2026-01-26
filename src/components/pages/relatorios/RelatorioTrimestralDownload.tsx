@@ -3,8 +3,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faSackDollar,
     faMoneyBill,
-    faChalkboardUser,
     faCalculator,
+    faCalendar,
+    faEarthAfrica,
+    faCoins,
 } from "@fortawesome/free-solid-svg-icons";
 import "./relatorio-leitura.scss";
 import { faPix } from "@fortawesome/free-brands-svg-icons";
@@ -39,20 +41,33 @@ interface DadosAcordeao {
     total_missoes: number;
     classes: DadosAcordeaoClasse[];
 }
+interface ResumoFinal {
+    total: number;
+    total_ofertas_pix: number;
+    total_ofertas_dinheiro: number;
+    total_ofertas: number;
+    total_missoes_pix: number;
+    total_missoes_dinheiro: number;
+    total_missoes: number;
+}
+interface DadosTrimestrePorMes {
+    id: string;
+    nome: string;
+    numero_mes: number;
+    datas: DadosAcordeao[];
+    bloqueado: boolean;
+    relatorio: RelatoriosTrimestresInterface;
+    resumo_final: ResumoFinal;
+}
 
 interface DadosTrimestre {
     bloqueado: boolean;
-    relatorio: RelatoriosTrimestresInterface;
-    datas: DadosAcordeao[];
-    resumo_final: {
-        total: number;
-        total_ofertas_pix: number;
-        total_ofertas_dinheiro: number;
-        total_ofertas: number;
-        total_missoes_pix: number;
-        total_missoes_dinheiro: number;
-        total_missoes: number;
+    meses: DadosTrimestrePorMes[];
+    total_enviado: {
+        valor_enviado_missoes: number;
+        valor_enviado_ofertas: number;
     };
+    resumo_final: ResumoFinal;
 }
 
 interface RelatorioLeituraProps {
@@ -67,10 +82,14 @@ const InfoLinha = ({
     label,
     value,
     isMenor = false,
+    totalMissoes,
+    totalOfertas,
 }: {
     icon: any;
     label: string;
-    value: string | number;
+    value?: string | number;
+    totalMissoes?: string;
+    totalOfertas?: string;
     isMenor?: boolean;
 }) => (
     <div
@@ -111,14 +130,70 @@ const InfoLinha = ({
                 alignSelf: "flex-end",
             }}
         ></div>
-        <div
-            style={{
-                fontWeight: "700",
-                color: "#111827",
-            }}
-        >
-            {value}
-        </div>
+        {totalMissoes ? (
+            <div
+                style={{
+                    display: "grid",
+                    gap: "5px",
+                    gridTemplateColumns: "repeat(2, minmax(70px, 1fr))",
+                    color: "#111827",
+                    borderRadius: "50%",
+                    justifyContent: "center",
+                    alignItems: "center",
+                }}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "3px",
+                    }}
+                >
+                    <span style={{ color: "#0ea5e9" }}>
+                        <FontAwesomeIcon
+                            style={{
+                                padding: 0,
+                                verticalAlign: -8,
+                                boxSizing: "border-box",
+                                display: "inline-block",
+                                marginRight: "0px",
+                            }}
+                            icon={faEarthAfrica}
+                        />
+                    </span>
+                    <p>{totalMissoes}</p>
+                </div>
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "3px",
+                    }}
+                >
+                    <span style={{ color: "#10b981" }}>
+                        <FontAwesomeIcon
+                            style={{
+                                padding: 0,
+                                verticalAlign: -8,
+                                boxSizing: "border-box",
+                                display: "inline-block",
+                                marginRight: "0px",
+                            }}
+                            icon={faCoins}
+                        />
+                    </span>
+                    <p>{totalOfertas}</p>
+                </div>
+            </div>
+        ) : (
+            <div
+                style={{
+                    fontWeight: "700",
+                    color: "#111827",
+                    minWidth: "90px",
+                }}
+            >
+                {value}
+            </div>
+        )}
     </div>
 );
 
@@ -152,16 +227,18 @@ function RelatorioTrimestralDownload({
                 maxWidth: "100%",
             }}
         >
-            <div className="relatorio-leitura__body">
+            <div
+                className="relatorio-leitura__body"
+                style={{ height: "0", overflow: "hidden" }}
+            >
                 <div
-                    id="teste"
                     ref={container}
                     style={{
                         width: "100%",
                         maxWidth: "750px",
                     }}
                 >
-                    {dados.datas.map((v, i) => (
+                    {dados.meses.map((v, i) => (
                         <div
                             key={i}
                             style={{
@@ -172,8 +249,6 @@ function RelatorioTrimestralDownload({
                                 backgroundColor: "#ffffff",
                                 padding: "25px 30px",
                                 position: "relative",
-                                pageBreakAfter:
-                                    v.classes.length > 18 ? "always" : "auto",
                             }}
                         >
                             <h3
@@ -189,23 +264,21 @@ function RelatorioTrimestralDownload({
                                     gap: "10px",
                                 }}
                             >
-                                {v.aula} - {v.data}
+                                {v.nome}
                             </h3>
 
-                            {v.classes
-                                .sort((a, b) => a.nome.localeCompare(b.nome))
-                                .map((c) => (
+                            {v.datas
+                                .sort((a, b) => a.aula - b.aula)
+                                .map((d) => (
                                     <InfoLinha
-                                        key={c.id}
-                                        icon={faChalkboardUser}
-                                        label={c.nome}
-                                        isMenor={v.classes.length > 13}
-                                        value={(c.total || 0).toLocaleString(
+                                        key={d.aula}
+                                        icon={faCalendar}
+                                        label={`${d.aula} - (${d.data})`}
+                                        totalMissoes={d.total_missoes.toLocaleString(
                                             "pt-BR",
-                                            {
-                                                style: "currency",
-                                                currency: "BRL",
-                                            }
+                                        )}
+                                        totalOfertas={d.total_ofertas.toLocaleString(
+                                            "pt-BR",
                                         )}
                                     />
                                 ))}
@@ -218,73 +291,125 @@ function RelatorioTrimestralDownload({
                                 }}
                             />
 
+                            <h3
+                                style={{
+                                    fontSize: "24px",
+                                    fontWeight: "700",
+                                    textAlign: "center",
+                                    color: "#111827",
+                                    marginBottom: "25px",
+                                    display: "flex",
+                                    gap: "5px",
+                                }}
+                            >
+                                <span style={{ color: "#0ea5e9" }}>
+                                    <FontAwesomeIcon
+                                        style={{
+                                            padding: 0,
+                                            verticalAlign: -16,
+                                            boxSizing: "border-box",
+                                            display: "inline-block",
+                                            marginRight: "0px",
+                                        }}
+                                        icon={faEarthAfrica}
+                                    />
+                                </span>
+                                <span>Missões</span>
+                            </h3>
+
                             <InfoLinha
                                 icon={faMoneyBill}
                                 label="Missões Dinheiro"
                                 value={(
-                                    v.total_missoes_dinheiro || 0
+                                    v.resumo_final.total_missoes_dinheiro || 0
                                 ).toLocaleString("pt-BR", {
                                     style: "currency",
                                     currency: "BRL",
                                 })}
-                                isMenor={v.classes.length > 13}
                             />
                             <InfoLinha
                                 icon={faPix}
                                 label="Missões Pix"
                                 value={(
-                                    v.total_missoes_pix || 0
+                                    v.resumo_final.total_missoes_pix || 0
                                 ).toLocaleString("pt-BR", {
                                     style: "currency",
                                     currency: "BRL",
                                 })}
-                                isMenor={v.classes.length > 13}
                             />
                             <InfoLinha
                                 icon={faCalculator}
                                 label="Total Missões"
-                                value={(v.total_missoes || 0).toLocaleString(
-                                    "pt-BR",
-                                    {
-                                        style: "currency",
-                                        currency: "BRL",
-                                    }
-                                )}
-                                isMenor={v.classes.length > 13}
-                            />
-                            <InfoLinha
-                                icon={faMoneyBill}
-                                label="Ofertas Dinheiro"
                                 value={(
-                                    v.total_ofertas_dinheiro || 0
+                                    v.resumo_final.total_missoes || 0
                                 ).toLocaleString("pt-BR", {
                                     style: "currency",
                                     currency: "BRL",
                                 })}
-                                isMenor={v.classes.length > 13}
+                            />
+
+                            <hr
+                                style={{
+                                    border: "none",
+                                    borderTop: "1px solid #f3f4f6",
+                                    margin: "15px 10px",
+                                }}
+                            />
+
+                            <h3
+                                style={{
+                                    fontSize: "24px",
+                                    fontWeight: "700",
+                                    textAlign: "center",
+                                    color: "#111827",
+                                    marginBottom: "25px",
+                                    display: "flex",
+                                    gap: "5px",
+                                }}
+                            >
+                                <span style={{ color: "#10b981" }}>
+                                    <FontAwesomeIcon
+                                        style={{
+                                            padding: 0,
+                                            verticalAlign: -16,
+                                            boxSizing: "border-box",
+                                            display: "inline-block",
+                                            marginRight: "0px",
+                                        }}
+                                        icon={faCoins}
+                                    />
+                                </span>
+                                <span>Ofertas</span>
+                            </h3>
+                            <InfoLinha
+                                icon={faMoneyBill}
+                                label="Ofertas Dinheiro"
+                                value={(
+                                    v.resumo_final.total_ofertas_dinheiro || 0
+                                ).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                })}
                             />
                             <InfoLinha
                                 icon={faPix}
                                 label="Ofertas Pix"
                                 value={(
-                                    v.total_ofertas_pix || 0
+                                    v.resumo_final.total_ofertas_pix || 0
                                 ).toLocaleString("pt-BR", {
                                     style: "currency",
                                     currency: "BRL",
                                 })}
-                                isMenor={v.classes.length > 13}
                             />
                             <InfoLinha
                                 icon={faCalculator}
                                 label="Total Ofertas"
-                                value={(v.total_ofertas || 0).toLocaleString(
-                                    "pt-BR",
-                                    {
-                                        style: "currency",
-                                        currency: "BRL",
-                                    }
-                                )}
-                                isMenor={v.classes.length > 13}
+                                value={(
+                                    v.resumo_final.total_ofertas || 0
+                                ).toLocaleString("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                })}
                             />
 
                             <div
@@ -352,6 +477,31 @@ function RelatorioTrimestralDownload({
                             Total
                         </h3>
 
+                        <h3
+                            style={{
+                                fontSize: "24px",
+                                fontWeight: "700",
+                                textAlign: "center",
+                                color: "#111827",
+                                marginBottom: "25px",
+                                display: "flex",
+                                gap: "5px",
+                            }}
+                        >
+                            <span style={{ color: "#0ea5e9" }}>
+                                <FontAwesomeIcon
+                                    style={{
+                                        padding: 0,
+                                        verticalAlign: -16,
+                                        boxSizing: "border-box",
+                                        display: "inline-block",
+                                        marginRight: "0px",
+                                    }}
+                                    icon={faEarthAfrica}
+                                />
+                            </span>
+                            <span>Missões</span>
+                        </h3>
                         <InfoLinha
                             icon={faMoneyBill}
                             label="Missões Dinheiro"
@@ -382,6 +532,41 @@ function RelatorioTrimestralDownload({
                                 currency: "BRL",
                             })}
                         />
+
+                        <hr
+                            style={{
+                                border: "none",
+                                borderTop: "1px solid #f3f4f6",
+                                margin: "15px 10px",
+                            }}
+                        />
+
+                        <h3
+                            style={{
+                                fontSize: "24px",
+                                fontWeight: "700",
+                                textAlign: "center",
+                                color: "#111827",
+                                marginBottom: "25px",
+                                display: "flex",
+                                gap: "5px",
+                            }}
+                        >
+                            <span style={{ color: "#10b981" }}>
+                                <FontAwesomeIcon
+                                    style={{
+                                        padding: 0,
+                                        verticalAlign: -16,
+                                        boxSizing: "border-box",
+                                        display: "inline-block",
+                                        marginRight: "0px",
+                                    }}
+                                    icon={faCoins}
+                                />
+                            </span>
+                            <span>Ofertas</span>
+                        </h3>
+
                         <InfoLinha
                             icon={faMoneyBill}
                             label="Ofertas Dinheiro"
@@ -412,9 +597,18 @@ function RelatorioTrimestralDownload({
                                 currency: "BRL",
                             })}
                         />
+
+                        <hr
+                            style={{
+                                border: "none",
+                                borderTop: "1px solid #f3f4f6",
+                                margin: "15px 10px",
+                            }}
+                        />
+
                         <InfoLinha
                             icon={faSackDollar}
-                            label="Total"
+                            label="Total Geral"
                             value={(
                                 dados.resumo_final.total || 0
                             ).toLocaleString("pt-BR", {

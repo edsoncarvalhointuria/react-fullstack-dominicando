@@ -58,7 +58,7 @@ async function validarUsuario(request: functions.https.CallableRequest) {
     if (!request.auth) {
         throw new functions.https.HttpsError(
             "unauthenticated",
-            "usuário não está logado"
+            "usuário não está logado",
         );
     }
 
@@ -69,7 +69,7 @@ async function validarUsuario(request: functions.https.CallableRequest) {
     if (!userDoc.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "usuário não encontrado"
+            "usuário não encontrado",
         );
     }
 
@@ -90,7 +90,7 @@ async function validarUsuario(request: functions.https.CallableRequest) {
 async function baseDashboard(
     usuario: ValidarUsuario,
     request: functions.https.CallableRequest,
-    collection: string
+    collection: string,
 ) {
     const { db, isSecretario, isSuperAdmin, user } = usuario;
 
@@ -99,7 +99,7 @@ async function baseDashboard(
     if (!dataInicio || !dataFim) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "As datas são obrigatórias"
+            "As datas são obrigatórias",
         );
     }
 
@@ -127,7 +127,7 @@ function calcRegistrosAula(
     documentos: admin.firestore.DocumentData[],
     isSuperAdmin: boolean,
     isSecretario: boolean,
-    key: string
+    key: string,
 ) {
     const itensTotal = documentos.map((v) => {
         const data = v.data();
@@ -164,7 +164,7 @@ async function calcTotalMatriculados(
     q: admin.firestore.Query,
     db: admin.firestore.Firestore,
     isSuperAdmin: boolean,
-    isSecretario: boolean
+    isSecretario: boolean,
 ) {
     const mapLicoes = new Map<string, any>();
     (await q.get()).docs.forEach((v) => mapLicoes.set(v.id, v.data()));
@@ -176,11 +176,11 @@ async function calcTotalMatriculados(
     for (let i = 0; i < licoesIds.length; i += 30) {
         const licoesSplice = licoesIds.slice(i, i + 30);
         promisesMatriculas.push(
-            matriculasQuery.where("licaoId", "in", licoesSplice).get()
+            matriculasQuery.where("licaoId", "in", licoesSplice).get(),
         );
     }
     const matriculas = (await Promise.all(promisesMatriculas)).flatMap((v) =>
-        v.docs.map((d: any) => ({ ...d.data(), id: d.id }))
+        v.docs.map((d: any) => ({ ...d.data(), id: d.id })),
     ) as any[];
 
     if (isSecretario) {
@@ -229,7 +229,7 @@ async function getTotalMembros(
     db: admin.firestore.Firestore,
     isSuperAdmin: boolean,
     isSecretario: boolean,
-    usuario: ValidarUsuario
+    usuario: ValidarUsuario,
 ) {
     const { user } = usuario;
 
@@ -248,12 +248,12 @@ async function calcTrimestre(
     igrejaId: string,
     naoTemPermissao: boolean,
     user: User,
-    db: admin.firestore.Firestore
+    db: admin.firestore.Firestore,
 ) {
     if (!igrejaId || !trimestreId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
@@ -264,7 +264,7 @@ async function calcTrimestre(
     if (!igrejaSnap.exists || !trimestreSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Coleções não encontradas."
+            "Coleções não encontradas.",
         );
     }
     if (
@@ -273,7 +273,7 @@ async function calcTrimestre(
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
@@ -291,35 +291,58 @@ async function calcTrimestre(
         .where("igrejaId", "==", igrejaId)
         .get();
 
-    const datas = new Map();
+    const dias = new Map();
+    const meses = new Map();
 
     const aulasSnaps = await Promise.all(
-        licoes.docs.map(async (v) => v.ref.collection("aulas").get())
+        licoes.docs.map(async (v) => v.ref.collection("aulas").get()),
     );
 
     const aulasRealizadas = aulasSnaps
         .flatMap((v) => v.docs)
         .filter((v) => {
             const aula = v.data();
-            const data = aula.data_prevista
-                .toDate()
-                .toLocaleDateString("pt-BR");
-            const d = datas.get(data) || {
+            const data = aula.data_prevista.toDate();
+            const dia = data.toLocaleDateString("pt-BR");
+            const d = dias.get(dia) || {
                 aula: aula.numero_aula,
                 realizada: aula.realizada,
-                data,
+                data: dia,
             };
 
-            datas.set(data, {
-                ...d,
-                realizada: d.realizada ? true : aula.realizada,
-            });
+            d.realizada = d.realizada ? true : aula.realizada;
+            dias.set(dia, d);
+
+            const mes = meses.get(data.getMonth()) || {
+                id: `${data.getFullYear()}-${data.getMonth() + 1}`,
+                nome:
+                    data
+                        .toLocaleDateString("pt-BR", { month: "long" })[0]
+                        .toUpperCase() +
+                    data
+                        .toLocaleDateString("pt-BR", { month: "long" })
+                        .slice(1),
+                numero_mes: data.getMonth(),
+                datas: [],
+                resumo_final: {
+                    total: 0,
+                    total_ofertas_pix: 0,
+                    total_ofertas_dinheiro: 0,
+                    total_ofertas: 0,
+                    total_missoes_pix: 0,
+                    total_missoes_dinheiro: 0,
+                    total_missoes: 0,
+                },
+            };
+
+            if (!mes.datas.includes(d)) mes.datas.push(d);
+            meses.set(data.getMonth(), mes);
 
             return aula?.realizada;
         });
 
     const registrosSnaps = await Promise.all(
-        aulasRealizadas.map((v) => v.data().registroRef.get())
+        aulasRealizadas.map((v) => v.data().registroRef.get()),
     );
 
     const totais = {
@@ -363,9 +386,8 @@ async function calcTrimestre(
             "total_missoes_dinheiro",
             "total_missoes",
         ];
-
-        const aula =
-            datas.get(registro.data.toDate().toLocaleDateString("pt-BR")) || {};
+        const dia = registro.data.toDate();
+        const aula = dias.get(dia.toLocaleDateString("pt-BR")) || {};
 
         const classes = aula["classes"] || {};
         const classe = classes[registro.classeId] || {
@@ -383,20 +405,24 @@ async function calcTrimestre(
             comprovantes: [],
         };
 
+        const mes = meses.get(dia.getMonth());
+
         colunas.forEach((v) => {
             aula[v] = (aula[v] || 0) + valores[v];
             classe[v] = (classe[v] || 0) + valores[v];
             totais[v] = (totais[v] || 0) + valores[v];
+            mes["resumo_final"][v] = (mes["resumo_final"][v] || 0) + valores[v];
         });
         classe["comprovantes"].push(
             ...(registro.imgsPixMissoes || []),
-            ...(registro.imgsPixOfertas || [])
+            ...(registro.imgsPixOfertas || []),
         );
 
         aula["classes"] = { ...classes, [registro.classeId]: classe };
+        if (!mes["datas"].includes(aula)) mes["datas"].push(aula);
     });
 
-    return { totais, datas, trimestre, licoes };
+    return { totais, dias, meses, trimestre, licoes, aulasRealizadas };
 }
 
 admin.initializeApp();
@@ -424,31 +450,31 @@ export const getDashboard = functions.https.onCall(async (request) => {
             docsRegistrosAula,
             isSuperAdmin,
             isSecretario,
-            "ofertas_total"
+            "ofertas_total",
         ),
         calcRegistrosAula(
             docsRegistrosAula,
             isSuperAdmin,
             isSecretario,
-            "missoes_total"
+            "missoes_total",
         ),
         calcRegistrosAula(
             docsRegistrosAula,
             isSuperAdmin,
             isSecretario,
-            "total_presentes"
+            "total_presentes",
         ),
         calcRegistrosAula(
             docsRegistrosAula,
             isSuperAdmin,
             isSecretario,
-            "biblias"
+            "biblias",
         ),
         calcRegistrosAula(
             docsRegistrosAula,
             isSuperAdmin,
             isSecretario,
-            "licoes_trazidas"
+            "licoes_trazidas",
         ),
         calcTotalMatriculados(qLicoes, db, isSuperAdmin, isSecretario),
         getTotalMembros(db, isSuperAdmin, isSecretario, usuario),
@@ -464,7 +490,7 @@ export const getDashboard = functions.https.onCall(async (request) => {
             { total_membros: number; total_matriculados: number }
         >();
         const matriculasSet = new Set(
-            matriculados.listaMatriculados.map((v) => v.alunoId)
+            matriculados.listaMatriculados.map((v) => v.alunoId),
         );
 
         membros.docs.forEach((v: any) => {
@@ -502,7 +528,7 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     if (!data || (!classes && !igrejaId)) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Data, classes ou igreja invalidos"
+            "Data, classes ou igreja invalidos",
         );
     }
 
@@ -523,7 +549,7 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     }
 
     const todosRegistros = (await Promise.all(promisesQ)).flatMap(
-        (v) => v.docs
+        (v) => v.docs,
     );
     const classesRelatorio: any[] = [];
     const registrosMap = new Map<string, any>();
@@ -605,7 +631,7 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     const alunosAtualizados = alunos.map((v) => ({
         ...v,
         data_nascimento: new Date(
-            v["data_nascimento"].toDate().setFullYear(fimSemana.getFullYear())
+            v["data_nascimento"].toDate().setFullYear(fimSemana.getFullYear()),
         ),
     }));
 
@@ -649,56 +675,55 @@ export const getRelatorioTrimestral = functions.https.onCall(
 
         const { igrejaId, trimestreId } = request.data;
 
-        const { datas, totais, trimestre } = await calcTrimestre(
+        const { meses, totais } = await calcTrimestre(
             trimestreId,
             igrejaId,
             isSecretario,
             user,
-            db
+            db,
         );
 
         const relatorioSnap = await db
             .collection("relatorios_trimestre")
             .where("igrejaId", "==", igrejaId)
-            .where("data_inicio", "==", trimestre.data_inicio)
-            .where("data_fim", "==", trimestre.data_fim)
-            .limit(1)
+            .where("trimestreId", "==", trimestreId)
             .get();
 
-        const relatorio = relatorioSnap.docs[0]?.data() as RelatoriosTrimestres;
-        let totalRelatorio;
+        let total_enviado = {
+            valor_enviado_missoes: 0,
+            valor_enviado_ofertas: 0,
+        };
 
         if (!relatorioSnap.empty) {
-            const {
-                total,
-                total_missoes_dinheiro,
-                total_missoes_pix,
-                total_missoes,
-                total_ofertas_dinheiro,
-                total_ofertas_pix,
-                total_ofertas,
-                data_envio,
-            } = relatorio;
+            relatorioSnap.forEach((v) => {
+                const dados = v.data();
+                const bloqueado = dados.bloqueado;
 
-            totalRelatorio = {
-                total,
-                total_missoes_dinheiro,
-                total_missoes_pix,
-                total_missoes,
-                total_ofertas_dinheiro,
-                total_ofertas,
-                total_ofertas_pix,
-            };
+                if (bloqueado) {
+                    const mes = meses.get(dados.numeroMes);
+                    mes["bloqueado"] = bloqueado;
+                    dados["data_envio"] = dados["data_envio"]
+                        .toDate()
+                        .toLocaleDateString("pt-BR");
+                    mes["relatorio"] = dados;
 
-            relatorio["data_envio"] = data_envio
-                .toDate()
-                .toLocaleDateString("pt-BR") as any;
+                    total_enviado["valor_enviado_missoes"] =
+                        total_enviado["valor_enviado_missoes"] +
+                        (dados["valor_enviado_missoes"] || 0);
+                    total_enviado["valor_enviado_ofertas"] =
+                        total_enviado["valor_enviado_ofertas"] +
+                        (dados["valor_enviado_ofertas"] || 0);
+                }
+            });
         }
 
-        const listaDatas = Array.from(datas.values());
-
-        listaDatas.forEach((v) => {
-            v["classes"] = Object.values(v["classes"] || {});
+        let isAllBloqueado = true;
+        const listaMeses = Array.from(meses.values());
+        listaMeses.forEach((v) => {
+            isAllBloqueado = isAllBloqueado && v.bloqueado;
+            v.datas.forEach(
+                (d: any) => (d["classes"] = Object.values(d["classes"] || {})),
+            );
         });
 
         const notificacao: Notificacao = {
@@ -717,39 +742,36 @@ export const getRelatorioTrimestral = functions.https.onCall(
         console.log(JSON.stringify(notificacao));
 
         return {
-            bloqueado: !!relatorio?.bloqueado,
-            datas: listaDatas,
-            resumo_final:
-                !!relatorio?.bloqueado && totalRelatorio
-                    ? totalRelatorio
-                    : totais,
-            relatorio,
+            bloqueado: isAllBloqueado,
+            resumo_final: totais,
+            total_enviado,
+            meses: listaMeses,
         };
-    }
+    },
 );
 
-interface RelatoriosTrimestres {
-    id: string;
-    data_envio: Timestamp;
-    assinado_por: {
-        nome: string;
-        email: string;
-        uid: string;
-        ip: string;
-    };
-    total: number;
-    total_ofertas_pix: number;
-    total_ofertas_dinheiro: number;
-    total_ofertas: number;
-    total_missoes_pix: number;
-    total_missoes_dinheiro: number;
-    total_missoes: number;
-    igrejaId: string;
-    ministerioId: string;
-    data_inicio: Timestamp;
-    data_fim: Timestamp;
-    bloqueado: boolean;
-}
+// interface RelatoriosTrimestres {
+//     id: string;
+//     data_envio: Timestamp;
+//     assinado_por: {
+//         nome: string;
+//         email: string;
+//         uid: string;
+//         ip: string;
+//     };
+//     total: number;
+//     total_ofertas_pix: number;
+//     total_ofertas_dinheiro: number;
+//     total_ofertas: number;
+//     total_missoes_pix: number;
+//     total_missoes_dinheiro: number;
+//     total_missoes: number;
+//     igrejaId: string;
+//     ministerioId: string;
+//     data_inicio: Timestamp;
+//     data_fim: Timestamp;
+//     bloqueado: boolean;
+// }
 
 export const salvarRelatorioTrimestral = functions.https.onCall(
     async (request) => {
@@ -758,6 +780,7 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
         const {
             igrejaId,
             trimestreId,
+            numeroMes,
             confirmacao,
             valor_final_missao,
             valor_final_oferta,
@@ -768,35 +791,29 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
         if (
             !confirmacao ||
             igrejaId !== user.igrejaId ||
+            numeroMes < 0 ||
+            numeroMes > 11 ||
             Number.isNaN(Number(valor_final_missao)) ||
             Number.isNaN(Number(valor_final_oferta))
         ) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Dados inválidos ou ausentes."
+                "Dados inválidos ou ausentes.",
             );
         }
 
-        const { totais, trimestre, licoes } = await calcTrimestre(
-            trimestreId,
-            igrejaId,
-            !isAdmin,
-            user,
-            db
-        );
+        const { totais, trimestre, meses, aulasRealizadas } =
+            await calcTrimestre(trimestreId, igrejaId, !isAdmin, user, db);
 
-        const relatorioSnap = await db
+        const relatorioRef = db
             .collection("relatorios_trimestre")
-            .where("igrejaId", "==", igrejaId)
-            .where("data_inicio", "==", trimestre.data_inicio)
-            .where("data_fim", "==", trimestre.data_fim)
-            .limit(1)
-            .get();
+            .doc(`${trimestre.ano}-${numeroMes}-${igrejaId}`);
+        const relatorioSnap = await relatorioRef.get();
 
-        if (!relatorioSnap.empty && relatorioSnap.docs[0].data().bloqueado) {
+        if (relatorioSnap.exists && relatorioSnap.data()?.bloqueado) {
             throw new functions.https.HttpsError(
                 "permission-denied",
-                "Esse relatório já foi enviado, somente os administradores do ministério podem liberar a edição."
+                "Esse relatório já foi enviado, somente os administradores do ministério podem liberar a edição.",
             );
         }
 
@@ -811,29 +828,34 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
                     uid: user.uid,
                     ip: request.rawRequest.ip,
                 },
-                ...totais,
+                ...meses.get(numeroMes).resumo_final,
+                numeroMes,
                 valor_enviado_missoes: valor_final_missao,
                 valor_enviado_ofertas: valor_final_oferta,
                 descricao_missao: descricao_missao || null,
                 descricao_oferta: descricao_oferta || null,
                 igrejaId,
                 ministerioId: user.ministerioId,
+                trimestreId,
                 data_inicio: trimestre.data_inicio,
                 data_fim: trimestre.data_fim,
                 bloqueado: true,
             };
 
-            const isEdit = !relatorioSnap.empty;
-            const relatorioTrimestreRef = isEdit
-                ? relatorioSnap.docs[0].ref
-                : db.collection("relatorios_trimestre").doc();
+            const isEdit = relatorioSnap.exists;
 
-            if (isEdit) batch.update(relatorioTrimestreRef, dados);
-            else batch.set(relatorioTrimestreRef, dados);
+            if (isEdit) batch.update(relatorioRef, dados);
+            else batch.set(relatorioRef, dados);
 
-            licoes.docs.forEach((v) =>
-                batch.update(v.ref, { relatorio_enviado: true })
-            );
+            aulasRealizadas.forEach((v) => {
+                const dados = v.data();
+                const mes = dados.data_prevista.toDate().getMonth();
+
+                if (mes === numeroMes)
+                    batch.update(dados.registroRef, {
+                        relatorio_enviado: true,
+                    });
+            });
 
             await batch.commit();
 
@@ -848,7 +870,7 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
                     dados_importantes: totais,
                 },
                 evento: "SALVAR_RELATORIO_TRIMESTRAL",
-                message: `Relatório salvo com sucesso pelo usuário: ${user.uid}`,
+                message: `Relatório de ${numeroMes} salvo com sucesso pelo usuário: ${user.uid}`,
             };
 
             console.log(JSON.stringify(notificacao));
@@ -858,17 +880,17 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
             console.log("Erro ao salvar relatório", error);
             throw new functions.https.HttpsError("internal", error.message);
         }
-    }
+    },
 );
 
 export const desbloquearRelatorio = functions.https.onCall(async (request) => {
     const { db, isSuperAdmin, user } = await validarUsuario(request);
-    const { trimestreId, igrejaId } = request.data;
+    const { trimestreId, igrejaId, numeroMes } = request.data;
 
-    if (!trimestreId || !igrejaId) {
+    if (!trimestreId || !igrejaId || typeof numeroMes !== "number") {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
@@ -880,7 +902,7 @@ export const desbloquearRelatorio = functions.https.onCall(async (request) => {
     if (!igrejaSnap.exists || !trimestreSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Coleções não encontradas"
+            "Coleções não encontradas",
         );
     }
 
@@ -888,43 +910,49 @@ export const desbloquearRelatorio = functions.https.onCall(async (request) => {
     if (!isSuperAdmin || trimestre?.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
-    const dataInicio = trimestre.data_inicio.toDate();
-    dataInicio.setHours(0, 0, 0, 0);
-    const dataFim = trimestre.data_fim.toDate();
-    dataFim.setHours(23, 59, 59, 59);
-
-    const licoesSnap = await db
-        .collection("licoes")
-        .where("data_inicio", ">=", dataInicio)
-        .where("data_fim", "<=", dataFim)
-        .where("igrejaId", "==", igrejaId)
-        .get();
+    const data = trimestre.data_inicio.toDate();
 
     const relatorioSnap = await db
-        .collection("relatorios_trimestre")
-        .where("data_inicio", "==", trimestre?.data_inicio)
-        .where("data_fim", "==", trimestre?.data_fim)
-        .where("igrejaId", "==", igrejaId)
-        .limit(1)
+        .collection(`relatorios_trimestre`)
+        .doc(`${data.getFullYear()}-${numeroMes}-${igrejaId}`)
         .get();
 
-    if (relatorioSnap.empty) {
+    if (!relatorioSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Relatório não encontrado"
+            "Relatório não encontrado",
         );
     }
+
+    const dataInicio = new Date(data.getFullYear(), numeroMes, 1, 0, 0, 0, 0);
+    const dataFim = new Date(
+        data.getFullYear(),
+        numeroMes + 1,
+        0,
+        23,
+        59,
+        59,
+        59,
+    );
+
+    const registrosSnap = await db
+        .collection("registros_aula")
+        .where("data", ">=", dataInicio)
+        .where("data", "<=", dataFim)
+        .where("igrejaId", "==", igrejaId)
+        .where("relatorio_enviado", "==", true)
+        .get();
 
     const batch = db.batch();
 
-    batch.update(relatorioSnap.docs[0].ref, { bloqueado: false });
-    licoesSnap.forEach((v) =>
-        batch.update(v.ref, { relatorio_enviado: false })
-    );
+    batch.update(relatorioSnap.ref, { bloqueado: false });
+    registrosSnap.forEach((v) => {
+        batch.update(v.ref, { relatorio_enviado: false });
+    });
 
     await batch.commit();
 
@@ -946,7 +974,7 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
     if (!isSuperAdmin) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para isso."
+            "Você não tem permissão para isso.",
         );
     }
 
@@ -958,7 +986,7 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
     if (!data_inicio || !numero_aulas || !numero_trimestre) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
@@ -968,7 +996,7 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
     if (!trimestreSnap.exists) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Trimestre não encontrado"
+            "Trimestre não encontrado",
         );
     }
 
@@ -1058,7 +1086,7 @@ export const salvarMembro = functions.https.onCall(async (request) => {
     if (!igrejaId || !dados) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
@@ -1066,14 +1094,14 @@ export const salvarMembro = functions.https.onCall(async (request) => {
     if (isSecretario || user.ministerioId !== igreja.data()?.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso"
+            "Você não tem permissão para fazer isso",
         );
     }
 
     const dadosParaSalvar: Membro = {
         contato: dados.contato || null,
         data_nascimento: Timestamp.fromDate(
-            new Date(dados.data_nascimento + "T12:00:00")
+            new Date(dados.data_nascimento + "T12:00:00"),
         ),
         validade: dados?.validade
             ? Timestamp.fromDate(new Date(dados.validade + "T12:00:00"))
@@ -1092,7 +1120,7 @@ export const salvarMembro = functions.https.onCall(async (request) => {
         if (!membroSnap.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Membro não encontrado"
+                "Membro não encontrado",
             );
         }
 
@@ -1147,7 +1175,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
     if (!membroId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -1157,7 +1185,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
     if (!membroSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Membro não encontrado"
+            "Membro não encontrado",
         );
     }
     if (
@@ -1167,7 +1195,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
@@ -1182,7 +1210,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
 
         if (!alunoSnap.empty) {
             alunoSnap.docs.forEach((v) =>
-                batch.update(v.ref, { membroId: null, isMembro: false })
+                batch.update(v.ref, { membroId: null, isMembro: false }),
             );
         }
 
@@ -1206,7 +1234,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
         console.log("Ocorreu um erro ao deletar membro", error);
         throw new functions.https.HttpsError(
             "internal",
-            "Houve um erro ao deletar membro"
+            "Houve um erro ao deletar membro",
         );
     }
 });
@@ -1217,7 +1245,7 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
     if (!igrejaId || !csv || !csv.length) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados invalidos ou ausentes"
+            "Dados invalidos ou ausentes",
         );
     }
 
@@ -1225,7 +1253,7 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada"
+            "Igreja não encontrada",
         );
     }
 
@@ -1234,7 +1262,7 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
     if (isSecretario || igreja.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para isso"
+            "Você não tem permissão para isso",
         );
     }
 
@@ -1260,7 +1288,7 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
             return membrosComErro.push(nome_completo);
 
         const nascimento = Timestamp.fromDate(
-            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0)
+            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0),
         );
         const validadeMembro =
             !Number.isNaN(Number(mesValidade)) &&
@@ -1273,8 +1301,8 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
                           12,
                           0,
                           0,
-                          0
-                      )
+                          0,
+                      ),
                   )
                 : null;
         const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
@@ -1319,7 +1347,7 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
     return {
         message: membrosComErro.length
             ? `Os membros a seguir não foram cadastrados devido a erros no arquivo: ${membrosComErro.join(
-                  ","
+                  ",",
               )}`
             : "Membros cadastrados com sucesso!",
     };
@@ -1346,7 +1374,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
     if (isSuperAdmin && !igrejaId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Id igreja não enviado"
+            "Id igreja não enviado",
         );
     }
     if (!isSuperAdmin) igrejaId = user.igrejaId;
@@ -1354,7 +1382,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
     const dadosAtualizados = {
         ...dados,
         data_nascimento: admin.firestore.Timestamp.fromDate(
-            new Date(dados.data_nascimento + "T12:00:00")
+            new Date(dados.data_nascimento + "T12:00:00"),
         ),
         membroId: dados.membroId || null,
     };
@@ -1366,7 +1394,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         if (!alunoDoc.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Aluno não encontrado"
+                "Aluno não encontrado",
             );
         }
 
@@ -1403,13 +1431,13 @@ export const salvarAluno = functions.https.onCall(async (request) => {
     if (!igreja.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada"
+            "Igreja não encontrada",
         );
     }
     if (igreja.data()?.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão par isso"
+            "Você não tem permissão par isso",
         );
     }
 
@@ -1453,7 +1481,7 @@ export const onAlunoUpdate = onDocumentUpdated(
 
         if (!dadosAntigos || !dadosNovos) {
             console.log(
-                "Dados ausentes no evento de atualização, encerrando a função."
+                "Dados ausentes no evento de atualização, encerrando a função.",
             );
             return;
         }
@@ -1468,7 +1496,7 @@ export const onAlunoUpdate = onDocumentUpdated(
         const batch = db.batch();
 
         console.log(
-            `Aluno ${alunoId} mudou de nome para "${novoNome}". Iniciando fan-out...`
+            `Aluno ${alunoId} mudou de nome para "${novoNome}". Iniciando fan-out...`,
         );
 
         const matriculasQuery = db
@@ -1492,12 +1520,12 @@ export const onAlunoUpdate = onDocumentUpdated(
                     db
                         .collection("registros_aula")
                         .where("licaoId", "in", l)
-                        .get()
+                        .get(),
                 );
             }
 
             const registrosSnap = (await Promise.all(licoesPromises)).flatMap(
-                (v) => v.docs
+                (v) => v.docs,
             );
 
             await Promise.all(
@@ -1509,13 +1537,13 @@ export const onAlunoUpdate = onDocumentUpdated(
 
                     if (chamadaDoc.exists)
                         batch.update(chamadaRef, { nome: novoNome });
-                })
+                }),
             );
         }
 
         await batch.commit();
         console.log(`Fan-out para o aluno ${alunoId} concluído com sucesso!`);
-    }
+    },
 );
 export const deletarAluno = functions.https.onCall(async (request) => {
     const { db, user, isSuperAdmin } = await validarUsuario(request);
@@ -1524,7 +1552,7 @@ export const deletarAluno = functions.https.onCall(async (request) => {
     if (!alunoId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
     const alunosRef = db.collection("alunos").doc(alunoId);
@@ -1533,7 +1561,7 @@ export const deletarAluno = functions.https.onCall(async (request) => {
     if (!alunosSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Aluno não encontrado"
+            "Aluno não encontrado",
         );
     }
     if (
@@ -1542,7 +1570,7 @@ export const deletarAluno = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para isso"
+            "Você não tem permissão para isso",
         );
     }
 
@@ -1571,12 +1599,12 @@ export const deletarAluno = functions.https.onCall(async (request) => {
                     db
                         .collection("registros_aula")
                         .where("licaoId", "in", chunk)
-                        .get()
+                        .get(),
                 );
             }
 
             const registrosDocs = (await Promise.all(promises)).flatMap(
-                (v) => v.docs
+                (v) => v.docs,
             );
 
             const chamadas = registrosDocs.map(async (v) => {
@@ -1653,7 +1681,7 @@ export const deletarAluno = functions.https.onCall(async (request) => {
         console.log("deu esse erro", error);
         throw new functions.https.HttpsError(
             "internal",
-            "Houve algum erro ao deletar o Aluno. Tente de novo."
+            "Houve algum erro ao deletar o Aluno. Tente de novo.",
         );
     }
 });
@@ -1664,7 +1692,7 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
     if (!igrejaId || !csv || !csv.length) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -1673,7 +1701,7 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada"
+            "Igreja não encontrada",
         );
     }
 
@@ -1682,7 +1710,7 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
     if (isSecretario || igreja.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso"
+            "Você não tem permissão para fazer isso",
         );
     }
 
@@ -1706,7 +1734,7 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
             return alunosComErro.push(nome_completo);
 
         const nascimento = Timestamp.fromDate(
-            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0)
+            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0),
         );
         const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
         batch.set(db.collection("alunos").doc(), {
@@ -1749,7 +1777,7 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
     return {
         message: alunosComErro.length
             ? `Os alunos a seguir não foram cadastrados devido a erros no arquivo: ${alunosComErro.join(
-                  ","
+                  ",",
               )}`
             : "Alunos cadastrados com sucesso!",
     };
@@ -1773,13 +1801,12 @@ interface ClasseCSVFront {
 }
 
 export const salvarClasse = functions.https.onCall(async (request) => {
-    const { db, user, isSuperAdmin, isSecretario } = await validarUsuario(
-        request
-    );
+    const { db, user, isSuperAdmin, isSecretario } =
+        await validarUsuario(request);
     if (isSecretario) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Secretário de classe ou professor não podem cadastrar outras classes"
+            "Secretário de classe ou professor não podem cadastrar outras classes",
         );
     }
 
@@ -1790,7 +1817,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     if (isSuperAdmin && !igrejaId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Id igreja não enviado"
+            "Id igreja não enviado",
         );
     }
     if (!isSuperAdmin) igrejaId = user.igrejaId;
@@ -1799,13 +1826,13 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     if (!igreja.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada"
+            "Igreja não encontrada",
         );
     }
     if (igreja.data()!.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso"
+            "Você não tem permissão para fazer isso",
         );
     }
 
@@ -1823,7 +1850,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
         if (!classeSnap.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Classe não encontrada"
+                "Classe não encontrada",
             );
         }
 
@@ -1893,7 +1920,7 @@ export const onClasseUpdate = onDocumentUpdated(
         const batch = db.batch();
 
         console.log(
-            `Nome antigo: ${dadosAntigos.nome} | Nome novo: ${dadosNovos.nome}`
+            `Nome antigo: ${dadosAntigos.nome} | Nome novo: ${dadosNovos.nome}`,
         );
 
         const licoes = await db
@@ -1922,18 +1949,17 @@ export const onClasseUpdate = onDocumentUpdated(
 
         await batch.commit();
         console.log("Fan-out realizado, classe alterada!");
-    }
+    },
 );
 export const deletarClasse = functions.https.onCall(async (request) => {
-    const { db, isSecretario, isSuperAdmin, user } = await validarUsuario(
-        request
-    );
+    const { db, isSecretario, isSuperAdmin, user } =
+        await validarUsuario(request);
 
     const { classeId } = request.data;
     if (!classeId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -1942,7 +1968,7 @@ export const deletarClasse = functions.https.onCall(async (request) => {
     if (!classeSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Classe não encontrada"
+            "Classe não encontrada",
         );
     }
 
@@ -1953,7 +1979,7 @@ export const deletarClasse = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para apagar uma classe."
+            "Você não tem permissão para apagar uma classe.",
         );
     }
 
@@ -1965,7 +1991,7 @@ export const deletarClasse = functions.https.onCall(async (request) => {
     if (!licao.empty) {
         throw new functions.https.HttpsError(
             "aborted",
-            "Você não pode excluir uma classe que já possui lições cadastradas. Por favor, remova as lições primeiro."
+            "Você não pode excluir uma classe que já possui lições cadastradas. Por favor, remova as lições primeiro.",
         );
     }
     try {
@@ -2009,7 +2035,7 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         console.log("Erro ao apagar classe", erro);
         throw new functions.https.HttpsError(
             "internal",
-            "Houve um erro ao deletar a classe. Tente novamente"
+            "Houve um erro ao deletar a classe. Tente novamente",
         );
     }
 });
@@ -2020,7 +2046,7 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
     if (!igrejaId || !csv || !csv.length) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
@@ -2028,7 +2054,7 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada;"
+            "Igreja não encontrada;",
         );
     }
     const igreja = { id: igrejaSnap.id, ...igrejaSnap.data() } as any;
@@ -2036,7 +2062,7 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
     if (isSecretario || igreja!.ministerioId != user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso"
+            "Você não tem permissão para fazer isso",
         );
     }
 
@@ -2098,7 +2124,7 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
     return {
         message: foraDaFaixa.length
             ? `As classes a seguir estavam com a faixa etária inválida: ${foraDaFaixa.join(
-                  ","
+                  ",",
               )}`
             : "Classes cadastradas com sucesso!",
     };
@@ -2123,7 +2149,7 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
     if (!isSuperAdmin) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Somente o super admin pode cadastrar igrejas"
+            "Somente o super admin pode cadastrar igrejas",
         );
     }
 
@@ -2133,7 +2159,7 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
     if (!dados) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Os dados da igreja são obrigatórios"
+            "Os dados da igreja são obrigatórios",
         );
     }
 
@@ -2144,7 +2170,7 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
         if (!igrejaSnap.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "A igreja não foi encontrada"
+                "A igreja não foi encontrada",
             );
         }
 
@@ -2214,7 +2240,7 @@ export const onIgrejaUpdate = onDocumentUpdated(
         const db = admin.firestore();
 
         console.log(
-            `Nome ${dadosAntigos.nome}, foi alterado para ${dadosNovos.nome}`
+            `Nome ${dadosAntigos.nome}, foi alterado para ${dadosNovos.nome}`,
         );
 
         const collections = [
@@ -2256,7 +2282,7 @@ export const onIgrejaUpdate = onDocumentUpdated(
 
         await Promise.all(batches.map((v) => v.commit()));
         console.log("Ufa, fan-out finalizado, igreja alterada!");
-    }
+    },
 );
 export const deletarIgreja = functions.https.onCall(async (request) => {
     const { db, isSuperAdmin, user } = await validarUsuario(request);
@@ -2265,7 +2291,7 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
     if (!igrejaId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -2275,7 +2301,7 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada"
+            "Igreja não encontrada",
         );
     }
 
@@ -2285,7 +2311,7 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso"
+            "Você não tem permissão para fazer isso",
         );
     }
 
@@ -2332,11 +2358,11 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
             licoesSnap.forEach((v) => refs.push(v.ref));
 
             const aulasPromises = licoesSnap.docs.map((v) =>
-                v.ref.collection("aulas").get()
+                v.ref.collection("aulas").get(),
             );
 
             (await Promise.all(aulasPromises)).forEach((v) =>
-                v.forEach((a) => refs.push(a.ref))
+                v.forEach((a) => refs.push(a.ref)),
             );
         }
 
@@ -2348,10 +2374,10 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
             registrosSnap.forEach((v) => refs.push(v.ref));
 
             const chamadaPromises = registrosSnap.docs.map((v) =>
-                v.ref.collection("chamada").get()
+                v.ref.collection("chamada").get(),
             );
             (await Promise.all(chamadaPromises)).forEach((v) =>
-                v.forEach((c) => refs.push(c.ref))
+                v.forEach((c) => refs.push(c.ref)),
             );
         }
 
@@ -2418,7 +2444,7 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
         console.log("Erro ao deletar igreja", error);
         throw new functions.https.HttpsError(
             "internal",
-            "Houve um erro ao deletar a igreja. Tente novamente"
+            "Houve um erro ao deletar a igreja. Tente novamente",
         );
     }
 });
@@ -2428,7 +2454,7 @@ export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
     if (!isSuperAdmin) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
     const { csv } = request.data as IgrejaCSVFront;
@@ -2436,7 +2462,7 @@ export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
     if (!csv || !csv?.length) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
@@ -2511,7 +2537,7 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados incompletos"
+            "Dados incompletos",
         );
     }
 
@@ -2519,7 +2545,7 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
     if (!igreja.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não foi encontrada"
+            "Igreja não foi encontrada",
         );
     }
 
@@ -2545,14 +2571,14 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
     if (igreja.data()?.ministerioId !== user.ministerioId || !podeCriar) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Usuário não tem para usuários com este cargo"
+            "Usuário não tem para usuários com este cargo",
         );
     }
 
     if (!usuarioId && (!dados.senha || dados.senha.length < 6)) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "A senha precisa ter ao menos 6 caracteres"
+            "A senha precisa ter ao menos 6 caracteres",
         );
     }
 
@@ -2564,14 +2590,14 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         if (!dados.classeId) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Secretários de classe ou professores precisam de uma classe associada"
+                "Secretários de classe ou professores precisam de uma classe associada",
             );
         }
         classe = await db.collection("classes").doc(dados.classeId).get();
         if (!classe.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Classe não encontrada"
+                "Classe não encontrada",
             );
         }
     }
@@ -2594,14 +2620,14 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         if (!usuarioSnap.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "O usuário não foi encontrado"
+                "O usuário não foi encontrado",
             );
         }
 
         if (usuarioSnap.id === user.uid && dados.role !== user.role) {
             throw new functions.https.HttpsError(
                 "permission-denied",
-                "O usuário não pode alterar seu próprio cargo"
+                "O usuário não pode alterar seu próprio cargo",
             );
         }
 
@@ -2674,13 +2700,13 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         if (err?.code === "auth/email-already-exists") {
             throw new functions.https.HttpsError(
                 "already-exists",
-                "Este e-mail já está em uso por outra conta."
+                "Este e-mail já está em uso por outra conta.",
             );
         }
 
         throw new functions.https.HttpsError(
             "internal",
-            "Ocorreu um erro ao criar o usuário. Tente novamente."
+            "Ocorreu um erro ao criar o usuário. Tente novamente.",
         );
     }
 });
@@ -2693,7 +2719,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
     if (!usuarioId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -2707,7 +2733,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
             .catch(() => console.log("Usuário já não existia no Auth."));
         throw new functions.https.HttpsError(
             "not-found",
-            "Usuário não encontrado"
+            "Usuário não encontrado",
         );
     }
 
@@ -2721,7 +2747,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
@@ -2729,7 +2755,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
     if (!uid) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "O usuário cadastrada está invalido."
+            "O usuário cadastrada está invalido.",
         );
     }
 
@@ -2764,7 +2790,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
 
         throw new functions.https.HttpsError(
             "internal",
-            "Houve um erro ao deletar o usuário. Tente novamente."
+            "Houve um erro ao deletar o usuário. Tente novamente.",
         );
     }
 });
@@ -2800,9 +2826,8 @@ interface Licao {
 }
 
 export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
-    const { user, isSuperAdmin, isSecretario, db } = await validarUsuario(
-        request
-    );
+    const { user, isSuperAdmin, isSecretario, db } =
+        await validarUsuario(request);
 
     const { licaoId, classeId, igrejaId } = request.data;
     const dados = request.data.dados as LicaoFront;
@@ -2817,7 +2842,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados invalidos ou ausentes"
+            "Dados invalidos ou ausentes",
         );
     }
 
@@ -2825,7 +2850,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
     if (!igreja.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada."
+            "Igreja não encontrada.",
         );
     }
     const naoPodeCriar =
@@ -2835,7 +2860,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
     if (naoPodeCriar) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para criar essa lição"
+            "Você não tem permissão para criar essa lição",
         );
     }
 
@@ -2843,7 +2868,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
     if (!classe.exists || classe.data()?.igrejaId !== igrejaId) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Classe inválida ou não pertence à igreja selecionada."
+            "Classe inválida ou não pertence à igreja selecionada.",
         );
     }
 
@@ -2879,7 +2904,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             if (!licao.exists) {
                 throw new functions.https.HttpsError(
                     "not-found",
-                    "A lição não foi encontrada"
+                    "A lição não foi encontrada",
                 );
             }
 
@@ -2894,11 +2919,11 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                         id: v.id,
                         alunoId: v.data()?.alunoId,
                     },
-                ])
+                ]),
             );
 
             const alunosSelecionadosMap = new Map(
-                dados.alunosSelecionados.map((v) => [v.alunoId, v])
+                dados.alunosSelecionados.map((v) => [v.alunoId, v]),
             );
 
             todasMatriculasMap.forEach((v) => {
@@ -2913,7 +2938,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             });
 
             const novosAlunos = dados.alunosSelecionados.filter(
-                (v) => !todasMatriculasMap.get(v.alunoId)
+                (v) => !todasMatriculasMap.get(v.alunoId),
             );
 
             if (novosAlunos.length > 0) {
@@ -2928,15 +2953,15 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                             .where(
                                 admin.firestore.FieldPath.documentId(),
                                 "in",
-                                chunk
+                                chunk,
                             )
-                            .get()
+                            .get(),
                     );
                 }
                 const alunosSnap = await Promise.all(alunosPromises);
                 const todosOsAlunos = alunosSnap.flatMap((snap) => snap.docs);
                 const alunosMap = new Map(
-                    todosOsAlunos.map((doc) => [doc.id, doc.data()])
+                    todosOsAlunos.map((doc) => [doc.id, doc.data()]),
                 );
 
                 novosAlunos.forEach((aluno) => {
@@ -3031,15 +3056,15 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                         .where(
                             admin.firestore.FieldPath.documentId(),
                             "in",
-                            chunk
+                            chunk,
                         )
-                        .get()
+                        .get(),
                 );
             }
             const alunosSnap = await Promise.all(alunosPromises);
             const todosOsAlunos = alunosSnap.flatMap((snap) => snap.docs);
             const alunosMap = new Map(
-                todosOsAlunos.map((doc) => [doc.id, doc.data()])
+                todosOsAlunos.map((doc) => [doc.id, doc.data()]),
             );
 
             dados.alunosSelecionados.forEach((aluno) => {
@@ -3106,7 +3131,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         console.error("Erro ao salvar trimestre:", error);
         throw new functions.https.HttpsError(
             "internal",
-            "Ocorreu um erro ao salvar o trimestre. Tente novamente."
+            "Ocorreu um erro ao salvar o trimestre. Tente novamente.",
         );
     }
 });
@@ -3122,7 +3147,7 @@ export const onLicaoUpdate = onDocumentUpdated(
         }
 
         const dataMudou = !dadosAntigos.data_inicio.isEqual(
-            dadosNovos.data_inicio
+            dadosNovos.data_inicio,
         );
         const tituloMudou = dadosAntigos.titulo !== dadosNovos.titulo;
 
@@ -3140,7 +3165,7 @@ export const onLicaoUpdate = onDocumentUpdated(
                 const novoTitulo = { licaoNome: dadosNovos.titulo };
 
                 console.log(
-                    `O titulo ${dadosAntigos.titulo} foi alterado para ${dadosNovos.titulo}`
+                    `O titulo ${dadosAntigos.titulo} foi alterado para ${dadosNovos.titulo}`,
                 );
 
                 const matriculas = await db
@@ -3155,10 +3180,10 @@ export const onLicaoUpdate = onDocumentUpdated(
                     `Data de inicio ${dadosAntigos.data_inicio
                         .toDate()
                         .toLocaleDateString(
-                            "pt-BR"
+                            "pt-BR",
                         )} foi alterada para ${dadosNovos.data_inicio
                         .toDate()
-                        .toLocaleDateString("pt-BR")}`
+                        .toLocaleDateString("pt-BR")}`,
                 );
 
                 const ano = dadosNovos.data_inicio.toDate().getFullYear();
@@ -3183,7 +3208,7 @@ export const onLicaoUpdate = onDocumentUpdated(
                 batch.set(
                     db.collection("trimestres").doc(idTrimestre),
                     trimestre,
-                    { merge: true }
+                    { merge: true },
                 );
 
                 for (let i = 0; i < dadosNovos.numero_aulas; i++) {
@@ -3214,19 +3239,18 @@ export const onLicaoUpdate = onDocumentUpdated(
         } catch (err) {
             console.log("deu esse erro", err);
         }
-    }
+    },
 );
 export const deletarLicao = functions.https.onCall(async (request) => {
-    const { db, isSuperAdmin, isSecretario, user } = await validarUsuario(
-        request
-    );
+    const { db, isSuperAdmin, isSecretario, user } =
+        await validarUsuario(request);
 
     const { licaoId } = request.data;
 
     if (!licaoId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -3235,7 +3259,7 @@ export const deletarLicao = functions.https.onCall(async (request) => {
     if (!licaoSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Lição não encontrada"
+            "Lição não encontrada",
         );
     }
 
@@ -3246,14 +3270,14 @@ export const deletarLicao = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão de deletar essa lição"
+            "Você não tem permissão de deletar essa lição",
         );
     }
 
     if (licaoSnap.data()?.relatorio_enviado === true) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear."
+            "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear.",
         );
     }
 
@@ -3279,7 +3303,7 @@ export const deletarLicao = functions.https.onCall(async (request) => {
         registrosSnap.docs.forEach((v) => refs.push(v.ref));
 
         const chamadasRefs = await Promise.all(
-            registrosSnap.docs.map((v) => v.ref.collection("chamada").get())
+            registrosSnap.docs.map((v) => v.ref.collection("chamada").get()),
         );
 
         chamadasRefs.forEach((v) => v.docs.forEach((c) => refs.push(c.ref)));
@@ -3293,7 +3317,7 @@ export const deletarLicao = functions.https.onCall(async (request) => {
                 .where(
                     admin.firestore.FieldPath.documentId(),
                     "!=",
-                    licaoSnap.id
+                    licaoSnap.id,
                 )
                 .orderBy("data_inicio", "desc")
                 .limit(1)
@@ -3340,7 +3364,7 @@ export const deletarLicao = functions.https.onCall(async (request) => {
         console.log("Erro ao deletar a lição", error);
         throw new functions.https.HttpsError(
             "internal",
-            "Houve um erro ao deletar a lição. Tente novamente."
+            "Houve um erro ao deletar a lição. Tente novamente.",
         );
     }
 });
@@ -3404,7 +3428,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
     if (!classeId || !licaoId || !numeroAula) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados invalidos"
+            "Dados invalidos",
         );
     }
 
@@ -3424,7 +3448,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
     if (!classe.exists || !licao.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Coleções não foram encontradas"
+            "Coleções não foram encontradas",
         );
     }
 
@@ -3434,16 +3458,16 @@ export const salvarChamada = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer essa chamada"
+            "Você não tem permissão para fazer essa chamada",
         );
     }
 
-    if (licao.data()?.relatorio_enviado === true) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear."
-        );
-    }
+    // if (licao.data()?.relatorio_enviado === true) {
+    //     throw new functions.https.HttpsError(
+    //         "permission-denied",
+    //         "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear.",
+    //     );
+    // }
 
     const dadosParaSalvar: RegistroAulaInterface = {
         atrasados: dados.totalAtrasados,
@@ -3499,7 +3523,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         else {
             batch.set(aulaRef, {
                 data_prevista: Timestamp.fromDate(
-                    new Date(dados.data_chamada + "T12:00:00")
+                    new Date(dados.data_chamada + "T12:00:00"),
                 ),
                 numero_aula: Number(numeroAula),
                 realizada: true,
@@ -3519,9 +3543,9 @@ export const salvarChamada = functions.https.onCall(async (request) => {
                         .where(
                             admin.firestore.FieldPath.documentId(),
                             "in",
-                            chunk
+                            chunk,
                         )
-                        .get()
+                        .get(),
                 );
             }
 
@@ -3563,7 +3587,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         console.log("Erro ao salvar chamda", err);
         throw new functions.https.HttpsError(
             "internal",
-            "Ocorreu um erro ao salvar a chamada. Tente novamente."
+            "Ocorreu um erro ao salvar a chamada. Tente novamente.",
         );
     }
 });
@@ -3581,10 +3605,10 @@ export const onSalvarChamadaUpdate = onDocumentUpdated(
         }
 
         const imgsMissoesDeletar = dadosAntigos.imgsPixMissoes?.filter(
-            (v) => !dadosNovos.imgsPixMissoes?.includes(v)
+            (v) => !dadosNovos.imgsPixMissoes?.includes(v),
         );
         const imgsOfertasDeletar = dadosAntigos.imgsPixOfertas?.filter(
-            (v) => !dadosNovos.imgsPixOfertas?.includes(v)
+            (v) => !dadosNovos.imgsPixOfertas?.includes(v),
         );
 
         const imgsDeletar = [
@@ -3613,7 +3637,7 @@ export const onSalvarChamadaUpdate = onDocumentUpdated(
         await Promise.all(promises!);
 
         console.log("Imagens apagadas com sucesso!");
-    }
+    },
 );
 
 // Matricula
@@ -3648,7 +3672,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
     if (!licaoId || !alunoId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -3666,7 +3690,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             await matriculaDoc.ref.update({
                 ...dados,
                 data_matricula: Timestamp.fromDate(
-                    new Date(dados.data_matricula + "T12:00:00")
+                    new Date(dados.data_matricula + "T12:00:00"),
                 ),
             });
 
@@ -3703,7 +3727,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
         if (!aluno.exists || !licao.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Aluno ou Lição não encontrado"
+                "Aluno ou Lição não encontrado",
             );
         }
 
@@ -3713,7 +3737,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
         if (!classe.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Classe associada à lição não foi encontrada."
+                "Classe associada à lição não foi encontrada.",
             );
         }
 
@@ -3724,7 +3748,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             classeNome: classe.data()!.nome,
             classeRef: classeRef,
             data_matricula: Timestamp.fromDate(
-                new Date(dados.data_matricula + "T12:00:00")
+                new Date(dados.data_matricula + "T12:00:00"),
             ),
             igrejaId: classe.data()!.igrejaId,
             igrejaNome: classe.data()!.igrejaNome,
@@ -3771,21 +3795,20 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
         console.log("Erro ao salvar", err);
         throw new functions.https.HttpsError(
             "internal",
-            "Ocorreu um erro ao fazer a matricula. Tente novamente."
+            "Ocorreu um erro ao fazer a matricula. Tente novamente.",
         );
     }
 });
 export const deletarMatricula = functions.https.onCall(async (request) => {
-    const { isSecretario, isSuperAdmin, db, user } = await validarUsuario(
-        request
-    );
+    const { isSecretario, isSuperAdmin, db, user } =
+        await validarUsuario(request);
 
     const { matriculaId } = request.data;
 
     if (!matriculaId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -3795,7 +3818,7 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
     if (!matriculaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Matricula não encontrada"
+            "Matricula não encontrada",
         );
     }
 
@@ -3805,7 +3828,7 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para deletar essa matricula"
+            "Você não tem permissão para deletar essa matricula",
         );
     }
 
@@ -3841,7 +3864,7 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
         console.log("Erro ao deletar matricula", error);
         throw new functions.https.HttpsError(
             "internal",
-            "Ocorreu um erro ao deletar a matricula. Tente novamente."
+            "Ocorreu um erro ao deletar a matricula. Tente novamente.",
         );
     }
 });
@@ -3877,7 +3900,7 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
     if (!agrupamento || !dataFim || !dataInicio || !metrica) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -3903,7 +3926,7 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
 
     const registroDocs = (await baseQuery.get()).docs;
     const registros = registroDocs.map((v) =>
-        v.data()
+        v.data(),
     ) as RegistroAulaInterface[];
 
     if (metrica === "frequencia_alunos") {
@@ -3967,7 +3990,7 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
                 db
                     .collection("licoes")
                     .where(admin.firestore.FieldPath.documentId(), "in", chunk)
-                    .get()
+                    .get(),
             );
         }
 
@@ -3998,7 +4021,7 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
         const alunosMap = new Map<string, any>();
 
         const promises = registroDocs.map((v) =>
-            v.ref.collection("chamada").get()
+            v.ref.collection("chamada").get(),
         );
         (await Promise.all(promises)).forEach((v) =>
             v.forEach((a) => {
@@ -4035,9 +4058,9 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
 
                 alunosMap.set(
                     aluno.nome,
-                    (alunosMap.get(aluno.nome) || 0) + valor
+                    (alunosMap.get(aluno.nome) || 0) + valor,
                 );
-            })
+            }),
         );
 
         return Array.from(alunosMap.entries()).map(([name, valor]) => ({
@@ -4077,10 +4100,10 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
             case "semana":
                 const data = v.data.toDate();
                 const primeiroDiaDaSemana = new Date(
-                    data.setDate(data.getDate() - data.getDay())
+                    data.setDate(data.getDate() - data.getDay()),
                 );
                 key = `Semana de ${primeiroDiaDaSemana.toLocaleDateString(
-                    "pt-BR"
+                    "pt-BR",
                 )}`;
                 break;
             case "trimestre":
@@ -4149,18 +4172,18 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
     if (!colecao) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
     if (isSecretario && colecao === "membros") {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso"
+            "Você não tem permissão para fazer isso",
         );
     }
     const baseQuery = db.collection(
-        colecao === "chamada" ? "registros_aula" : colecao
+        colecao === "chamada" ? "registros_aula" : colecao,
     );
 
     let q = baseQuery.where("ministerioId", "==", user.ministerioId);
@@ -4174,7 +4197,7 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
         if (!data_fim || !data_inicio) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Dados inválidos ou ausentes"
+                "Dados inválidos ou ausentes",
             );
         }
 
@@ -4269,7 +4292,7 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
                     return `"${item.replace(/"/g, '""')}"`;
                 return item;
             })
-            .join(";")
+            .join(";"),
     );
 
     const table = [colunas.join(";"), ...linhas].join("\r\n");
@@ -4278,16 +4301,15 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
 });
 
 export const getResumoDaLicao = functions.https.onCall(async (request) => {
-    const { isSuperAdmin, isSecretario, user, db } = await validarUsuario(
-        request
-    );
+    const { isSuperAdmin, isSecretario, user, db } =
+        await validarUsuario(request);
 
     const { licaoId } = request.data;
 
     if (!licaoId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -4301,7 +4323,7 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Permissão inválida"
+            "Permissão inválida",
         );
     }
 
@@ -4336,10 +4358,10 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
         const registro = v.data() as RegistroAulaInterface;
 
         totalPresenca.push(
-            (registro.atrasados * 0.9 || 0) + (registro.presentes_chamada || 0)
+            (registro.atrasados * 0.9 || 0) + (registro.presentes_chamada || 0),
         );
         totalArrecadado.push(
-            (registro.ofertas_total || 0) + (registro.missoes_total || 0)
+            (registro.ofertas_total || 0) + (registro.missoes_total || 0),
         );
 
         const chamadaRef = await v.ref.collection("chamada").get();
@@ -4417,11 +4439,11 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
 
     totalPresenca = totalPresenca.reduce(
         (prev: any, acc: any) => acc + prev,
-        0.0
+        0.0,
     );
     totalArrecadado = totalArrecadado.reduce(
         (prev: any, acc: any) => acc + prev,
-        0
+        0,
     );
 
     const frequenciaAlunos = Array.from(alunosMap.values()).map((v) => {
@@ -4467,7 +4489,7 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
                 (totalPresenca /
                     (frequenciaAlunos.length * progresso.concluidas)) *
                 100
-            ).toFixed(1)
+            ).toFixed(1),
         ) || 0;
 
     return {
@@ -4502,14 +4524,14 @@ export const salvarVisita = functions.https.onCall(async (request) => {
     if (!igrejaId || (dados && !visitaId) || (!dados && visitaId)) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
     if (!isSuperAdmin && user.igrejaId !== igrejaId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para isso."
+            "Você não tem permissão para isso.",
         );
     }
 
@@ -4517,7 +4539,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada"
+            "Igreja não encontrada",
         );
     }
 
@@ -4533,7 +4555,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
         if (!visita.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Visita não encontrada"
+                "Visita não encontrada",
             );
         }
 
@@ -4569,7 +4591,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
             const batch = db.batch();
 
             const nomesParaBuscar = visitas.map((v) =>
-                v.nome_completo.toLowerCase()
+                v.nome_completo.toLowerCase(),
             );
             const visitasExistentesQuery = db
                 .collection("visitantes")
@@ -4578,7 +4600,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
 
             const visitasSnap = await visitasExistentesQuery.get();
             const visitantesExistentesMap = new Map(
-                visitasSnap.docs.map((doc) => [doc.data()?.nome_completo, doc])
+                visitasSnap.docs.map((doc) => [doc.data()?.nome_completo, doc]),
             );
 
             visitas.forEach((visita) => {
@@ -4601,7 +4623,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
                     batch.update(visitaRef, {
                         ultima_visita: Timestamp.now(),
                         quantidade_visitas: FieldValue.increment(
-                            isVisita ? 0 : 1
+                            isVisita ? 0 : 1,
                         ),
                         igrejaNome: igrejaSnap.data()?.nome,
                     });
@@ -4612,7 +4634,9 @@ export const salvarVisita = functions.https.onCall(async (request) => {
                         contato: visita.contato || null,
                         data_nascimento: visita.data_nascimento
                             ? Timestamp.fromDate(
-                                  new Date(visita.data_nascimento + "T12:00:00")
+                                  new Date(
+                                      visita.data_nascimento + "T12:00:00",
+                                  ),
                               )
                             : null,
                         igrejaId,
@@ -4637,7 +4661,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
                 dados: {
                     dados_enviados: request.data,
                     dados_importantes: Array.from(
-                        visitantesExistentesMap.values()
+                        visitantesExistentesMap.values(),
                     ),
                 },
                 message: `Visitas incluidas pelo usuário ${user.uid}`,
@@ -4667,7 +4691,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
         console.log("erro ao salvar", error);
         throw new functions.https.HttpsError(
             "internal",
-            "Houve um erro ao salvar a visita"
+            "Houve um erro ao salvar a visita",
         );
     }
 });
@@ -4685,7 +4709,7 @@ export const deletarVisita = functions.https.onCall(async (request) => {
     if (!isSuperAdmin && user.igrejaId !== visitaSnap.data()?.igrejaId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para isso."
+            "Você não tem permissão para isso.",
         );
     }
 
@@ -4736,7 +4760,7 @@ export const gerarCodigoConvite = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -4748,7 +4772,7 @@ export const gerarCodigoConvite = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
@@ -4761,7 +4785,7 @@ export const gerarCodigoConvite = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada ou de outro ministério"
+            "Igreja não encontrada ou de outro ministério",
         );
     }
 
@@ -4771,7 +4795,7 @@ export const gerarCodigoConvite = functions.https.onCall(async (request) => {
         if (!classeSnap.exists || classeSnap.data()?.igrejaId !== igrejaId) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Classe não encontrada"
+                "Classe não encontrada",
             );
         }
 
@@ -4815,7 +4839,7 @@ export const validarCodigoConvite = functions.https.onCall(async (request) => {
     if (!codigo) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes."
+            "Dados inválidos ou ausentes.",
         );
     }
 
@@ -4825,7 +4849,7 @@ export const validarCodigoConvite = functions.https.onCall(async (request) => {
     if (!codigoSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Esse código não existe"
+            "Esse código não existe",
         );
     }
 
@@ -4834,7 +4858,7 @@ export const validarCodigoConvite = functions.https.onCall(async (request) => {
     if (codigoData.usado || codigoData.dataExpiracao < Timestamp.now()) {
         throw new functions.https.HttpsError(
             "data-loss",
-            "Código já usado ou expirado"
+            "Código já usado ou expirado",
         );
     }
 
@@ -4856,13 +4880,13 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         if (!codigo || !nome || !email || !senha) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Dados inválidos ou ausentes."
+                "Dados inválidos ou ausentes.",
             );
         }
         if (senha.length < 6) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Senha deve ter no minimo 6 caracteres"
+                "Senha deve ter no minimo 6 caracteres",
             );
         }
 
@@ -4873,7 +4897,7 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         if (!codigoSnap.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Convite não encontrado"
+                "Convite não encontrado",
             );
         }
 
@@ -4884,7 +4908,7 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         if (codigoData.usado || dataExpiracao < Timestamp.now()) {
             throw new functions.https.HttpsError(
                 "data-loss",
-                "Código usado ou expirado"
+                "Código usado ou expirado",
             );
         }
 
@@ -4899,7 +4923,7 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         if (!criador.exists) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Usuário não encontrado."
+                "Usuário não encontrado.",
             );
         }
         if (
@@ -4908,21 +4932,21 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         ) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Igreja não encontrada ou de outro ministério"
+                "Igreja não encontrada ou de outro ministério",
             );
         }
         if (role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) {
             if (!classeId || !classeSnap.exists) {
                 throw new functions.https.HttpsError(
                     "not-found",
-                    "Classe não encontrada."
+                    "Classe não encontrada.",
                 );
             }
 
             if (classeSnap.data()?.igrejaId !== igrejaId) {
                 throw new functions.https.HttpsError(
                     "invalid-argument",
-                    "Dados inválidos"
+                    "Dados inválidos",
                 );
             }
         }
@@ -4933,7 +4957,7 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         ) {
             throw new functions.https.HttpsError(
                 "permission-denied",
-                "Você não tem permissão par isso"
+                "Você não tem permissão par isso",
             );
         }
 
@@ -4987,16 +5011,16 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
             if (err?.code === "auth/email-already-exists") {
                 throw new functions.https.HttpsError(
                     "already-exists",
-                    "Este e-mail já está em uso por outra conta."
+                    "Este e-mail já está em uso por outra conta.",
                 );
             }
 
             throw new functions.https.HttpsError(
                 "internal",
-                "Ocorreu um erro ao criar o usuário. Tente novamente."
+                "Ocorreu um erro ao criar o usuário. Tente novamente.",
             );
         }
-    }
+    },
 );
 
 export const limparconvitesexpirados = onSchedule(
@@ -5004,7 +5028,7 @@ export const limparconvitesexpirados = onSchedule(
     async (event) => {
         const db = admin.firestore();
         console.log(
-            "INICIANDO TAREFA AGENDADA: Limpeza de convites expirados..."
+            "INICIANDO TAREFA AGENDADA: Limpeza de convites expirados...",
         );
 
         try {
@@ -5016,18 +5040,18 @@ export const limparconvitesexpirados = onSchedule(
 
             if (convitesExpiradosSnap.empty) {
                 console.log(
-                    "Nenhum convite expirado para limpar. Trabalho concluído!"
+                    "Nenhum convite expirado para limpar. Trabalho concluído!",
                 );
                 return;
             }
 
             console.log(
-                `Encontrados ${convitesExpiradosSnap.size} convites expirados para deletar.`
+                `Encontrados ${convitesExpiradosSnap.size} convites expirados para deletar.`,
             );
 
             // 2. Usa o padrão de "loop de batches" para deletar de forma segura.
             const refsParaDeletar = convitesExpiradosSnap.docs.map(
-                (doc) => doc.ref
+                (doc) => doc.ref,
             );
 
             const batches = [];
@@ -5050,13 +5074,13 @@ export const limparconvitesexpirados = onSchedule(
             await Promise.all(batches);
 
             console.log(
-                "Limpeza de convites expirados finalizada com sucesso!"
+                "Limpeza de convites expirados finalizada com sucesso!",
             );
         } catch (error) {
             console.error("ERRO na limpeza de convites expirados:", error);
             return;
         }
-    }
+    },
 );
 
 interface BaixarComprovantesFront {
@@ -5073,7 +5097,7 @@ export const baixarTodosComprovantes = functions.https.onCall(
         if (!dados || !igrejaId || !dados.length) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Dados inválidos ou ausentes."
+                "Dados inválidos ou ausentes.",
             );
         }
 
@@ -5082,7 +5106,7 @@ export const baixarTodosComprovantes = functions.https.onCall(
         if (!igrejaSnap.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Igreja não encontrada."
+                "Igreja não encontrada.",
             );
         }
 
@@ -5093,7 +5117,7 @@ export const baixarTodosComprovantes = functions.https.onCall(
         ) {
             throw new functions.https.HttpsError(
                 "permission-denied",
-                "Você não tem permissão para isso."
+                "Você não tem permissão para isso.",
             );
         }
 
@@ -5129,7 +5153,7 @@ export const baixarTodosComprovantes = functions.https.onCall(
 
         const file = zipBuffer.toString("base64");
         return { file };
-    }
+    },
 );
 
 export const limparimagenscomprovantes = onSchedule(
@@ -5140,7 +5164,7 @@ export const limparimagenscomprovantes = onSchedule(
     async (event) => {
         const bucket = admin.storage().bucket();
         console.log(
-            "INICIANDO TAREFA AGENDADA: Limpeza de imagens com mais de 100 dias..."
+            "INICIANDO TAREFA AGENDADA: Limpeza de imagens com mais de 100 dias...",
         );
 
         try {
@@ -5161,13 +5185,13 @@ export const limparimagenscomprovantes = onSchedule(
 
             await Promise.all(promises);
             console.log(
-                "Limpeza de imagens fora do prazo finalizada com sucesso!"
+                "Limpeza de imagens fora do prazo finalizada com sucesso!",
             );
         } catch (error) {
             console.error("ERRO na limpeza de imagens:", error);
             return;
         }
-    }
+    },
 );
 
 interface SalvarNotificacaoFront {
@@ -5191,7 +5215,7 @@ export const salvarNotificacao = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -5209,7 +5233,7 @@ export const salvarNotificacao = functions.https.onCall(async (request) => {
             promises.push(
                 tokensRef
                     .doc(token!)
-                    .create({ token, data_criacao: Timestamp.now() })
+                    .create({ token, data_criacao: Timestamp.now() }),
             );
             tokens.push(token!);
         }
@@ -5228,8 +5252,8 @@ export const salvarNotificacao = functions.https.onCall(async (request) => {
                 tokens: podeEnviar
                     ? tokens.length
                     : user?.tokens
-                    ? FieldValue.increment(-1)
-                    : 0,
+                      ? FieldValue.increment(-1)
+                      : 0,
             }),
     ]);
 
@@ -5252,15 +5276,14 @@ export const salvarNotificacao = functions.https.onCall(async (request) => {
 });
 
 export const enviarNotificacao = functions.https.onCall(async (request) => {
-    const { user, isSecretario, isSuperAdmin, db } = await validarUsuario(
-        request
-    );
+    const { user, isSecretario, isSuperAdmin, db } =
+        await validarUsuario(request);
     const { destinarios, titulo, mensagem } = request.data as any;
 
     if (!titulo || !mensagem || !destinarios) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -5276,7 +5299,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso"
+            "Você não tem permissão para fazer isso",
         );
     }
 
@@ -5312,7 +5335,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
 
                         tokensMap.set(t.id, v.id);
                     });
-            })
+            }),
         );
 
         const tokens = [...tokensMap.keys()] as string[];
@@ -5334,7 +5357,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
 
         if (!resultado.failureCount) {
             console.log(
-                `Notificação enviada com sucesso por ${user.uid}. Total de envio:${resultado.successCount}. Não Houve falhas`
+                `Notificação enviada com sucesso por ${user.uid}. Total de envio:${resultado.successCount}. Não Houve falhas`,
             );
             return { message: "Notificação enviada com sucesso" };
         }
@@ -5348,7 +5371,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
                 if (
                     v.error &&
                     v!.error.code.includes(
-                        "messaging/registration-token-not-registered"
+                        "messaging/registration-token-not-registered",
                     )
                 ) {
                     const token = tokens[i];
@@ -5358,7 +5381,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
                     const listaTokens = listaTokensMap.get(userId) as any[];
                     listaTokens.splice(
                         listaTokens.findIndex((v) => v === token),
-                        1
+                        1,
                     );
 
                     return db
@@ -5370,7 +5393,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
                 }
 
                 return;
-            })
+            }),
         );
 
         if (usuariosComErro.size) {
@@ -5382,7 +5405,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
         }
 
         console.log(
-            `Notificação enviada com sucesso por ${user.uid}. Total de envio: ${resultado.successCount}. Total de erros: ${resultado.failureCount}. Limpeza realizada com sucesso!`
+            `Notificação enviada com sucesso por ${user.uid}. Total de envio: ${resultado.successCount}. Total de erros: ${resultado.failureCount}. Limpeza realizada com sucesso!`,
         );
         return { message: "Notificação enviada com sucesso." };
     } catch (Error: any) {
@@ -5408,7 +5431,7 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
         if (!isSuperAdmin) {
             throw new functions.https.HttpsError(
                 "permission-denied",
-                "Você não tem permissão para fazer isso."
+                "Você não tem permissão para fazer isso.",
             );
         }
 
@@ -5420,7 +5443,7 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
         if (!data_inicio || !numero_aulas || !titulo || !trimestre) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Dados inválidos ou ausentes"
+                "Dados inválidos ou ausentes",
             );
         }
 
@@ -5450,15 +5473,15 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
             ) {
                 throw new functions.https.HttpsError(
                     "not-found",
-                    "Lição não encontrada ou ministério inválido"
+                    "Lição não encontrada ou ministério inválido",
                 );
             }
 
             if (licaoSnap.data()?.numero_aulas !== numero_aulas) {
                 const aulasMap = new Map(
                     Array.from(
-                        Object.entries(licaoSnap.data()?.status_aulas || {})
-                    )
+                        Object.entries(licaoSnap.data()?.status_aulas || {}),
+                    ),
                 );
 
                 const status_aulas = Array.from({ length: numero_aulas }).map(
@@ -5467,7 +5490,7 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
                             String(i + 1),
                             aulasMap.get(String(i + 1)) || false,
                         ];
-                    }
+                    },
                 );
 
                 dadosAtualizados["status_aulas"] =
@@ -5498,7 +5521,7 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
                 Array.from({ length: numero_aulas }).map((_, i) => [
                     String(i + 1),
                     false,
-                ])
+                ]),
             ),
             ativo: true,
             ultima_aula: null,
@@ -5514,7 +5537,7 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
 
         if (!licoesAnteriores.empty) {
             licoesAnteriores.docs.forEach((v) =>
-                batch.update(v.ref, { ativo: false })
+                batch.update(v.ref, { ativo: false }),
             );
         }
 
@@ -5552,7 +5575,7 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
         };
         console.log(JSON.stringify(notificao));
         return { message: `Lição atualizada com sucesso.` };
-    }
+    },
 );
 
 export const deletarLicaoAulaPreparo = functions.https.onCall(
@@ -5562,7 +5585,7 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
         if (!isSuperAdmin) {
             throw new functions.https.HttpsError(
                 "permission-denied",
-                "Você não tem permissão para fazer isso"
+                "Você não tem permissão para fazer isso",
             );
         }
 
@@ -5570,7 +5593,7 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
         if (!licaoPreparoId) {
             throw new functions.https.HttpsError(
                 "invalid-argument",
-                "Argumentos inválidos ou ausentes"
+                "Argumentos inválidos ou ausentes",
             );
         }
 
@@ -5589,7 +5612,7 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
         ) {
             throw new functions.https.HttpsError(
                 "not-found",
-                "Lição não encontrada ou de outro ministério"
+                "Lição não encontrada ou de outro ministério",
             );
         }
 
@@ -5641,7 +5664,7 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
         };
         console.log(JSON.stringify(notificao));
         return { message: `Lição deletada com sucesso.` };
-    }
+    },
 );
 
 interface AulaPreparoFront {
@@ -5662,7 +5685,7 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
     if (!aulaId || !licaoId || !link_youtube || !titulo_aula) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -5676,14 +5699,14 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
     if (!aulaSnap.exists || !licaoSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Lição ou aula não foram encontrados"
+            "Lição ou aula não foram encontrados",
         );
     }
 
     if (!isSuperAdmin || licaoSnap.data()?.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
@@ -5702,7 +5725,7 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
     const ultima_aula = Object.entries(status_aulas).reduce(
         (prev, [aula, status]) =>
             status && Number(aula) > prev ? Number(aula) : prev,
-        0
+        0,
     );
 
     await licaoRef.update({
@@ -5743,7 +5766,7 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
     if (!aulaId || !licaoId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -5757,14 +5780,14 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
     if (!aulaSnap.exists || !licaoSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Lição ou aula não foram encontrados"
+            "Lição ou aula não foram encontrados",
         );
     }
 
     if (!isSuperAdmin || licaoSnap.data()?.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
@@ -5776,7 +5799,7 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
     const ultima_aula = Object.entries(status_aulas).reduce(
         (prev, [aula, status]) =>
             status && Number(aula) > prev ? Number(aula) : prev,
-        0
+        0,
     );
 
     await licaoRef.update({
@@ -5825,7 +5848,7 @@ export const registrarVisualizacao = functions.https.onCall(async (request) => {
     if (!licaoId || !aulaId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -5840,12 +5863,12 @@ export const registrarVisualizacao = functions.https.onCall(async (request) => {
     if (!licaoSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Lição não encontrada"
+            "Lição não encontrada",
         );
     } else if (!aulaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Aula não encontrada"
+            "Aula não encontrada",
         );
     }
 
@@ -5906,7 +5929,7 @@ export const getVisualizacoes = functions.https.onCall(async (request) => {
     if (!isSuperAdmin) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para fazer isso."
+            "Você não tem permissão para fazer isso.",
         );
     }
 
@@ -5914,7 +5937,7 @@ export const getVisualizacoes = functions.https.onCall(async (request) => {
     if (!aulaId || !licaoId) {
         throw new functions.https.HttpsError(
             "invalid-argument",
-            "Dados inválidos ou ausentes"
+            "Dados inválidos ou ausentes",
         );
     }
 
@@ -5931,12 +5954,12 @@ export const getVisualizacoes = functions.https.onCall(async (request) => {
     if (!licaoSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Lição não encontrada."
+            "Lição não encontrada.",
         );
     } else if (!aulaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Aula não encontrada."
+            "Aula não encontrada.",
         );
     }
 
@@ -5993,7 +6016,7 @@ export const getLicoesPreparo = functions.https.onCall(async (request) => {
     if (user.role === Roles.SECRETARIO_CLASSE) {
         throw new functions.https.HttpsError(
             "permission-denied",
-            "Você não tem permissão para isso"
+            "Você não tem permissão para isso",
         );
     }
 
@@ -6010,7 +6033,7 @@ export const getLicoesPreparo = functions.https.onCall(async (request) => {
         const id = v.id;
         const data = v.data();
         const aulas = Object.entries(data?.status_aulas || {}).map(
-            ([id, status]) => ({ id, nome: id, status })
+            ([id, status]) => ({ id, nome: id, status }),
         );
 
         return {

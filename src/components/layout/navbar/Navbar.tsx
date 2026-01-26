@@ -9,7 +9,7 @@ import { ROLES } from "../../../roles/Roles";
 function Navbar() {
     const OPCOES_NAV: NavbarItemInterface[] = [
         { texto: "Início", caminho: "/dashboard" },
-        { texto: "Aulas", caminho: "/aulas" },
+        { texto: "Chamada", caminho: "/aulas" },
         { texto: "Relatórios", caminho: "/relatorios" },
         {
             texto: "Gestão",
@@ -43,7 +43,7 @@ function Navbar() {
     ];
     const TAMANHO_MOBILE = 991;
     const [isMobile, setIsMobile] = useState(
-        window.innerWidth <= TAMANHO_MOBILE
+        window.innerWidth <= TAMANHO_MOBILE,
     );
     const { isSuperAdmin, isAdmin, user, logout } = useAuthContext();
     const isMobileRef = useRef(isMobile);
@@ -61,7 +61,7 @@ function Navbar() {
                         (v.professor &&
                             (user?.role === ROLES.PROFESSOR ||
                                 isAdmin.current ||
-                                isSuperAdmin.current))
+                                isSuperAdmin.current)),
                 ),
             };
         } else if (!item.notRoles) return item;

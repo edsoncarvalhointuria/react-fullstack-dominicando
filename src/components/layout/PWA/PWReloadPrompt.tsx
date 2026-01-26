@@ -10,7 +10,7 @@ import { limparCache } from "../../../utils/limparCache";
 function PWReloadPrompt() {
     const {
         // offlineReady: [offlineReady],
-        needRefresh: [needRefresh],
+        // needRefresh: [needRefresh],
         updateServiceWorker,
     } = useRegisterSW({
         onRegistered(r: any) {
@@ -34,11 +34,11 @@ function PWReloadPrompt() {
         if (!hasClearedCache) setShow(true);
     }, []);
 
-    const showButton = needRefresh || show;
+    // const showButton = needRefresh || show;
 
     return (
         <AnimatePresence>
-            {showButton && (
+            {false && (
                 <motion.div
                     className="pwa-toast"
                     initial={{ y: 50, opacity: 0 }}

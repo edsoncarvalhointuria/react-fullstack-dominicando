@@ -21,6 +21,7 @@ import { useForm, FormProvider } from "react-hook-form";
 import {
     faBookmark,
     faBookOpen,
+    faCaretLeft,
     faCheck,
     faCircleCheck,
     faCircleXmark,
@@ -78,9 +79,9 @@ function ChamadaPage() {
     const [domingo, setDomingo] = useState<Date | null>(null);
     const [matriculas, setMatriculas] = useState<MatriculasInterface[]>([]);
     const [etapa, setEtapa] = useState(1);
-    const [realizada, setRealizada] = useState<"rascunho" | "realizada" | null>(
-        null
-    );
+    const [status, setStatus] = useState<
+        "rascunho" | "realizada" | "bloqueada" | null
+    >(null);
     const [matricularNovoAluno, setMatricularNovoAluno] = useState(false);
     const [isEnviando, setIsEnviando] = useState(false);
     const [isDataAnterior, setIsDataAnterior] = useState(false);
@@ -134,6 +135,10 @@ function ChamadaPage() {
     const totalVisitas = methods.watch("visitas");
     const { chamada } = methods.watch();
 
+    const naoPodeEditar =
+        (isEdit.current && isDataAnterior && isSecretario.current) ||
+        status === "bloqueada";
+
     const proximo = () => {
         setMatriculas(matriculasRef.current);
         setEtapa((v) => (v == 3 ? v : v + 1));
@@ -144,11 +149,11 @@ function ChamadaPage() {
         window.history.back();
     };
     const alterarPresenca = (
-        label: "Presente" | "Falta" | "Atrasado" | "Falta Justificada"
+        label: "Presente" | "Falta" | "Atrasado" | "Falta Justificada",
     ) => {
         const presentes = matriculasRef.current.reduce(
             (prev, acc) => ({ [acc.alunoId]: label, ...prev }),
-            {}
+            {},
         );
         methods.setValue("chamada", presentes as any);
         if (label === "Falta" || label === "Falta Justificada") {
@@ -171,7 +176,7 @@ function ChamadaPage() {
     };
     const alterarItens = (
         item: "biblia" | "licao",
-        acao: "remover" | "adicionar"
+        acao: "remover" | "adicionar",
     ) => {
         const opcao = item === "biblia" ? "bibliasTrazidas" : "licoesTrazidas";
         const opcaoTotal = item === "biblia" ? "totalBiblias" : "totalLicoes";
@@ -185,7 +190,7 @@ function ChamadaPage() {
                 .filter(
                     (v) =>
                         chamada[v] !== "Falta" &&
-                        chamada[v] !== "Falta Justificada"
+                        chamada[v] !== "Falta Justificada",
                 );
             methods.setValue(opcao, ids);
             methods.setValue(opcaoTotal, ids.length);
@@ -203,7 +208,7 @@ function ChamadaPage() {
         setIsEnviando(true);
         setMensagem(null);
         salvarVisita({ visitas: dados.visitasLista, igrejaId }).catch((v) =>
-            console.log(v)
+            console.log(v),
         );
         try {
             if (pixMissoes.length || pixOfertas.length) {
@@ -218,16 +223,16 @@ function ChamadaPage() {
                         const storageRef = ref(storage, caminho);
                         const arquivoSnap = await uploadBytes(
                             storageRef,
-                            v.file
+                            v.file,
                         );
                         return { tipo: v.tipo, arquivo: arquivoSnap };
-                    })
+                    }),
                 );
                 const links = await Promise.all(
                     arquivosSnap.map(async (v) => {
                         const link = await getDownloadURL(v.arquivo.ref);
                         return { tipo: v.tipo, link: link };
-                    })
+                    }),
                 );
                 dados.imgsPixMissoes = [
                     ...links
@@ -283,7 +288,7 @@ function ChamadaPage() {
     };
 
     const onSubmit = (dados: ChamadaForm) => {
-        if (licao?.relatorio_enviado)
+        if (status === "bloqueada")
             return setMensagem({
                 message: (
                     <>
@@ -383,7 +388,7 @@ function ChamadaPage() {
                 where(documentId(), "==", licaoId!),
                 isSuperAdmin.current
                     ? where("ministerioId", "==", user!.ministerioId)
-                    : where("igrejaId", "==", user!.igrejaId)
+                    : where("igrejaId", "==", user!.igrejaId),
             );
             const licaoSnapshot = await getDocs(q);
 
@@ -407,7 +412,7 @@ function ChamadaPage() {
 
             setIsDataAnterior(
                 new Date(domingo).setHours(12, 0, 0, 0) <
-                    new Date().setHours(12, 0, 0, 0)
+                    new Date().setHours(12, 0, 0, 0),
             );
 
             setDomingo(domingo);
@@ -423,7 +428,7 @@ function ChamadaPage() {
                 where("licaoId", "==", licaoId),
                 isSuperAdmin.current
                     ? where("ministerioId", "==", user!.ministerioId)
-                    : where("igrejaId", "==", user!.igrejaId)
+                    : where("igrejaId", "==", user!.igrejaId),
             );
             const alunosSnapshot = await getDocs(q);
 
@@ -451,6 +456,9 @@ function ChamadaPage() {
                 ...(registrosSnap.data() || {}),
                 id: registrosSnap.id,
             } as unknown as RegistroAulaInterface;
+
+            if (registros.relatorio_enviado) setStatus("bloqueada");
+
             setVisitas(registros.visitas_lista || []);
 
             const chamadaCollection = collection(aula.registroRef, "chamada");
@@ -473,7 +481,7 @@ function ChamadaPage() {
                 .map((v) => v.id);
             const formReset = {
                 chamada: Object.fromEntries(
-                    chamada.map((v) => [v.id, v.status])
+                    chamada.map((v) => [v.id, v.status]),
                 ),
                 licoesTrazidas,
                 bibliasTrazidas,
@@ -503,10 +511,10 @@ function ChamadaPage() {
                 setLicao(l);
                 if (a) {
                     isEdit.current = true;
-                    setRealizada("realizada");
+                    setStatus((v) => (v === null ? "realizada" : v));
                     const alunosMatriculados = a.map((v) => v.id);
                     const listaAtualizada = m.filter((v) =>
-                        alunosMatriculados.includes(v.alunoId)
+                        alunosMatriculados.includes(v.alunoId),
                     );
                     setMatriculas(listaAtualizada);
                     matriculasRef.current = listaAtualizada;
@@ -514,7 +522,7 @@ function ChamadaPage() {
                     const rascunho = localStorage.getItem(rascunhoLocalStorage);
                     if (rascunho) {
                         isEdit.current = false;
-                        setRealizada("rascunho");
+                        setStatus("rascunho");
                         console.log("Rascunho recuperado...");
                         const r = JSON.parse(rascunho);
 
@@ -535,7 +543,7 @@ function ChamadaPage() {
                         methods.setValue("totalBiblias", listaAlunos.length);
                         methods.setValue(
                             "totalLicoes",
-                            listaAlunosLicao.length
+                            listaAlunosLicao.length,
                         );
                     }
 
@@ -564,6 +572,12 @@ function ChamadaPage() {
             ) : (
                 <div className="chamada-page">
                     <div className="chamada-page__infos">
+                        <button
+                            className="chamada-page__infos--voltar"
+                            onClick={() => window.history.back()}
+                        >
+                            <FontAwesomeIcon icon={faCaretLeft} />
+                        </button>
                         <h2 className="chamada-page__title">{licao?.titulo}</h2>
                         <p className="chamada-page__data">
                             <data value={domingo?.toLocaleDateString()}>
@@ -580,21 +594,18 @@ function ChamadaPage() {
                                 Aula: {numeroAula}
                             </p>
 
-                            {(isEdit.current &&
-                                isDataAnterior &&
-                                isSecretario.current) ||
-                            licao?.relatorio_enviado ? (
+                            {naoPodeEditar ? (
                                 <span className="chamada-page__status--bloqueado">
                                     <FontAwesomeIcon icon={faCircleXmark} />
                                     Edição Bloqueada
                                 </span>
-                            ) : realizada === "realizada" ? (
+                            ) : status === "realizada" ? (
                                 <span className="chamada-page__status--realizada">
                                     <FontAwesomeIcon icon={faCircleCheck} />
                                     Chamada Realizada
                                 </span>
                             ) : (
-                                realizada === "rascunho" && (
+                                status === "rascunho" && (
                                     <button
                                         title="Reiniciar Formulário"
                                         type="button"
@@ -633,10 +644,7 @@ function ChamadaPage() {
                         <form
                             onSubmit={methods.handleSubmit(onSubmit)}
                             className={
-                                (isEdit.current &&
-                                    isDataAnterior &&
-                                    isSecretario.current) ||
-                                licao?.relatorio_enviado
+                                naoPodeEditar
                                     ? "chamada-page__form--bloqueado"
                                     : ""
                             }
@@ -653,11 +661,11 @@ function ChamadaPage() {
                                                                 v.alunoNome
                                                                     .toLowerCase()
                                                                     .includes(
-                                                                        texto
+                                                                        texto,
                                                                     ) ||
                                                                 v.alunoId.toLowerCase() ===
-                                                                    texto
-                                                        )
+                                                                    texto,
+                                                        ),
                                                     )
                                                 }
                                             />
@@ -670,7 +678,7 @@ function ChamadaPage() {
                                                         type="button"
                                                         onClick={() =>
                                                             setOpenAction(
-                                                                (v) => !v
+                                                                (v) => !v,
                                                             )
                                                         }
                                                     >
@@ -687,7 +695,13 @@ function ChamadaPage() {
                                                                 key={
                                                                     "chamada-page-lista-actions"
                                                                 }
-                                                                className="chamada-page__filtro__actions-lista"
+                                                                className={`chamada-page__filtro__actions-lista ${
+                                                                    status !==
+                                                                        "realizada" &&
+                                                                    !naoPodeEditar
+                                                                        ? "chamada-page__filtro__actions-lista--direita"
+                                                                        : ""
+                                                                }`}
                                                                 initial={{
                                                                     opacity: 0,
                                                                     x: 10,
@@ -710,7 +724,7 @@ function ChamadaPage() {
                                                                         title="Todos Presentes"
                                                                         onClick={() =>
                                                                             alterarPresenca(
-                                                                                "Presente"
+                                                                                "Presente",
                                                                             )
                                                                         }
                                                                     >
@@ -729,7 +743,7 @@ function ChamadaPage() {
                                                                         title="Todos Atrasados"
                                                                         onClick={() =>
                                                                             alterarPresenca(
-                                                                                "Atrasado"
+                                                                                "Atrasado",
                                                                             )
                                                                         }
                                                                     >
@@ -748,7 +762,7 @@ function ChamadaPage() {
                                                                         title="Todos com Falta"
                                                                         onClick={() =>
                                                                             alterarPresenca(
-                                                                                "Falta"
+                                                                                "Falta",
                                                                             )
                                                                         }
                                                                     >
@@ -767,7 +781,7 @@ function ChamadaPage() {
                                                                         title="Todos com Falta Justificada"
                                                                         onClick={() =>
                                                                             alterarPresenca(
-                                                                                "Falta Justificada"
+                                                                                "Falta Justificada",
                                                                             )
                                                                         }
                                                                     >
@@ -790,7 +804,7 @@ function ChamadaPage() {
                                                                         onClick={() =>
                                                                             alterarItens(
                                                                                 "licao",
-                                                                                "adicionar"
+                                                                                "adicionar",
                                                                             )
                                                                         }
                                                                     >
@@ -810,7 +824,7 @@ function ChamadaPage() {
                                                                         onClick={() =>
                                                                             alterarItens(
                                                                                 "licao",
-                                                                                "remover"
+                                                                                "remover",
                                                                             )
                                                                         }
                                                                     >
@@ -830,7 +844,7 @@ function ChamadaPage() {
                                                                         onClick={() =>
                                                                             alterarItens(
                                                                                 "biblia",
-                                                                                "adicionar"
+                                                                                "adicionar",
                                                                             )
                                                                         }
                                                                     >
@@ -850,7 +864,7 @@ function ChamadaPage() {
                                                                         onClick={() =>
                                                                             alterarItens(
                                                                                 "biblia",
-                                                                                "remover"
+                                                                                "remover",
                                                                             )
                                                                         }
                                                                     >
@@ -869,26 +883,27 @@ function ChamadaPage() {
                                                         )}
                                                     </AnimatePresence>
                                                 </div>
-                                                {realizada !== "realizada" && (
-                                                    <button
-                                                        className="chamada-page__filtro__button-new"
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setMatricularNovoAluno(
-                                                                true
-                                                            )
-                                                        }
-                                                    >
-                                                        <FontAwesomeIcon
-                                                            className="chamada-page__filtro__add-new"
-                                                            icon={faPlus}
-                                                        />
+                                                {status !== "realizada" &&
+                                                    !naoPodeEditar && (
+                                                        <button
+                                                            className="chamada-page__filtro__button-new"
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setMatricularNovoAluno(
+                                                                    true,
+                                                                )
+                                                            }
+                                                        >
+                                                            <FontAwesomeIcon
+                                                                className="chamada-page__filtro__add-new"
+                                                                icon={faPlus}
+                                                            />
 
-                                                        <span>
-                                                            matricular aluno
-                                                        </span>
-                                                    </button>
-                                                )}
+                                                            <span>
+                                                                matricular aluno
+                                                            </span>
+                                                        </button>
+                                                    )}
                                             </div>
                                         </div>
 
@@ -917,18 +932,15 @@ function ChamadaPage() {
                                 )}
                             </AnimatePresence>
 
-                            <div
-                                className={`chamada-page__navegacao chamada-page__navegacao-${etapa}`}
-                            >
-                                {etapa !== 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={voltar}
-                                        className="chamada-page__navegacao--voltar"
-                                    >
-                                        Voltar
-                                    </button>
-                                )}
+                            <div className={`chamada-page__navegacao`}>
+                                <button
+                                    type="button"
+                                    onClick={voltar}
+                                    className="chamada-page__navegacao--voltar"
+                                >
+                                    Voltar
+                                </button>
+
                                 {etapa !== 3 ? (
                                     <button
                                         type="button"
@@ -941,7 +953,7 @@ function ChamadaPage() {
 
                                                 localStorage.setItem(
                                                     rascunhoLocalStorage,
-                                                    JSON.stringify(values)
+                                                    JSON.stringify(values),
                                                 );
                                             }
                                         }}

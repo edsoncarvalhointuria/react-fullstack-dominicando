@@ -25,4 +25,6 @@ interface RelatoriosTrimestresInterface {
     valor_enviado_ofertas: number;
     descricao_missao?: string;
     descricao_oferta?: string;
+    numeroMes: number;
+    trimestreId: string;
 }

@@ -70,11 +70,11 @@ function PreparoAula() {
     const [views, setViews] = useState<Visualicoes | null>(null);
     const [loadingViews, setLoadingViews] = useState(true);
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
+        null,
     );
     const [pesquisa, setPesquisa] = useState("");
     const [currentLicao, setCurrentLicao] = useState<LicoesDropdown | null>(
-        null
+        null,
     );
     const [currentAulaId, setCurrentAulaId] = useState<string | null>(null);
     const [listaLicoes, setListaLicoes] = useState<LicoesDropdown[]>([]);
@@ -167,10 +167,10 @@ function PreparoAula() {
             v = v.filter(
                 (v) =>
                     v.nome.toLowerCase().includes(pesquisa) ||
-                    v.contagem_visualizacoes == Number(pesquisa)
+                    v.contagem_visualizacoes == Number(pesquisa),
             );
         return v.sort(
-            (a, b) => b.contagem_visualizacoes - a.contagem_visualizacoes
+            (a, b) => b.contagem_visualizacoes - a.contagem_visualizacoes,
         );
     }, [views, currentIgreja, pesquisa]);
 
@@ -187,7 +187,7 @@ function PreparoAula() {
                     "licoes_preparo",
                     licaoId,
                     "aulas",
-                    aulaId
+                    aulaId,
                 );
                 const docSnap = await getDoc(aulaRef);
 
@@ -295,7 +295,7 @@ function PreparoAula() {
                                                         {
                                                             required:
                                                                 "O título é obrigatório",
-                                                        }
+                                                        },
                                                     )}
                                                 />
                                                 <AnimatePresence>
@@ -342,7 +342,7 @@ function PreparoAula() {
                                                         {
                                                             required:
                                                                 "O link é obrigatório",
-                                                        }
+                                                        },
                                                     )}
                                                 />
                                                 <AnimatePresence>
@@ -564,7 +564,7 @@ function PreparoAula() {
                             <YouTube
                                 videoId={aula.link_youtube?.slice(
                                     aula.link_youtube.lastIndexOf("/") + 1,
-                                    aula.link_youtube.lastIndexOf("?")
+                                    aula.link_youtube.lastIndexOf("?"),
                                 )}
                                 onPlay={() => {
                                     if (!jaViu.current) {
@@ -575,7 +575,7 @@ function PreparoAula() {
                                 onReady={() =>
                                     setTimeout(
                                         () => setIsLoadingVideo(false),
-                                        500
+                                        500,
                                     )
                                 }
                             />
@@ -617,7 +617,7 @@ function PreparoAula() {
                                         navigate(
                                             `/preparo/licao/${
                                                 currentLicao!.id
-                                            }/aula/${v?.id}`
+                                            }/aula/${v?.id}`,
                                         );
                                     }
                                 }}

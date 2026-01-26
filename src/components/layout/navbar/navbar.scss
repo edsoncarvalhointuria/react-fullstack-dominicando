@@ -62,6 +62,11 @@
             &--open {
                 left: calc(30rem - 4rem);
                 top: 3.5rem;
+
+                @media all and (max-width: 360px) {
+                    left: calc(30rem - 8rem);
+                }
+
                 span:nth-child(1) {
                     transform: rotate(45deg) translate(5px, 5px);
                 }
@@ -372,7 +377,9 @@
             text-decoration: none;
             padding: 1rem;
             border-radius: 0.8rem;
-            transition: background-color 0.2s ease-out, color 0.2s ease-out;
+            transition:
+                background-color 0.2s ease-out,
+                color 0.2s ease-out;
             width: 100%;
 
             &--active {

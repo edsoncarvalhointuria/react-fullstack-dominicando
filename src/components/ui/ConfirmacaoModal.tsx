@@ -1,8 +1,4 @@
-import {
-    faPaperPlane,
-    faTriangleExclamation,
-    faXmark,
-} from "@fortawesome/free-solid-svg-icons";
+import { faPaperPlane, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAuthContext } from "../../context/AuthContext";
 import { FormProvider, useForm } from "react-hook-form";
@@ -15,7 +11,7 @@ import { AnimatePresence, motion } from "framer-motion";
 const functions = getFunctions();
 const salvarRelatorioTrimestral = httpsCallable(
     functions,
-    "salvarRelatorioTrimestral"
+    "salvarRelatorioTrimestral",
 );
 
 function ConfirmacaoModal({
@@ -26,6 +22,8 @@ function ConfirmacaoModal({
     trimestreId,
     valorFinalMissao,
     valorFinalOferta,
+    numeroMes,
+    nomeMes,
 }: {
     onCancel: () => void;
     onConfirm: () => void;
@@ -34,6 +32,8 @@ function ConfirmacaoModal({
     trimestreId: string;
     valorFinalMissao: number;
     valorFinalOferta: number;
+    numeroMes: number;
+    nomeMes: string;
 }) {
     const [isEnviando, setIsEnviando] = useState(false);
     const { user } = useAuthContext();
@@ -58,7 +58,12 @@ function ConfirmacaoModal({
         try {
             if (!v.confirmacao)
                 throw new Error("Você precisa aceitar os termos de envio");
-            await salvarRelatorioTrimestral({ ...v, igrejaId, trimestreId });
+            await salvarRelatorioTrimestral({
+                ...v,
+                igrejaId,
+                trimestreId,
+                numeroMes,
+            });
             onConfirm();
         } catch (error: any) {
             setMenssageError(error.message);
@@ -80,7 +85,7 @@ function ConfirmacaoModal({
                         <span>
                             <FontAwesomeIcon icon={faPaperPlane} />
                         </span>
-                        <h2>Enviar Relatório?</h2>
+                        <h2>Enviar Relatório {nomeMes}?</h2>
                     </div>
 
                     <button
@@ -97,13 +102,11 @@ function ConfirmacaoModal({
                         onSubmit={handleSubmit(onSubmit)}
                     >
                         <div className="confirmacao-modal__alerta">
-                            <span>
-                                <FontAwesomeIcon icon={faTriangleExclamation} />
-                            </span>
                             <p>
                                 <span>
                                     <strong>Atenção:</strong> O sistema calculou
-                                    o total com base nos registros da chamada.
+                                    o total de <strong>{nomeMes}</strong> com
+                                    base nos registros da chamada.
                                 </span>
 
                                 <span>
@@ -138,7 +141,7 @@ function ConfirmacaoModal({
                                         "Você precisa digitar o valor final para salvar o relatório.",
                                     onBlur: (evt) => {
                                         const valor = Number(
-                                            evt.target.value.replace(",", ".")
+                                            evt.target.value.replace(",", "."),
                                         );
 
                                         if (Number.isNaN(valor))
@@ -146,7 +149,7 @@ function ConfirmacaoModal({
                                         else
                                             setValue(
                                                 "valor_final_missao",
-                                                valor
+                                                valor,
                                             );
                                     },
                                     valueAsNumber: true,
@@ -224,7 +227,7 @@ function ConfirmacaoModal({
                                         "Você precisa digitar o valor final para salvar o relatório.",
                                     onBlur: (evt) => {
                                         const valor = Number(
-                                            evt.target.value.replace(",", ".")
+                                            evt.target.value.replace(",", "."),
                                         );
 
                                         if (Number.isNaN(valor))
@@ -232,7 +235,7 @@ function ConfirmacaoModal({
                                         else
                                             setValue(
                                                 "valor_final_oferta",
-                                                valor
+                                                valor,
                                             );
                                     },
                                     valueAsNumber: true,

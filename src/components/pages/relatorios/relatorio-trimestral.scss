@@ -1,5 +1,7 @@
 @use "@/styles/variables" as v;
 @use "sass:color";
+$cor-ofertas: v.$cor-sucesso;
+$cor-missoes: #0ea5e9;
 
 .relatorio-trimestral {
     padding: 2rem;
@@ -9,6 +11,10 @@
     display: flex;
     flex-direction: column;
     gap: 3rem;
+
+    @media all and (max-width: 30em) {
+        padding: 1rem;
+    }
 
     &__header {
         display: flex;
@@ -32,6 +38,24 @@
             font-size: 2.4rem;
             font-weight: 700;
             color: v.$cor-primaria-texto;
+
+            @media all and (max-width: 30em) {
+                font-size: 2rem;
+            }
+        }
+
+        &-infos {
+            display: flex;
+            position: relative;
+            align-items: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+
+            span {
+                font-size: 1.6rem;
+                color: rgba(v.$cor-primaria-itens, 0.5);
+            }
         }
 
         &--data,
@@ -68,7 +92,7 @@
     &__igrejas {
         display: flex;
         flex-direction: column;
-        gap: 4rem;
+        gap: 2rem;
 
         &-enviados,
         &-nao-enviados {
@@ -88,6 +112,58 @@
         }
     }
 
+    &__ordenacao {
+        display: flex;
+        align-items: center;
+        justify-content: space-evenly;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #f3f4f6;
+
+        div {
+            position: relative;
+
+            input {
+                position: absolute;
+                opacity: 0;
+                width: 0;
+                height: 0;
+                pointer-events: none;
+            }
+
+            label {
+                display: inline-block;
+                padding: 0.8rem 1.6rem;
+                border-radius: 2rem;
+                border: 1px solid #e5e7eb;
+                background-color: white;
+                color: v.$cor-secundaria-texto;
+                font-size: 1.3rem;
+                font-weight: 600;
+                text-transform: capitalize;
+                cursor: pointer;
+                transition: all 0.2s ease-out;
+                user-select: none;
+                &:hover {
+                    border-color: v.$cor-primaria-itens;
+                    color: v.$cor-primaria-itens;
+                    background-color: rgba(v.$cor-primaria-itens, 0.05);
+                }
+            }
+
+            &:has(input:checked) {
+                label {
+                    background-color: v.$cor-primaria-itens;
+                    border-color: v.$cor-primaria-itens;
+                    color: white;
+                    box-shadow: 0 4px 12px rgba(v.$cor-primaria-itens, 0.3);
+                    transform: translateY(-1px);
+                }
+            }
+        }
+    }
+
     &__igreja {
         background-color: v.$cor-secundaria-fundo;
         border: 1px solid #e5e7eb;
@@ -97,7 +173,7 @@
         transition: all 0.2s ease-out;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: center;
         gap: 1.5rem;
         position: relative;
         overflow: hidden;
@@ -154,29 +230,68 @@
             border-top: 1px dashed #e5e7eb;
             display: flex;
             justify-content: space-between;
-            p {
-                font-size: 2rem;
-                color: v.$cor-sucesso;
+            align-items: center;
 
-                &:first-child {
-                    color: v.$cor-primaria-texto;
+            h4 {
+                font-weight: 600;
+                color: v.$cor-secundaria-texto;
+                text-transform: capitalize;
+                min-width: 7rem;
+            }
+        }
+
+        &-valores {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        &-valor {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            min-width: rem;
+            border-radius: 1rem;
+            padding: 0.2rem, 0.1rem;
+            span {
+                width: 2.4rem;
+                height: 2.4rem;
+                border-radius: 50%;
+                display: grid;
+                place-items: center;
+                font-size: 1.1rem;
+                transition: transform 0.2s;
+            }
+            p {
+                font-weight: 600;
+                color: v.$cor-primaria-texto;
+                font-size: 1.3rem;
+            }
+
+            &:first-child {
+                span {
+                    background-color: color.scale($cor-missoes, $alpha: -90%);
+                    color: $cor-missoes;
+                }
+            }
+
+            &:last-child {
+                span {
+                    background-color: color.scale($cor-ofertas, $alpha: -90%);
+                    color: $cor-ofertas;
                 }
             }
         }
 
         &-pendente {
-            align-self: flex-start;
-            background-color: color.scale(v.$cor-aviso, $alpha: -90%);
-            color: v.$cor-aviso;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 700;
             text-transform: uppercase;
-            padding: 0.6rem 1.2rem;
+            color: v.$cor-aviso;
+            background-color: color.scale(v.$cor-aviso, $alpha: -90%);
+            padding: 0.4rem 0.8rem;
             border-radius: 2rem;
             letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
         }
     }
 
@@ -267,37 +382,266 @@
         }
     }
 
+    .acordeao {
+        background-color: v.$cor-secundaria-fundo;
+        border-radius: 1rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+
+        &--enviado {
+            border-color: color.scale(v.$cor-sucesso, $alpha: -60%);
+        }
+
+        &__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+
+            &:hover {
+                background-color: v.$cor-primaria-fundo;
+            }
+
+            &-total {
+                font-size: 1.6rem;
+                font-weight: 700;
+                color: v.$cor-sucesso;
+            }
+        }
+
+        &__pendente {
+            align-self: flex-start;
+            background-color: color.scale(
+                v.$cor-secundaria-texto,
+                $alpha: -90%
+            );
+            color: v.$cor-secundaria-texto;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 0.6rem 1.2rem;
+            border-radius: 2rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        &__enviado {
+            align-self: flex-start;
+            background-color: color.scale(v.$cor-sucesso, $alpha: -90%);
+            color: v.$cor-sucesso;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 0.6rem 1.2rem;
+            border-radius: 2rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        &__grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1.5rem 2rem;
+            background-color: v.$cor-primaria-fundo;
+            border-bottom: 1px solid #e5e7eb;
+
+            @media (max-width: 650px) {
+                grid-template-columns: 1fr;
+            }
+
+            &-item {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+
+                h3 {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.8rem;
+                    font-size: 1.3rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    color: v.$cor-secundaria-texto;
+                    margin: 0;
+
+                    span {
+                        font-size: 1.4rem;
+                    }
+                }
+
+                &:first-child h3 span {
+                    color: $cor-missoes;
+                }
+                &:last-child h3 span {
+                    color: $cor-ofertas;
+                }
+            }
+
+            &-values {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1.2fr;
+                gap: 1rem;
+                background-color: white;
+                padding: 1rem;
+                border-radius: 0.8rem;
+                border: 1px solid #e5e7eb;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+            }
+
+            &-value {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+                text-align: center;
+
+                span {
+                    width: 2.8rem;
+                    height: 2.8rem;
+                    border-radius: 50%;
+                    display: grid;
+                    place-items: center;
+                    font-size: 1.2rem;
+                    background-color: v.$cor-primaria-fundo;
+                    color: v.$cor-secundaria-texto;
+                    transition: all 0.2s;
+                }
+
+                p {
+                    font-size: 1.3rem;
+                    font-weight: 600;
+                    color: v.$cor-primaria-texto;
+                    white-space: nowrap; // Evita quebra de linha no valor
+                }
+
+                &:hover span {
+                    background-color: #e5e7eb;
+                }
+
+                // Estilo especial para a coluna de Total
+                &.acordeao__grid-total {
+                    border-left: 1px dashed #e5e7eb; // Separador visual
+
+                    p {
+                        font-size: 1.4rem;
+                        font-weight: 700;
+                    }
+                }
+            }
+
+            &-item:first-child .acordeao__grid-total {
+                span {
+                    background-color: color.scale($cor-missoes, $alpha: -90%);
+                    color: $cor-missoes;
+                }
+                p {
+                    color: $cor-missoes;
+                }
+            }
+
+            &-item:last-child .acordeao__grid-total {
+                span {
+                    background-color: color.scale($cor-ofertas, $alpha: -90%);
+                    color: $cor-ofertas;
+                }
+                p {
+                    color: $cor-ofertas;
+                }
+            }
+        }
+
+        &__title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+
+            span {
+                color: v.$cor-secundaria-texto;
+                font-size: 1.4rem;
+            }
+
+            h3 {
+                font-size: 1.6rem;
+                font-weight: 600;
+                color: v.$cor-primaria-texto;
+                user-select: none;
+
+                @media all and (max-width: 30em) {
+                    font-size: 1.5rem;
+                }
+            }
+        }
+
+        &__valores {
+            display: flex;
+            font-size: 1.4rem;
+            gap: 0.5rem;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(7rem, 1fr));
+        }
+
+        &__valor {
+            display: flex;
+            gap: 0.1rem;
+            justify-content: center;
+            border-radius: 1rem;
+            padding: 0.2rem 0.3rem;
+            transition: all 0.3s ease-out;
+
+            p {
+                color: v.$cor-primaria-texto;
+            }
+
+            &:first-child {
+                border: 1px solid color.scale($cor-missoes, $alpha: -90%);
+                span {
+                    color: $cor-missoes;
+                }
+            }
+
+            &:last-child {
+                border: 1px solid color.scale($cor-ofertas, $alpha: -90%);
+                span {
+                    color: $cor-ofertas;
+                }
+            }
+
+            &:hover {
+                transform: scale(1.05);
+            }
+
+            &--simples {
+                &:first-child,
+                &:last-child {
+                    border: none;
+                    background-color: transparent;
+                }
+            }
+        }
+    }
+
+    &__mes {
+        padding: 1rem;
+        background-color: v.$cor-primaria-texto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
     &__acordeoes {
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
 
-        .relatorio-acordeao {
-            background-color: v.$cor-secundaria-fundo;
-            border-radius: 1rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e5e7eb;
-            overflow: hidden;
-
-            &__header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 1.5rem 2rem;
-                cursor: pointer;
-                transition: background-color 0.2s;
-
-                &:hover {
-                    background-color: v.$cor-primaria-fundo;
-                }
-
-                &-total {
-                    font-size: 1.6rem;
-                    font-weight: 700;
-                    color: v.$cor-sucesso;
-                }
-            }
-
+        .relatorio-geral {
             &__nao-realizada {
                 font-size: 1.4rem;
                 font-weight: 600;
@@ -308,89 +652,85 @@
                 border-radius: 0.6rem;
             }
 
-            &__title {
-                display: flex;
-                align-items: center;
-                gap: 1.5rem;
-
-                span {
-                    color: v.$cor-secundaria-texto;
-                    font-size: 1.4rem;
-                }
-
-                h3 {
-                    font-size: 1.6rem;
-                    font-weight: 600;
-                    color: v.$cor-primaria-texto;
-                    user-select: none;
-                }
-            }
-
-            &__classes {
+            &__body {
                 padding: 0 2rem 2rem 2rem;
                 display: flex;
                 flex-direction: column;
                 gap: 2rem;
+            }
+            &__totais {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2rem;
+                padding: 1.5rem;
+                background-color: v.$cor-primaria-fundo;
+                border-radius: 0.8rem;
+                margin-top: 1rem;
+                justify-items: center;
 
-                &-totais {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 2rem;
-                    padding: 1.5rem;
-                    background-color: v.$cor-primaria-fundo;
-                    border-radius: 0.8rem;
-                    margin-top: 1rem;
-                    justify-items: center;
-
-                    @media (max-width: 360px) {
-                        grid-template-columns: 1fr;
-                    }
-                }
-
-                &-total {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.8rem;
-                    overflow: hidden;
-                    & > * {
-                        flex-shrink: 0;
-                    }
-
-                    h4 {
-                        font-size: 1.3rem;
-                        font-weight: 600;
-                        color: v.$cor-secundaria-texto;
-                        text-transform: uppercase;
-                        letter-spacing: 0.5px;
-                    }
-                }
-
-                &-valor {
-                    display: flex;
-                    align-items: center;
-                    gap: 1rem;
-
-                    span {
-                        width: 2.5rem;
-                        height: 2.5rem;
-                        display: grid;
-                        place-items: center;
-                        background-color: white;
-                        border-radius: 50%;
-                        font-size: 1.2rem;
-                        color: v.$cor-primaria-itens;
-                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-                    }
-
-                    p {
-                        font-size: 1.5rem;
-                        font-weight: 600;
-                        color: v.$cor-primaria-texto;
-                    }
+                @media (max-width: 360px) {
+                    grid-template-columns: 1fr;
                 }
             }
 
-            &__lista {
+            &__total {
+                display: flex;
+                flex-direction: column;
+                gap: 0.8rem;
+                overflow: hidden;
+
+                & > * {
+                    flex-shrink: 0;
+                }
+
+                h4 {
+                    font-size: 1.3rem;
+                    font-weight: 600;
+                    color: v.$cor-secundaria-texto;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    display: flex;
+                    gap: 0.5rem;
+                }
+            }
+
+            &__valor {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+
+                span {
+                    width: 2.5rem;
+                    height: 2.5rem;
+                    display: grid;
+                    place-items: center;
+                    background-color: white;
+                    border-radius: 50%;
+                    font-size: 1.2rem;
+                    color: v.$cor-primaria-itens;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+                }
+
+                p {
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                    color: v.$cor-primaria-texto;
+                }
+
+                h5 {
+                    color: v.$cor-primaria-itens;
+                    font-weight: 700;
+                    font-size: 1.6rem;
+                    padding-top: 0.5rem;
+                }
+                &:last-child {
+                    border-top: 1px dashed black;
+                    align-items: center;
+                    justify-content: center;
+                }
+            }
+
+            &__classes {
                 display: flex;
                 flex-direction: column;
                 gap: 1rem;
@@ -408,37 +748,9 @@
             overflow: hidden;
 
             &__header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 1.2rem 1.5rem;
-                cursor: pointer;
-
-                &:hover {
-                    background-color: #e5e7eb;
-                }
-
                 &-total {
                     font-weight: 700;
                     color: v.$cor-primaria-texto;
-                }
-            }
-
-            &__title {
-                display: flex;
-                align-items: center;
-                gap: 1rem;
-
-                span {
-                    font-size: 1.2rem;
-                    color: v.$cor-secundaria-texto;
-                }
-
-                h3 {
-                    font-size: 1.5rem;
-                    font-weight: 600;
-                    color: v.$cor-primaria-texto;
-                    user-select: none;
                 }
             }
 
@@ -459,10 +771,13 @@
             }
 
             &__total {
+                display: grid;
+                gap: 1rem;
                 h4 {
                     font-size: 1.2rem;
                     color: v.$cor-secundaria-texto;
-                    margin-bottom: 0.8rem;
+                    display: flex;
+                    gap: 0.5rem;
                 }
             }
 
@@ -470,10 +785,19 @@
                 display: flex;
                 align-items: center;
                 gap: 0.8rem;
-                margin-bottom: 1.5rem;
+                // margin-bottom: 1.5rem;
 
                 span {
                     color: v.$cor-primaria-itens;
+                    aspect-ratio: 1/1;
+                    width: 2.5rem;
+                    height: 2.5rem;
+                    display: grid;
+                    place-items: center;
+                    background-color: white;
+                    border-radius: 50%;
+                    font-size: 1.2rem;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
                 }
 
                 p {
@@ -483,6 +807,16 @@
 
                 &:last-child {
                     margin-bottom: 0;
+                    justify-content: center;
+                    font-weight: 700;
+                    border-top: 1px dashed black;
+                }
+
+                h5 {
+                    color: v.$cor-primaria-itens;
+                    font-weight: 700;
+                    font-size: 1.4rem;
+                    padding-top: 0.5rem;
                 }
             }
             &__editar {
@@ -667,6 +1001,8 @@
 
             p {
                 color: v.$cor-aviso;
+                display: flex;
+                gap: 0.3rem;
             }
 
             h3 {
@@ -692,7 +1028,9 @@
             border: none;
             border-radius: 0.8rem;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition:
+                transform 0.2s,
+                box-shadow 0.2s;
             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
 
             &:hover {
@@ -710,6 +1048,10 @@
                     font-size: 1.4rem;
                 }
             }
+        }
+
+        @media all and (max-width: 30em) {
+            justify-content: center;
         }
     }
 }
