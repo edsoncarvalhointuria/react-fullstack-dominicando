@@ -371,7 +371,7 @@
 
         &__link {
             font-size: 2rem;
-            display: inline-block;
+            // display: inline-block;
             font-weight: 500;
             color: v.$cor-primaria-texto;
             text-decoration: none;
@@ -381,6 +381,9 @@
                 background-color 0.2s ease-out,
                 color 0.2s ease-out;
             width: 100%;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
 
             &--active {
                 background-color: v.$cor-primaria-itens;

@@ -145,7 +145,7 @@ function MobileNavbar({
                                                                             isActive
                                                                         ) {
                                                                             $header.current?.classList.add(
-                                                                                "dropdown-active"
+                                                                                "dropdown-active",
                                                                             );
                                                                             return "nav-mobile__link nav-mobile__link--active";
                                                                         }
@@ -154,7 +154,7 @@ function MobileNavbar({
                                                                 >
                                                                     {d.texto}
                                                                 </NavLink>
-                                                            )
+                                                            ),
                                                         )}
                                                     </motion.div>
                                                 )}
@@ -172,17 +172,24 @@ function MobileNavbar({
                                                 className={({ isActive }) => {
                                                     if (isActive) {
                                                         $header.current?.classList.remove(
-                                                            "dropdown-active"
+                                                            "dropdown-active",
                                                         );
                                                         return "nav-mobile__link nav-mobile__link--active";
                                                     }
                                                     return "nav-mobile__link";
                                                 }}
                                             >
-                                                {v.texto}
+                                                {v.icon && (
+                                                    <span>
+                                                        <FontAwesomeIcon
+                                                            icon={v.icon}
+                                                        />
+                                                    </span>
+                                                )}
+                                                <span>{v.texto}</span>
                                             </NavLink>
                                         </motion.li>
-                                    )
+                                    ),
                                 )}
                             </ul>
 

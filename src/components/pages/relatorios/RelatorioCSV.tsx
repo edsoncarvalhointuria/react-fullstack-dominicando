@@ -16,7 +16,9 @@ import {
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 function baixarArquivoCSV(csvString: string, nomeArquivo: string) {
-    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csvString], {
+        type: "text/csv;charset=utf-8;",
+    });
 
     const url = URL.createObjectURL(blob);
 
@@ -189,7 +191,7 @@ function RelatorioCSV() {
                                                                 {
                                                                     required:
                                                                         "A data de início é obrigatória",
-                                                                }
+                                                                },
                                                             )}
                                                         />
 
@@ -233,7 +235,7 @@ function RelatorioCSV() {
                                                                 {
                                                                     required:
                                                                         "A data de fim é obrigatória",
-                                                                }
+                                                                },
                                                             )}
                                                         />
                                                         {errors.data_fim && (
@@ -274,11 +276,11 @@ function RelatorioCSV() {
                                                             }
                                                             onChange={(v) => {
                                                                 field.onChange(
-                                                                    v
+                                                                    v,
                                                                 );
                                                                 setValue(
                                                                     "classes",
-                                                                    []
+                                                                    [],
                                                                 );
                                                             }}
                                                             texto="Todas as igrejas"
@@ -313,7 +315,7 @@ function RelatorioCSV() {
                                                                 }
                                                                 onChange={(v) =>
                                                                     field.onChange(
-                                                                        v
+                                                                        v,
                                                                     )
                                                                 }
                                                                 texto="Todas as classes"

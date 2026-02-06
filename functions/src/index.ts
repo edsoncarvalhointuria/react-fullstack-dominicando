@@ -49,6 +49,29 @@ interface Notificacao {
     message: string;
 }
 
+function enviarLog(
+    user: User,
+    request: any,
+    evento: string,
+    message: string,
+    dadosImportantes?: any,
+) {
+    const notificacao: Notificacao = {
+        actor: {
+            email: user.email,
+            uid: user.uid,
+            ip: request.rawRequest.ip,
+        },
+        dados: {
+            dados_enviados: request.data,
+            dados_importantes: dadosImportantes || [],
+        },
+        evento,
+        message,
+    };
+    console.log(JSON.stringify(notificacao));
+}
+
 function gerarCodigo() {
     const c = Math.random().toString(36).substring(2, 8);
     return c;
@@ -726,20 +749,13 @@ export const getRelatorioTrimestral = functions.https.onCall(
             );
         });
 
-        const notificacao: Notificacao = {
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: totais,
-            },
-            evento: "GET_RELATORIO_TRIMESTRAL",
-            message: `Relatório gerado com sucesso pelo usuário: ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificacao));
+        enviarLog(
+            user,
+            request,
+            "GET_RELATORIO_TRIMESTRAL",
+            `Relatório gerado com sucesso pelo usuário: ${user.uid}`,
+            totais,
+        );
 
         return {
             bloqueado: isAllBloqueado,
@@ -859,21 +875,13 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
 
             await batch.commit();
 
-            const notificacao: Notificacao = {
-                actor: {
-                    email: user.email,
-                    uid: user.uid,
-                    ip: request.rawRequest.ip,
-                },
-                dados: {
-                    dados_enviados: request.data,
-                    dados_importantes: totais,
-                },
-                evento: "SALVAR_RELATORIO_TRIMESTRAL",
-                message: `Relatório de ${numeroMes} salvo com sucesso pelo usuário: ${user.uid}`,
-            };
-
-            console.log(JSON.stringify(notificacao));
+            enviarLog(
+                user,
+                request,
+                "SALVAR_RELATORIO_TRIMESTRAL",
+                `Relatório de ${numeroMes} salvo com sucesso pelo usuário: ${user.uid}`,
+                totais,
+            );
 
             return { message: "Relatório salvo com sucesso." };
         } catch (error: any) {
@@ -1128,44 +1136,29 @@ export const salvarMembro = functions.https.onCall(async (request) => {
 
         await membroRef.update(dadosParaSalvar as any);
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_MEMBRO",
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
+        enviarLog(
+            user,
+            request,
+            "SALVAR_MEMBRO",
+            `Membro atualizado com sucesso por ${user.uid}`,
+            {
+                dadosParaSalvar,
+                dadosAnteriores: membroSnap.data(),
             },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: {
-                    dadosParaSalvar,
-                    dadosAnteriores: membroSnap.data(),
-                },
-            },
-            message: `Membro atualizado com sucesso por ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        );
 
         return { id: membroId, ...membroSnap.data(), ...dadosParaSalvar };
     }
 
     dadosParaSalvar["alunoId"] = null;
     const membroRef = await db.collection("membros").add(dadosParaSalvar);
+    enviarLog(
+        user,
+        request,
+        "SALVAR_MEMBRO",
+        `Membro salvo com sucesso por ${user.uid}`,
+    );
 
-    const notificao: Notificacao = {
-        evento: "SALVAR_MEMBRO",
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: { dadosParaSalvar },
-        },
-        message: `Membro salvo com sucesso por ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificao));
     return { id: membroRef.id, ...dadosParaSalvar };
 });
 export const deletarMembro = functions.https.onCall(async (request) => {
@@ -1215,20 +1208,13 @@ export const deletarMembro = functions.https.onCall(async (request) => {
         }
 
         await batch.commit();
-        const notificao: Notificacao = {
-            evento: "DELETAR_MEMBRO",
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { membroId },
-            },
-            message: `Aluno deletado com sucesso pelo usuário: ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "DELETAR_MEMBRO",
+            `Aluno deletado com sucesso pelo usuário: ${user.uid}`,
+        );
+
         return { message: "Membro deletado com suscesso." };
     } catch (error) {
         console.log("Ocorreu um erro ao deletar membro", error);
@@ -1329,20 +1315,12 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
 
     await Promise.all(batches.map((v) => v.commit()));
 
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "SALVAR_MEMBROS_CSV",
-        message: `Membros cadastrados com sucesso pelo usuário: ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificacao));
+    enviarLog(
+        user,
+        request,
+        "SALVAR_MEMBROS_CSV",
+        `Membros cadastrados com sucesso pelo usuário: ${user.uid}`,
+    );
     console.log(`Membros cadastrados com sucesso pelo usuário: ${user.uid}`);
     return {
         message: membrosComErro.length
@@ -1406,20 +1384,15 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         }
 
         await alunoRef.update(dadosAtualizados);
-        const notificao: Notificacao = {
-            evento: "SALVAR_ALUNO",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { aluno: alunoDoc.data() },
-            },
-            message: `Aluno editado pelo usuário ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+
+        enviarLog(
+            user,
+            request,
+            "SALVAR_ALUNO",
+            `Aluno editado pelo usuário ${user.uid}`,
+            { aluno: alunoDoc.data() },
+        );
+
         return {
             id: alunoDoc.id,
             ...alunoDoc.data(),
@@ -1457,20 +1430,14 @@ export const salvarAluno = functions.https.onCall(async (request) => {
             .update({ alunoId: docRef.id });
     }
 
-    const notificao: Notificacao = {
-        evento: "SALVAR_ALUNO",
-        actor: {
-            uid: user.uid,
-            email: user.email,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: aluno,
-        },
-        message: `Aluno salvo pelo usuário ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificao));
+    enviarLog(
+        user,
+        request,
+        "SALVAR_ALUNO",
+        `Aluno salvo pelo usuário ${user.uid}`,
+        aluno,
+    );
+
     return { id: docRef.id, ...aluno };
 });
 export const onAlunoUpdate = onDocumentUpdated(
@@ -1656,24 +1623,18 @@ export const deletarAluno = functions.https.onCall(async (request) => {
 
         await Promise.all(batchs.map(async (v) => v.commit()));
 
-        const notificao: Notificacao = {
-            evento: "DELETAR_ALUNO",
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { alunos: alunosSnap.data() },
-            },
-            message: `Aluno e ${
+        enviarLog(
+            user,
+            request,
+            "DELETAR_ALUNO",
+            `Aluno e ${
                 refsDel.length - 1
             } dados associados foram deletados com sucesso pelo usuário: ${
                 user.uid
             }`,
-        };
-        console.log(JSON.stringify(notificao));
+            { alunos: alunosSnap.data() },
+        );
+
         return {
             message: `Aluno e todos os seus dados foram deletados com sucesso.`,
         };
@@ -1759,20 +1720,12 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
 
     await Promise.all(batches.map((v) => v.commit()));
 
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "SALVAR_ALUNOS_CSV",
-        message: `Alunos cadastrados com sucesso pelo usuário: ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificacao));
+    enviarLog(
+        user,
+        request,
+        "SALVAR_ALUNOS_CSV",
+        `Alunos cadastrados com sucesso pelo usuário: ${user.uid}`,
+    );
     console.log(`Alunos cadastrados com sucesso pelo usuário: ${user.uid}`);
     return {
         message: alunosComErro.length
@@ -1789,10 +1742,12 @@ interface ClasseFront {
     nome: string;
     idade_minima: number | null;
     idade_maxima: number | null;
+    rotuloId: string;
 }
 interface Classe extends ClasseFront {
     igrejaNome: string;
     ministerioId: string;
+    rotuloNome: string;
 }
 
 interface ClasseCSVFront {
@@ -1811,8 +1766,9 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     }
 
     const { classeId } = request.data;
-    let { igrejaId, nome, idade_minima, idade_maxima } = request.data
+    let { igrejaId, nome, idade_minima, idade_maxima, rotuloId } = request.data
         .dados as ClasseFront;
+    const isDefaultLabel = rotuloId === "id-outro";
 
     if (isSuperAdmin && !igrejaId) {
         throw new functions.https.HttpsError(
@@ -1822,23 +1778,44 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     }
     if (!isSuperAdmin) igrejaId = user.igrejaId;
 
-    const igreja = await db.collection("igrejas").doc(igrejaId).get();
-    if (!igreja.exists) {
+    const [igrejaSnap, rotuloSnap] = await Promise.all([
+        db.collection("igrejas").doc(igrejaId).get(),
+        db.collection("rotulos_classes").doc(rotuloId).get(),
+    ]);
+
+    if (!igrejaSnap.exists || (!isDefaultLabel && !rotuloSnap.exists)) {
         throw new functions.https.HttpsError(
             "not-found",
-            "Igreja não encontrada",
+            "Igreja ou rótulo não encontrado",
         );
     }
-    if (igreja.data()!.ministerioId !== user.ministerioId) {
+    const rotulo = rotuloSnap.data();
+    if (
+        igrejaSnap.data()!.ministerioId !== user.ministerioId ||
+        (!isDefaultLabel && rotulo!.ministerioId !== user.ministerioId)
+    ) {
         throw new functions.https.HttpsError(
             "permission-denied",
             "Você não tem permissão para fazer isso",
         );
     }
 
+    if (isDefaultLabel) {
+        const r = db.collection("rotulos_classes").doc();
+        await r.create({
+            nome: "OUTRO",
+            idade_minima: null,
+            idade_maxima: null,
+            ministerioId: user.ministerioId,
+        });
+        rotuloId = r.id;
+    }
+
     const dadosAtualizados = {
+        rotuloId,
+        rotuloNome: isDefaultLabel ? "OUTRO" : rotulo!.nome,
         igrejaId,
-        igrejaNome: igreja.data()!.nome,
+        igrejaNome: igrejaSnap.data()!.nome,
         nome,
         idade_minima: typeof idade_minima !== "number" ? null : idade_minima,
         idade_maxima: typeof idade_maxima !== "number" ? null : idade_maxima,
@@ -1855,23 +1832,18 @@ export const salvarClasse = functions.https.onCall(async (request) => {
         }
 
         await classeRef.update(dadosAtualizados);
-        const notificao: Notificacao = {
-            evento: "SALVAR_CLASSE",
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
+
+        enviarLog(
+            user,
+            request,
+            "SALVAR_CLASSE",
+            `Aluno editado pelo usuário ${user.uid}`,
+            {
+                dadosAtualizados,
+                classe: classeSnap.data(),
             },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: {
-                    dadosAtualizados,
-                    classe: classeSnap.data(),
-                },
-            },
-            message: `Aluno editado pelo usuário ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        );
+
         return {
             id: classeSnap.id,
             ...classeSnap.data(),
@@ -1886,20 +1858,14 @@ export const salvarClasse = functions.https.onCall(async (request) => {
 
     const docRef = await db.collection("classes").add(classe);
 
-    const notificao: Notificacao = {
-        evento: "SALVAR_CLASSE",
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: dadosAtualizados,
-        },
-        message: `Aluno cadastrado pelo usuário ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificao));
+    enviarLog(
+        user,
+        request,
+        "SALVAR_CLASSE",
+        `Aluno cadastrado pelo usuário ${user.uid}`,
+        dadosAtualizados,
+    );
+
     return { id: docRef.id, ...classe };
 });
 export const onClasseUpdate = onDocumentUpdated(
@@ -2016,20 +1982,14 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         await batch.commit();
         await Promise.all(promises);
 
-        const notificao: Notificacao = {
-            evento: "DELETAR_CLASSE",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { classe: classeSnap.data() },
-            },
-            message: `A classe ${classeId} e seus usuários associados foram deletados com sucesso.`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "DELETAR_CLASSE",
+            `A classe ${classeId} e seus usuários associados foram deletados com sucesso.`,
+            { classe: classeSnap.data() },
+        );
+
         return { message: "Classe deletada com sucesso!" };
     } catch (erro) {
         console.log("Erro ao apagar classe", erro);
@@ -2050,7 +2010,15 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
         );
     }
 
-    const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+    const [igrejaSnap, rotuloSnap] = await Promise.all([
+        db.collection("igrejas").doc(igrejaId).get(),
+        db
+            .collection("rotulos_classes")
+            .where("ministerioId", "==", user.ministerioId)
+            .where("nome", "==", "OUTRO")
+            .limit(1)
+            .get(),
+    ]);
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
@@ -2064,6 +2032,20 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
             "permission-denied",
             "Você não tem permissão para fazer isso",
         );
+    }
+
+    let rotuloId;
+    if (!rotuloSnap.empty) rotuloId = rotuloSnap.docs[0].id;
+    else {
+        const rotulosCll = db.collection("rotulos_classes").doc();
+        await rotulosCll.create({
+            nome: "OUTRO",
+            idade_minima: null,
+            idade_maxima: null,
+            ministerioId: user.ministerioId,
+        });
+
+        rotuloId = rotulosCll.id;
     }
 
     let batch = db.batch();
@@ -2093,6 +2075,8 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
             igrejaId,
             igrejaNome: igreja!.nome,
             ministerioId: user.ministerioId,
+            rotuloId,
+            rotuloNome: "OUTRO",
         });
         count++;
 
@@ -2106,20 +2090,12 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
 
     await Promise.all(batches.map((v) => v.commit()));
 
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "SALVAR_CLASSE_CSV",
-        message: `Classes cadastradas com sucesso pelo usuário: ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificacao));
+    enviarLog(
+        user,
+        request,
+        "SALVAR_CLASSE_CSV",
+        `Classes cadastradas com sucesso pelo usuário: ${user.uid}`,
+    );
     console.log(`Classes cadastradas com sucesso pelo usuário: ${user.uid}`);
     return {
         message: foraDaFaixa.length
@@ -2128,6 +2104,81 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
               )}`
             : "Classes cadastradas com sucesso!",
     };
+});
+
+// === Rótulo da Classe ===
+interface RotuloClasseFront {
+    dados: { nome: string; idade_minima?: number; idade_maxima?: number };
+    rotuloId?: string;
+}
+export const salvarRotuloClasse = functions.https.onCall(async (request) => {
+    const { db, isSuperAdmin, user } = await validarUsuario(request);
+
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso.",
+        );
+    }
+
+    const {
+        rotuloId,
+        dados: { nome, idade_maxima, idade_minima },
+    } = request.data as RotuloClasseFront;
+
+    if (!nome || (idade_maxima && typeof idade_minima !== "number")) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes",
+        );
+    }
+
+    const dados = { nome, idade_minima, idade_maxima };
+
+    if (rotuloId) {
+        const rotuloRef = db.collection("rotulos_classes").doc(rotuloId);
+        const rotuloSnap = await rotuloRef.get();
+        const rotuloData = rotuloSnap.data();
+
+        if (!rotuloSnap.exists) {
+            throw new functions.https.HttpsError(
+                "not-found",
+                "Rótulo não encontrado",
+            );
+        }
+
+        await rotuloRef.update(dados as any);
+        if (nome !== rotuloData?.nome) {
+            const classes = await db
+                .collection("classes")
+                .where("rotuloId", "==", rotuloId)
+                .get();
+            await Promise.all(
+                classes.docs.map((v) => v.ref.update({ rotuloNome: nome })),
+            );
+        }
+
+        enviarLog(
+            user,
+            request,
+            "SALVAR_ROTULO_CLASSE",
+            `Rótulo foi atualizado com sucesso pelo usuário: ${user.uid}`,
+        );
+
+        return { message: "Rótulo atualizado com sucesso" };
+    }
+
+    const dadosParaSalvar = { ...dados, ministerioId: user.ministerioId };
+    await db.collection("rotulos_classes").add(dadosParaSalvar);
+
+    enviarLog(
+        user,
+        request,
+        "SALVAR_ROTULO_CLASSE",
+        `Rótulo foi criado com sucesso pelo usuário: ${user.uid}`,
+    );
+
+    return { ...dadosParaSalvar };
 });
 
 // Igreja
@@ -2176,20 +2227,13 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
 
         await igrejaRef.update({ nome: dados.nome });
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_IGREJA",
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: {},
-            },
-            message: `Igreja editada pelo usuário : ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_IGREJA",
+            `Igreja editada pelo usuário : ${user.uid}`,
+        );
+
         return { id: igrejaSnap.id, ...igrejaSnap.data(), nome: dados.nome };
     }
 
@@ -2197,22 +2241,16 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
         .collection("igrejas")
         .add({ nome: dados.nome, ministerioId: user.ministerioId });
 
-    const notificao: Notificacao = {
-        evento: "SALVAR_IGREJA",
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
+    enviarLog(
+        user,
+        request,
+        "SALVAR_IGREJA",
+        `Igreja criada pelo usuário : ${user.uid}`,
+        {
+            newIgreja,
         },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: {
-                newIgreja,
-            },
-        },
-        message: `Igreja criada pelo usuário : ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificao));
+    );
+
     return {
         id: newIgreja.id,
         nome: dados.nome,
@@ -2419,24 +2457,18 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
 
         await Promise.all([...promisesUsers, ...batchs.map((v) => v.commit())]);
 
-        const notificao: Notificacao = {
-            evento: "DELETAR_IGREJA",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { igreja: igrejaSnap.data() },
-            },
-            message: `Igreja e ${
+        enviarLog(
+            user,
+            request,
+            "DELETAR_IGREJA",
+            `Igreja e ${
                 refs.length - 1
             } dados associados, foram deletados com sucesso pelo usuário : ${
                 user.uid
             }`,
-        };
-        console.log(JSON.stringify(notificao));
+            { igreja: igrejaSnap.data() },
+        );
+
         return {
             message: "Igreja e dados associados foram deletados com sucesso!",
         };
@@ -2488,20 +2520,13 @@ export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
     });
 
     await Promise.all(batchs.map((v) => v.commit()));
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "SALVAR_IGREJA_CSV",
-        message: `Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificacao));
+
+    enviarLog(
+        user,
+        request,
+        "SALVAR_IGREJA_CSV",
+        `Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`,
+    );
     console.log(`Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`);
     return {
         message: "Igrejas cadastradas com sucesso!",
@@ -2640,20 +2665,14 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
 
         await usuarioRef.update(dadosAtualizados as any);
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_USUARIO",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { usuario: usuarioSnap.data() },
-            },
-            message: `Usuário editado pelo usuário ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_USUARIO",
+            `Usuário editado pelo usuário ${user.uid}`,
+            { usuario: usuarioSnap.data() },
+        );
+
         return {
             ...usuarioSnap.data(),
             id: usuarioSnap.id,
@@ -2674,20 +2693,14 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         };
         await db.collection("usuarios").doc(newAuth.uid).set(newUser);
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_USUARIO",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { newUser },
-            },
-            message: `Usuário salvo pelo usuário ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_USUARIO",
+            `Usuário salvo pelo usuário ${user.uid}`,
+            { newUser },
+        );
+
         return newUser;
     } catch (err: any) {
         console.log("Erro ao criar usuário, iniciando rollback...", err);
@@ -2763,20 +2776,13 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
         await usuarioRef.delete();
         await admin.auth().deleteUser(usuarioId);
 
-        const notificao = JSON.stringify({
-            evento: "DELETAR_USUARIO",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: {},
-            },
-            message: `O usuário ${usuarioId} foi deletado pelo usuário ${user.uid}.`,
-        });
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "DELETAR_USUARIO",
+            `O usuário ${usuarioId} foi deletado pelo usuário ${user.uid}.`,
+        );
+
         return { message: "O usuário foi deletado com sucesso" };
     } catch (error: any) {
         console.log("Erro ao deletar usuário", error);
@@ -2991,20 +2997,14 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             batch.update(licaoRef, dadosParaSalvar);
             await batch.commit();
 
-            const notificao: Notificacao = {
-                evento: "SALVAR_NOVO_TRIMESTRE",
-                actor: {
-                    uid: user.uid,
-                    email: user.email,
-                    ip: request.rawRequest.ip,
-                },
-                dados: {
-                    dados_enviados: request.data,
-                    dados_importantes: { dadosParaSalvar, licao: licao.data() },
-                },
-                message: `Trimestre editado pelo usuário ${user.uid}`,
-            };
-            console.log(JSON.stringify(notificao));
+            enviarLog(
+                user,
+                request,
+                "SALVAR_NOVO_TRIMESTRE",
+                `Trimestre editado pelo usuário ${user.uid}`,
+                { dadosParaSalvar, licao: licao.data() },
+            );
+
             return { id: licaoId, ...dadosParaSalvar };
         }
 
@@ -3112,20 +3112,14 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
 
         await batch.commit();
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_NOVO_TRIMESTRE",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { dadosParaSalvar },
-            },
-            message: `Trimestre criado pelo usuário ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_NOVO_TRIMESTRE",
+            `Trimestre criado pelo usuário ${user.uid}`,
+            { dadosParaSalvar },
+        );
+
         return { id: novaLicaoRef.id, ...dadosParaSalvar };
     } catch (error) {
         console.error("Erro ao salvar trimestre:", error);
@@ -3341,24 +3335,18 @@ export const deletarLicao = functions.https.onCall(async (request) => {
 
         await Promise.all(batchs.map((v) => v.commit()));
 
-        const notificao: Notificacao = {
-            evento: "DELETAR_LICAO",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
+        enviarLog(
+            user,
+            request,
+            "DELETAR_LICAO",
+            `A lição ${licaoId} foi deletada com sucesso pelo usuário: $${user.uid}`,
+            {
+                aulas: aulasSnap.docs,
+                matriculas: matriculasSnap.docs,
+                registros: registrosSnap.docs,
             },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: {
-                    aulas: aulasSnap.docs,
-                    matriculas: matriculasSnap.docs,
-                    registros: registrosSnap.docs,
-                },
-            },
-            message: `A lição ${licaoId} foi deletada com sucesso pelo usuário: $${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        );
+
         return { message: "Lição deletada com sucesso" };
     } catch (error) {
         console.log("Erro ao deletar a lição", error);
@@ -3565,20 +3553,14 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         }
         await batch.commit();
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_CHAMADA",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: { dadosParaSalvar, isEditando },
-            },
-            message: `Chamada salva com sucesso pelo usuário: ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_CHAMADA",
+            `Chamada salva com sucesso pelo usuário: ${user.uid}`,
+            { dadosParaSalvar, isEditando },
+        );
+
         return {
             mensagem: "Chamada cadastrada com sucesso!",
             registro: registrosRef.id,
@@ -3694,23 +3676,14 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
                 ),
             });
 
-            const notificao: Notificacao = {
-                evento: "SALVAR_MATRICULA",
-                actor: {
-                    uid: user.uid,
-                    email: user.email,
-                    ip: request.rawRequest.ip,
-                },
-                dados: {
-                    dados_enviados: request.data,
-                    dados_importantes: {
-                        dados,
-                        matriculas: matriculaDoc.data(),
-                    },
-                },
-                message: `Matricula salva com sucesso pelo usuário: ${user.uid}`,
-            };
-            console.log(JSON.stringify(notificao));
+            enviarLog(
+                user,
+                request,
+                "SALVAR_MATRICULA",
+                `Matricula salva com sucesso pelo usuário: ${user.uid}`,
+                matriculaDoc.data(),
+            );
+
             return {
                 mensagem: "Aluno atualizado com sucesso",
                 matriculaId: matriculaDoc.id,
@@ -3768,25 +3741,14 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
 
         await batch.commit();
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_MATRICULA",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: {
-                    dadosParaSalvar,
-                    classe: classe.data(),
-                    aluno: aluno.data(),
-                    licao: licao.data(),
-                },
-            },
-            message: `Matricula salva com sucesso pelo usuário: ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_MATRICULA",
+            `Matricula salva com sucesso pelo usuário: ${user.uid}`,
+            { dadosParaSalvar },
+        );
+
         return {
             mensagem: "Aluno salvo com sucesso",
             matriculaId: matricula.id,
@@ -3843,22 +3805,14 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
 
         await batch.commit();
 
-        const notificao: Notificacao = {
-            evento: "DELETAR_MATRICULA",
-            actor: {
-                uid: user.uid,
-                email: user.email,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: {
-                    matriculas: matriculaSnap.data(),
-                },
-            },
-            message: `A matricula ${matriculaId} foi deletada com sucesso pelo usuário ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "DELETAR_MATRICULA",
+            `A matricula ${matriculaId} foi deletada com sucesso pelo usuário ${user.uid}`,
+            { matriculas: matriculaSnap.data() },
+        );
+
         return { message: "A matricula foi deletada com sucesso." };
     } catch (error) {
         console.log("Erro ao deletar matricula", error);
@@ -4569,20 +4523,14 @@ export const salvarVisita = functions.https.onCall(async (request) => {
 
         await visitaRef.update(dadosAtualizados);
 
-        const notificao: Notificacao = {
-            evento: "SALVAR_VISITA",
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: dadosAtualizados,
-            },
-            message: `Visita atualizada pelo usuário ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_VISITA",
+            `Visita atualizada pelo usuário ${user.uid}`,
+            dadosAtualizados,
+        );
+
         return { ...dadosAtualizados };
     }
 
@@ -4651,40 +4599,20 @@ export const salvarVisita = functions.https.onCall(async (request) => {
 
             await batch.commit();
 
-            const notificao: Notificacao = {
-                evento: "SALVAR_VISITA",
-                actor: {
-                    email: user.email,
-                    uid: user.uid,
-                    ip: request.rawRequest.ip,
-                },
-                dados: {
-                    dados_enviados: request.data,
-                    dados_importantes: Array.from(
-                        visitantesExistentesMap.values(),
-                    ),
-                },
-                message: `Visitas incluidas pelo usuário ${user.uid}`,
-            };
-            console.log(JSON.stringify(notificao));
+            enviarLog(
+                user,
+                request,
+                "SALVAR_VISITA",
+                `Visitas incluidas pelo usuário ${user.uid}`,
+                Array.from(visitantesExistentesMap.values()),
+            );
+
             return {
                 message: `${visitas.length} visitas registradas com sucesso.`,
             };
         } else {
-            const notificao: Notificacao = {
-                evento: "SALVAR_VISITA",
-                actor: {
-                    email: user.email,
-                    uid: user.uid,
-                    ip: request.rawRequest.ip,
-                },
-                dados: {
-                    dados_enviados: request.data,
-                    dados_importantes: {},
-                },
-                message: `Não houve visitas`,
-            };
-            console.log(JSON.stringify(notificao));
+            enviarLog(user, request, "SALVAR_VISITA", `Não houve visitas`);
+
             return { message: "Não houve visitas" };
         }
     } catch (error) {
@@ -4714,20 +4642,14 @@ export const deletarVisita = functions.https.onCall(async (request) => {
     }
 
     await visitaRef.delete();
-    const notificao: Notificacao = {
-        evento: "DELETAR_VISITA",
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: {},
-        },
-        message: `Visita deletada pelo usuário ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificao));
+
+    enviarLog(
+        user,
+        request,
+        "DELETAR_VISITA",
+        `Visita deletada pelo usuário ${user.uid}`,
+    );
+
     return { message: "Visita deletada com sucesso." };
 });
 
@@ -4985,20 +4907,17 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
                 usado: true,
                 usadoPorUid: newAuth.uid,
             });
-            const notificao: Notificacao = {
-                evento: "SALVAR_USUARIO",
-                actor: {
-                    uid: criador.data()?.uid,
-                    email: criador.data()?.email,
-                    ip: request.rawRequest.ip,
-                },
-                dados: {
-                    dados_enviados: request.data,
-                    dados_importantes: { newUser },
-                },
-                message: `Usuário salvo pelo usuário `,
-            };
-            console.log(JSON.stringify(notificao));
+
+            const c = criador.data();
+
+            enviarLog(
+                c as any,
+                request,
+                "SALVAR_USUARIO",
+                `Usuário salvo pelo usuário `,
+                { newUser },
+            );
+
             return { message: "usuário cadastrado com sucesso" };
         } catch (err: any) {
             console.log("Erro ao criar usuário, iniciando rollback...", err);
@@ -5135,21 +5054,12 @@ export const baixarTodosComprovantes = functions.https.onCall(
 
         const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
 
-        const notificao: Notificacao = {
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: [],
-            },
-            evento: "BAIXAR_COMPROVANTES",
-            message: `Comprovantes zipados com sucesso pelo usuário: ${user.uid}`,
-        };
-
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "BAIXAR_COMPROVANTES",
+            `Comprovantes zipados com sucesso pelo usuário: ${user.uid}`,
+        );
 
         const file = zipBuffer.toString("base64");
         return { file };
@@ -5257,20 +5167,12 @@ export const salvarNotificacao = functions.https.onCall(async (request) => {
             }),
     ]);
 
-    const notificao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "SALVAR_NOTIFICACAO",
-        message: `Atualização de notificação realizada por ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificao));
+    enviarLog(
+        user,
+        request,
+        "SALVAR_NOTIFICACAO",
+        `Atualização de notificação realizada por ${user.uid}`,
+    );
 
     return { message: "Permissão de notificação atualizado com sucesso" };
 });
@@ -5498,20 +5400,15 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
             }
 
             await licaoRef.update(dadosAtualizados);
-            const notificao: Notificacao = {
-                actor: {
-                    email: user.email,
-                    uid: user.uid,
-                    ip: request.rawRequest.ip,
-                },
-                dados: {
-                    dados_enviados: request.data,
-                    dados_importantes: [dadosAtualizados],
-                },
-                evento: "SALVAR_LICAO_AULAS_PREPARO",
-                message: `Lição atualizada com sucesso pelo usuário: ${user.uid}`,
-            };
-            console.log(JSON.stringify(notificao));
+
+            enviarLog(
+                user,
+                request,
+                "SALVAR_LICAO_AULAS_PREPARO",
+                `Lição atualizada com sucesso pelo usuário: ${user.uid}`,
+                { dadosAtualizados },
+            );
+
             return { message: `Lição atualizada com sucesso.` };
         }
 
@@ -5560,20 +5457,14 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(
 
         await batch.commit();
 
-        const notificao: Notificacao = {
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: [dadosParaSalvar],
-            },
-            evento: "SALVAR_LICAO_AULAS_PREPARO",
-            message: `Lição cadastrada com sucesso pelo usuário: ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+        enviarLog(
+            user,
+            request,
+            "SALVAR_LICAO_AULAS_PREPARO",
+            `Lição cadastrada com sucesso pelo usuário: ${user.uid}`,
+            { dadosParaSalvar },
+        );
+
         return { message: `Lição atualizada com sucesso.` };
     },
 );
@@ -5649,20 +5540,14 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
         }
 
         await Promise.all(batchs.map((v) => v.commit()));
-        const notificao: Notificacao = {
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: [],
-            },
-            evento: "DELETAR_LICAO_AULAS_PREPARO",
-            message: `Lição e todos os dados associados, foram deletados com sucesso pelo usuário: ${user.uid}`,
-        };
-        console.log(JSON.stringify(notificao));
+
+        enviarLog(
+            user,
+            request,
+            "DELETAR_LICAO_AULAS_PREPARO",
+            `Lição e todos os dados associados, foram deletados com sucesso pelo usuário: ${user.uid}`,
+        );
+
         return { message: `Lição deletada com sucesso.` };
     },
 );
@@ -5740,20 +5625,13 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
         licaoId,
         realizado: true,
     });
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "SALVAR_AULA_PREPARO",
-        message: `Aula salva com sucesso por ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificacao));
+
+    enviarLog(
+        user,
+        request,
+        "SALVAR_AULA_PREPARO",
+        `Aula salva com sucesso por ${user.uid}`,
+    );
 
     return { message: `Aula salva com sucesso!` };
 });
@@ -5816,20 +5694,12 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
     const visualizacoesDocs = await aulaRef.collection("visualizacoes").get();
     await Promise.all(visualizacoesDocs.docs.map((v) => v.ref.delete()));
 
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "DELETAR_AULA_PREPARO",
-        message: `Aula deletada com sucesso por ${user.uid}`,
-    };
-    console.log(JSON.stringify(notificacao));
+    enviarLog(
+        user,
+        request,
+        "DELETAR_AULA_PREPARO",
+        `Aula deletada com sucesso por ${user.uid}`,
+    );
 
     return { message: `Aula deletada com sucesso!` };
 });
@@ -5887,39 +5757,27 @@ export const registrarVisualizacao = functions.https.onCall(async (request) => {
             ...dadosParaSalvar,
             contagem_visualizacoes: FieldValue.increment(1),
         });
-        const notificacao: Notificacao = {
-            actor: {
-                email: user.email,
-                uid: user.uid,
-                ip: request.rawRequest.ip,
-            },
-            dados: {
-                dados_enviados: request.data,
-                dados_importantes: dadosParaSalvar,
-            },
-            evento: "REGISTRAR_VISUALIZACAO",
-            message: `Visualização do usuário ${user.uid} atualizada com sucesso!`,
-        };
-        console.log(JSON.stringify(notificacao));
+
+        enviarLog(
+            user,
+            request,
+            "REGISTRAR_VISUALIZACAO",
+            `Visualização do usuário ${user.uid} atualizada com sucesso!`,
+            { dadosParaSalvar },
+        );
 
         return { message: "Visualização contabilizada com sucesso" };
     }
 
     await registroRef.create({ ...dadosParaSalvar, contagem_visualizacoes: 1 });
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: dadosParaSalvar,
-        },
-        evento: "REGISTRAR_VISUALIZACAO",
-        message: `Visualização do usuário ${user.uid} contabilizada com sucesso!`,
-    };
-    console.log(JSON.stringify(notificacao));
+
+    enviarLog(
+        user,
+        request,
+        "REGISTRAR_VISUALIZACAO",
+        `Visualização do usuário ${user.uid} contabilizada com sucesso!`,
+        { dadosParaSalvar },
+    );
 
     return { message: "Visualização contabilizada com sucesso" };
 });
@@ -5992,20 +5850,12 @@ export const getVisualizacoes = functions.https.onCall(async (request) => {
         usuariosMap.set(usuario.igrejaId, obj);
     });
 
-    const notificacao: Notificacao = {
-        actor: {
-            email: user.email,
-            uid: user.uid,
-            ip: request.rawRequest.ip,
-        },
-        dados: {
-            dados_enviados: request.data,
-            dados_importantes: [],
-        },
-        evento: "GET_VISUALIZACOES",
-        message: "Mensagens geradas com sucesso",
-    };
-    console.log(JSON.stringify(notificacao));
+    enviarLog(
+        user,
+        request,
+        "GET_VISUALIZACOES",
+        "Mensagens geradas com sucesso",
+    );
 
     return Object.fromEntries(usuariosMap.entries());
 });
@@ -6047,4 +5897,373 @@ export const getLicoesPreparo = functions.https.onCall(async (request) => {
 
     console.log("Aulas geradas com sucesso pelo usuário " + user.uid);
     return aulas;
+});
+
+// --- Pedidos ---
+interface FormEstruturaFront {
+    titulo?: string;
+    idKey?: string;
+    campos: any[];
+}
+interface FormularioFront {
+    modeloId?: string;
+    dados: {
+        titulo: string;
+        descricao?: string;
+        data_inicio: string;
+        data_fim: string;
+        tipo: "modelo" | "formulario";
+        nomeModelo?: string;
+        estrutura: FormEstruturaFront[];
+    };
+}
+export const salvarFormularioPedido = functions.https.onCall(
+    async (request) => {
+        const { db, isSuperAdmin, user } = await validarUsuario(request);
+
+        if (!isSuperAdmin) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Você não tem permissão para isso.",
+            );
+        }
+
+        const {
+            dados: {
+                data_fim,
+                data_inicio,
+                tipo,
+                titulo,
+                estrutura,
+                descricao,
+                nomeModelo,
+            },
+            modeloId,
+        } = request.data as FormularioFront;
+
+        if (
+            !data_fim ||
+            !data_inicio ||
+            (tipo !== "formulario" && tipo !== "modelo") ||
+            !titulo ||
+            !estrutura
+        ) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "Dados inválidos ou ausentes.",
+            );
+        }
+
+        const dadosPedido: any = {
+            titulo,
+            descricao,
+            data_inicio: Timestamp.fromDate(
+                new Date(data_inicio + "T12:00:00"),
+            ),
+            data_fim: Timestamp.fromDate(new Date(data_fim + "T12:00:00")),
+            tipo,
+            nomeModelo,
+        };
+
+        if (modeloId) {
+            const pedidoRef = db.collection("pedidos").doc(modeloId);
+            const pedidoSnap = await pedidoRef.get();
+
+            if (pedidoSnap.exists) {
+                const pedidoData = pedidoSnap.data();
+
+                if (pedidoData?.tipo === "formulario") {
+                    await pedidoRef.update(dadosPedido);
+
+                    const estrururaSnap = await pedidoRef
+                        .collection("estrutura")
+                        .doc("dados")
+                        .get();
+                    await estrururaSnap.ref.update("estrutura", estrutura);
+
+                    enviarLog(
+                        user,
+                        request,
+                        "SALVAR_FORMULARIO_PEDIDO",
+                        `Formulário atualizado com sucesso pelo usuário: ${user.uid}`,
+                    );
+
+                    return { id: modeloId };
+                }
+            }
+        }
+
+        dadosPedido.ministerioId = user.ministerioId;
+
+        const batch = db.batch();
+        const pedidoRef = db.collection("pedidos").doc();
+        batch.set(pedidoRef, dadosPedido);
+        batch.set(pedidoRef.collection("estrutura").doc("dados"), {
+            estrutura: estrutura || [],
+        });
+
+        await batch.commit();
+
+        enviarLog(
+            user,
+            request,
+            "SALVAR_FORMULARIO_PEDIDO",
+            `Formulário salvo com sucesso pelo usuário: ${user.uid}`,
+        );
+
+        return { id: pedidoRef.id };
+    },
+);
+
+interface SugestaoFront {
+    rotulos: string[];
+    modeloId: string;
+}
+export const getSugestaoPedidosRevistas = functions.https.onCall(
+    async (request) => {
+        const { db, user, isSecretario } = await validarUsuario(request);
+
+        if (isSecretario) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Você não tem permissão para isso.",
+            );
+        }
+
+        const { rotulos } = request.data as SugestaoFront;
+
+        if (!rotulos?.length) {
+            throw new functions.https.HttpsError(
+                "invalid-argument",
+                "Dados inválidos ou ausentes.",
+            );
+        }
+
+        const promisesClasses = [];
+        for (let i = 0; i < rotulos.length; i += 30) {
+            const chunk = rotulos.slice(i, i + 30);
+            promisesClasses.push(
+                db
+                    .collection("classes")
+                    .where("igrejaId", "==", user.igrejaId)
+                    .where("rotuloId", "in", chunk)
+                    .get(),
+            );
+        }
+
+        const classeInfosMap = new Map<
+            string,
+            {
+                rotuloId: string;
+                totalMatriculados: number;
+                sugestao: number;
+                totalProfessores: number;
+            }
+        >();
+        const classesId = (await Promise.all(promisesClasses)).flatMap((v) =>
+            v.docs.flatMap((v) => {
+                const data = v.data();
+                classeInfosMap.set(v.id, {
+                    rotuloId: data.rotuloId,
+                    totalMatriculados: 0,
+                    sugestao: 0,
+                    totalProfessores: 0,
+                });
+
+                return v.id;
+            }),
+        );
+
+        const professoresPromises = [];
+        for (let i = 0; i < classesId.length; i += 30) {
+            const chunk = classesId.slice(i, i + 30);
+            professoresPromises.push(
+                db
+                    .collection("usuarios")
+                    .where("igrejaId", "==", user.igrejaId)
+                    .where("role", "==", "professor")
+                    .where("classeId", "in", chunk)
+                    .get(),
+            );
+        }
+
+        (await Promise.all(professoresPromises)).forEach((v) => {
+            v.docs.forEach((v) => {
+                const p = v.data();
+                const obj = classeInfosMap.get(p.classeId);
+                if (obj) obj.totalProfessores += 1;
+            });
+        });
+
+        const licoesIds = (
+            await db
+                .collection("licoes")
+                .where("ativo", "==", true)
+                .where("igrejaId", "==", user.igrejaId)
+                .get()
+        ).docs.map((v) => {
+            const l = { id: v.id, ...v.data() } as Licao;
+            const c = classeInfosMap.get(l.classeId);
+            if (c) c.totalMatriculados = l.total_matriculados;
+            return v.id;
+        });
+
+        const promisesRegistrosAula = [];
+        for (let i = 0; i < licoesIds.length; i += 30) {
+            const chunk = licoesIds.slice(i, i + 30);
+            promisesRegistrosAula.push(
+                db
+                    .collection("registros_aula")
+                    .where("igrejaId", "==", user.igrejaId)
+                    .where("licaoId", "in", chunk)
+                    .get(),
+            );
+        }
+
+        let totalOfertas = 0;
+        (await Promise.all(promisesRegistrosAula)).forEach((v) =>
+            v.docs.forEach((v) => {
+                const r = { id: v.id, ...v.data() } as RegistroAulaInterface & {
+                    id: string;
+                };
+                totalOfertas += r.ofertas_total;
+
+                const rotuloObj = classeInfosMap.get(r.classeId);
+                if (rotuloObj) {
+                    const { sugestao } = rotuloObj;
+                    rotuloObj.sugestao = Math.max(sugestao, r.total_presentes);
+                }
+            }),
+        );
+
+        const rotulosMap = new Map();
+        classeInfosMap.forEach((v) => {
+            if (rotulosMap.has(v.rotuloId)) {
+                const r = rotulosMap.get(v.rotuloId);
+                r.total_sugerido += v.sugestao;
+                r.total_professores += v.totalProfessores;
+                return;
+            }
+
+            rotulosMap.set(v.rotuloId, {
+                total_sugerido: v.sugestao,
+                total_matriculados: v.totalMatriculados,
+                total_professores: v.totalProfessores,
+            });
+        });
+
+        const result = {
+            total_ofertas: totalOfertas,
+            sugestoes: Object.fromEntries(rotulosMap.entries()),
+        };
+
+        enviarLog(
+            user,
+            request,
+            "GET_SUGESTAO_PEDIDOS_REVISTA",
+            `Sugestão gerada pelo usuário: ${user.uid}`,
+        );
+
+        return result;
+    },
+);
+
+interface SalvarRespostaPedidoFront {
+    modeloId: string;
+    total_ofertas: number;
+    respostas: { [idKey: string]: number | string };
+}
+
+export const salvarRespostaPedido = functions.https.onCall(async (request) => {
+    const { db, isSecretario, user } = await validarUsuario(request);
+
+    if (isSecretario) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso.",
+        );
+    }
+
+    const { modeloId, respostas, total_ofertas } =
+        request.data as SalvarRespostaPedidoFront;
+    if (!modeloId || !respostas || typeof total_ofertas !== "number") {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes",
+        );
+    }
+
+    const [modeloSnap, estruturaSnap] = await Promise.all([
+        db.collection("pedidos").doc(modeloId).get(),
+        db
+            .collection("pedidos")
+            .doc(modeloId)
+            .collection("estrutura")
+            .doc("dados")
+            .get(),
+    ]);
+
+    if (!modeloSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Modelo não encontrado",
+        );
+    }
+
+    const modelo = modeloSnap.data();
+    const dataEncerramento = modelo?.data_fim.toDate();
+    const dataAtual = new Date();
+    dataAtual.setHours(11, 0, 0, 0);
+
+    if (dataAtual > dataEncerramento) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "O formulário já foi encerrado",
+        );
+    }
+
+    const { estrutura } = estruturaSnap.data() as {
+        estrutura: FormEstruturaFront[];
+    };
+
+    const dadosMap = new Map();
+    estrutura.forEach((v) => {
+        v.campos.forEach((v) => {
+            const id = v.idKey;
+            const resposta = respostas[id];
+            const obj = {
+                ...v,
+                resposta,
+            };
+
+            dadosMap.set(id, obj);
+        });
+    });
+
+    const dadosParaSalvar = {
+        ministerioId: user.ministerioId,
+        igrejaId: user.igrejaId,
+        estrutura: Object.fromEntries(dadosMap.entries()),
+        total_ofertas,
+        data_resposta: Timestamp.fromDate(dataAtual),
+        modeloId,
+        envido_por: {
+            email: user.email,
+            nome: user.nome,
+        },
+    };
+
+    await db
+        .collection("pedidos_respostas")
+        .doc(`${modeloId}_${user.igrejaId}`)
+        .set(dadosParaSalvar, { merge: true });
+
+    enviarLog(
+        user,
+        request,
+        "SALVAR_RESPOSTA_PEDIDO",
+        `Formulário salvo com sucesso por ${user.uid}`,
+    );
+
+    return { message: "Formulário salvo com sucesso" };
 });

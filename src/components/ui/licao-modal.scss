@@ -77,7 +77,9 @@
             cursor: pointer;
             transition: all 0.3s ease;
             font-size: 2rem;
-            transition: color ease 0.3s, transform ease 0.3s;
+            transition:
+                color ease 0.3s,
+                transform ease 0.3s;
             color: v.$cor-erro;
             &:hover {
                 color: color.scale(v.$cor-erro, $lightness: -50%);
@@ -93,7 +95,10 @@
             border-radius: 50%;
             display: grid;
             place-items: center;
-            transition: color 0.2s, background-color 0.2s, transform 0.3s;
+            transition:
+                color 0.2s,
+                background-color 0.2s,
+                transform 0.3s;
             aspect-ratio: 1/1;
 
             &:hover {
@@ -208,7 +213,9 @@
             cursor: pointer;
             padding: 0.5rem 1rem;
             border-radius: 0.6rem;
-            transition: background-color 0.2s, transform 0.2s;
+            transition:
+                background-color 0.2s,
+                transform 0.2s;
 
             &:hover {
                 background-color: color.scale(
@@ -216,6 +223,16 @@
                     $alpha: -90%
                 );
                 transform: translateX(-2px);
+            }
+        }
+
+        &--sem-domingo {
+            grid-template-rows: 1fr;
+            grid-template-columns: none;
+            gap: 0;
+            & .licao-modal__header-config {
+                padding-right: 0.5rem;
+                flex-direction: row-reverse;
             }
         }
     }

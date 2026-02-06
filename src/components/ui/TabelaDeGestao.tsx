@@ -73,7 +73,7 @@ function TabelaDeGestao({
                                     {v.nome}
                                 </p>
                             </th>
-                        )
+                        ),
                     )}
 
                     <th>
@@ -96,7 +96,7 @@ function TabelaDeGestao({
                                         ?.toDate()
                                         ?.toLocaleDateString(
                                             "pt-BR",
-                                            opt.dataObject
+                                            opt.dataObject,
                                         ) || opt.placeholder}
                                 </td>
                             ) : opt.isBoolean ? (
@@ -117,9 +117,11 @@ function TabelaDeGestao({
                                 </td>
                             ) : (
                                 <td key={opt.id + i} data-label={opt.nome}>
-                                    {v[opt.id] || opt.placeholder}
+                                    {v[opt.id] || typeof v[opt.id] === "number"
+                                        ? v[opt.id]
+                                        : opt.placeholder}
                                 </td>
-                            )
+                            ),
                         )}
                         <td data-label="Ações">
                             <div className="tabela-gestao__acoes">

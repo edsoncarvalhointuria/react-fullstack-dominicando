@@ -51,8 +51,11 @@
         border: none;
         font-size: 2rem;
         color: v.$cor-secundaria-texto;
+
         cursor: pointer;
-        transition: color 0.2s, transform 0.2s;
+        transition:
+            color 0.2s,
+            transform 0.2s;
 
         &:hover {
             color: v.$cor-primaria-texto;
@@ -64,6 +67,11 @@
         padding: 2.5rem;
         display: grid;
         gap: 2rem;
+
+        @media all and (max-width: 30em) {
+            max-height: 71dvh;
+            overflow-y: auto;
+        }
     }
 
     &__form {
@@ -81,6 +89,10 @@
             font-size: 1.4rem;
             font-weight: 500;
             color: v.$cor-primaria-texto;
+
+            span {
+                color: v.$cor-erro;
+            }
         }
 
         input {

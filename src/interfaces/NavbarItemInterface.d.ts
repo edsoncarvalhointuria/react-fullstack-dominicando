@@ -1,6 +1,7 @@
 interface NavbarItemInterface {
     texto: string;
     caminho?: string;
+    icon?: any;
     dropdown?: {
         texto: string;
         caminho?: string;

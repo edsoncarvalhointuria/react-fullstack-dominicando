@@ -33,6 +33,10 @@ import Preparo from "./components/pages/preparo/Preparo";
 import PreparoAula from "./components/pages/preparo/PreparoAula";
 import RelatorioTrimestral from "./components/pages/relatorios/RelatorioTrimestral";
 import Trimestres from "./components/pages/trimestres/Trimestres";
+import RotulosClasses from "./components/pages/rotulos_classes/RotulosClasses";
+import Pedidos from "./components/pages/pedidos/Pedidos";
+import PedidosFormulario from "./components/pages/pedidos/PedidosFormulario";
+import PedidosResposta from "./components/pages/pedidos/PedidosResposta";
 // import { app } from "./utils/firebase";
 
 function App() {
@@ -213,6 +217,7 @@ function App() {
 
                         <Route path="minha-conta" element={<MinhaConta />} />
 
+                        {/* Gestão */}
                         <Route path="/igrejas" element={<Igrejas />} />
                         <Route path="/classes" element={<Classes />} />
                         <Route path="/membros" element={<Membros />} />
@@ -229,6 +234,11 @@ function App() {
                             element={<Comprovantes />}
                         />
                         <Route path="/trimestres" element={<Trimestres />} />
+                        <Route
+                            path="/rotulos-classes"
+                            element={<RotulosClasses />}
+                        />
+
                         <Route path="/relatorios">
                             <Route
                                 path="dominical/:igrejaId"
@@ -254,19 +264,35 @@ function App() {
                             <Route path="" element={<Relatorios />} />
                         </Route>
 
-                        <Route path="/ajuda">
-                            <Route element={<Ajuda />} path="" />
-                            <Route
-                                element={<AjudaArtigo key={location.key} />}
-                                path=":ajudaId"
-                            />
-                        </Route>
-
                         <Route path="/preparo">
                             <Route path="" element={<Preparo />} />
                             <Route
                                 path="licao/:licaoId/aula/:aulaId"
                                 element={<PreparoAula />}
+                            />
+                        </Route>
+
+                        <Route path="/pedidos">
+                            <Route path="" element={<Pedidos />} />
+                            <Route
+                                path="criar/:modeloId?"
+                                element={<PedidosFormulario />}
+                            />
+                            <Route
+                                path="formulario/:modeloId"
+                                element={<PedidosResposta />}
+                            />
+                            <Route
+                                path="formulario/:modeloId/:type"
+                                element={<PedidosResposta />}
+                            />
+                        </Route>
+
+                        <Route path="/ajuda">
+                            <Route element={<Ajuda />} path="" />
+                            <Route
+                                element={<AjudaArtigo key={location.key} />}
+                                path=":ajudaId"
                             />
                         </Route>
                     </Route>

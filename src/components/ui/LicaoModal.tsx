@@ -55,7 +55,7 @@ function LicaoModal({
     editLicao: React.Dispatch<React.SetStateAction<LicaoInterface | null>>;
 }) {
     const [aulasRegistradas, setAulasRegistradas] = useState<AulaDocument[]>(
-        []
+        [],
     );
     const [isLoading, setIsLoading] = useState(true);
     const [openConfig, setOpenConfig] = useState(false);
@@ -93,7 +93,7 @@ function LicaoModal({
                     data: dataAula,
                     aulaRegistrada: aulasMap.get(numeroAula) || null,
                 };
-            }
+            },
         );
 
         return listaAulas;
@@ -102,7 +102,7 @@ function LicaoModal({
     const domingoAtual = useMemo(() => {
         const domingo = getDomingo().toLocaleDateString("pt-BR");
         const aula = aulasDoTrimestre.find(
-            (v) => v.data.toLocaleDateString("pt-BR") === domingo
+            (v) => v.data.toLocaleDateString("pt-BR") === domingo,
         );
 
         return aula;
@@ -116,7 +116,7 @@ function LicaoModal({
                     db,
                     "licoes",
                     licao.id,
-                    "aulas"
+                    "aulas",
                 );
                 const aulasSnapshot = await getDocs(aulasCollection);
                 const aulas = aulasSnapshot.docs.map((doc) => ({
@@ -137,8 +137,8 @@ function LicaoModal({
             <motion.div
                 layout
                 className={`licao-modal__header ${
-                    isPanorama && "licao-modal__header--panorama"
-                }`}
+                    isPanorama ? "licao-modal__header--panorama" : ""
+                } ${!domingoAtual ? "licao-modal__header--sem-domingo" : ""}`}
             >
                 <div className="licao-modal__header-config">
                     <div
@@ -207,7 +207,7 @@ function LicaoModal({
                                                     setIsPanorama(true);
                                                     if (!panoramaDados) {
                                                         setLoadingPanorama(
-                                                            true
+                                                            true,
                                                         );
                                                         getResumoDaLicao({
                                                             licaoId: licao.id,
@@ -215,15 +215,17 @@ function LicaoModal({
                                                             .then(
                                                                 ({ data }) => {
                                                                     setPanoramaDados(
-                                                                        data
+                                                                        data,
                                                                     );
                                                                     setLoadingPanorama(
-                                                                        false
+                                                                        false,
                                                                     );
-                                                                }
+                                                                },
                                                             )
                                                             .catch((err) =>
-                                                                console.log(err)
+                                                                console.log(
+                                                                    err,
+                                                                ),
                                                             );
                                                     }
                                                 }}
@@ -294,7 +296,7 @@ function LicaoModal({
                                             whileTap={{ scale: 0.8 }}
                                             onTap={() =>
                                                 navigate(
-                                                    `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${domingoAtual?.numero}`
+                                                    `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${domingoAtual?.numero}`,
                                                 )
                                             }
                                             transition={{ duration: 0.2 }}
@@ -313,7 +315,7 @@ function LicaoModal({
                                                         day: "2-digit",
                                                         month: "long",
                                                         year: "numeric",
-                                                    }
+                                                    },
                                                 )}
                                             </span>
                                         </motion.button>
@@ -351,7 +353,7 @@ function LicaoModal({
                                         key={aula.numero}
                                         onClick={() =>
                                             navigate(
-                                                `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${aula.numero}`
+                                                `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${aula.numero}`,
                                             )
                                         }
                                         className={
@@ -364,11 +366,11 @@ function LicaoModal({
                                             <p>Lição {aula.numero}</p>
                                             <data
                                                 value={aula.data.toLocaleDateString(
-                                                    "pt-BR"
+                                                    "pt-BR",
                                                 )}
                                             >
                                                 {aula.data.toLocaleDateString(
-                                                    "pt-BR"
+                                                    "pt-BR",
                                                 )}
                                             </data>
                                         </div>

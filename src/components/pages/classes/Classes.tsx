@@ -9,6 +9,7 @@ import {
     faFileCsv,
     faNetworkWired,
     faPlus,
+    faTag,
     faThumbsUp,
     faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
@@ -51,6 +52,13 @@ function Classes() {
             placeholder: "",
         },
         {
+            nome: "Rótulo",
+            id: "rotuloNome",
+            icon: faTag,
+            isFilter: true,
+            placeholder: "-",
+        },
+        {
             nome: "Idade mínima",
             id: "idade_minima",
             icon: faNetworkWired,
@@ -80,7 +88,7 @@ function Classes() {
     const { isSecretario, isSuperAdmin } = useAuthContext();
     const { isLoadingData, igrejas, classes, refetchData } = useDataContext();
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
+        null,
     );
     const [isLoading, setIsLoading] = useState(false);
     const [addClasse, setAddClasse] = useState(false);
@@ -88,10 +96,10 @@ function Classes() {
     const [editClasse, setEditClasse] = useState("");
     const [pesquisa, setPesquisa] = useState("");
     const [ordemColuna, setOrdemColuna] = useState<"nome" | "igrejaNome">(
-        "nome"
+        "nome",
     );
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
@@ -157,7 +165,7 @@ function Classes() {
                 (v) =>
                     v.nome.toLowerCase().includes(pesquisa) ||
                     v.igrejaNome.toLowerCase().includes(pesquisa) ||
-                    v.id.toLowerCase() === pesquisa
+                    v.id.toLowerCase() === pesquisa,
             );
         return c.sort((a, b) => getOrdem(a, b, ordemColuna, ordem));
     }, [pesquisa, classes, currentIgreja, ordemColuna, ordem]);
@@ -233,7 +241,7 @@ function Classes() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             onSelect={(v) => setOrdemColuna(v.id as any)}
@@ -286,7 +294,7 @@ function Classes() {
                                     setOrdem((v) =>
                                         v === "crescente"
                                             ? "decrescente"
-                                            : "crescente"
+                                            : "crescente",
                                     );
                                 }}
                             />

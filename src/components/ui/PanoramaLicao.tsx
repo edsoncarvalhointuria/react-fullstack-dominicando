@@ -238,16 +238,16 @@ const Detalhes = ({
                                         {typeof v.status !== "boolean"
                                             ? v.status
                                             : v.status
-                                            ? `Trouxe ${
-                                                  opt === "licoes"
-                                                      ? "Lição"
-                                                      : "Bíblia"
-                                              }`
-                                            : `Não Trouxe ${
-                                                  opt === "licoes"
-                                                      ? "Lição"
-                                                      : "Bíblia"
-                                              }`}
+                                              ? `Trouxe ${
+                                                    opt === "licoes"
+                                                        ? "Lição"
+                                                        : "Bíblia"
+                                                }`
+                                              : `Não Trouxe ${
+                                                    opt === "licoes"
+                                                        ? "Lição"
+                                                        : "Bíblia"
+                                                }`}
                                     </p>
                                 </li>
                             );
@@ -268,7 +268,7 @@ const gerarCSV = (
     }[],
     igrejaNome: string,
     classeNome: string,
-    licaoNome: string
+    licaoNome: string,
 ) => {
     const { chamada } = dados[0];
     const colunas = [
@@ -314,7 +314,9 @@ const gerarCSV = (
 
     const tabela = [colunas.join(";"), ...linhas].join("\n");
 
-    const blob = new Blob([tabela], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["\uFEFF" + tabela], {
+        type: "text/csv;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
@@ -349,7 +351,7 @@ function PanoramaLicao({
         if (!dados?.frequenciaAlunos) return [];
 
         let alunos = dados?.frequenciaAlunos.filter((v) =>
-            v.nome?.toLowerCase().includes(pesquisa)
+            v.nome?.toLowerCase().includes(pesquisa),
         );
 
         return alunos;
@@ -412,7 +414,7 @@ function PanoramaLicao({
                                 icone={faCoins}
                                 valor={dados.totalArrecadado.toLocaleString(
                                     "pt-BR",
-                                    { currency: "BRL", style: "currency" }
+                                    { currency: "BRL", style: "currency" },
                                 )}
                                 isCentro={true}
                             />
@@ -435,7 +437,7 @@ function PanoramaLicao({
                                                 dados.frequenciaAlunos,
                                                 igrejaNome,
                                                 classeNome,
-                                                licaoNome
+                                                licaoNome,
                                             )
                                         }
                                     >
@@ -480,7 +482,7 @@ function PanoramaLicao({
                             {alunosMemo
                                 .sort(
                                     (a, b) =>
-                                        b[opt].porcentagem - a[opt].porcentagem
+                                        b[opt].porcentagem - a[opt].porcentagem,
                                 )
                                 .map((aluno) => (
                                     <AcordeaoAluno

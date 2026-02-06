@@ -91,7 +91,7 @@ function DesktopNavbar({
                                                     }) => {
                                                         if (isActive) {
                                                             $dropdown.current?.classList.add(
-                                                                "active"
+                                                                "active",
                                                             );
                                                             return "nav-desktop__link nav-desktop__link--active";
                                                         }
@@ -116,17 +116,17 @@ function DesktopNavbar({
                                     className={({ isActive }) => {
                                         if (isActive) {
                                             $dropdown.current?.classList.remove(
-                                                "active"
+                                                "active",
                                             );
                                             return "nav-desktop__link nav-desktop__link--active";
                                         }
                                         return "nav-desktop__link";
                                     }}
                                 >
-                                    {v.texto}
+                                    <span>{v.texto}</span>
                                 </NavLink>
                             </motion.li>
-                        )
+                        ),
                     )}
                 </ul>
                 <motion.div

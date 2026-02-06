@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import "./cadastro-classe-modal.scss";
 import { motion } from "framer-motion";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { useDataContext } from "../../context/DataContext";
-import { doc, getDoc } from "firebase/firestore";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    where,
+} from "firebase/firestore";
 import { db } from "../../utils/firebase";
 import { faChalkboardUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -11,9 +18,11 @@ import Dropdown from "./Dropdown";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
+import { useAuthContext } from "../../context/AuthContext";
 
 interface Form {
     igrejaId: string;
+    rotuloId: string;
     nome: string;
     idade_minima?: number;
     idade_maxima?: number;
@@ -45,9 +54,14 @@ function CadastroClasseModal({
     } = methods;
 
     const { idade_minima, idade_maxima } = watch();
-    const $container = useRef<HTMLDivElement>(null);
     const [isEnviando, setIsEnviando] = useState(false);
+    const [isLoadingRotulos, setIsLoadingRotulos] = useState(true);
+    const [rotulos, setRotulos] = useState<RotulosClassesInterface[]>([]);
+    const [currentRotulo, setCurrentRotulo] =
+        useState<RotulosClassesInterface | null>(null);
     const [mensagemErro, setMensagemErro] = useState("");
+
+    const { user } = useAuthContext();
 
     const onSubmit = (dados: Form) => {
         dados.idade_minima = Number.isNaN(dados.idade_minima)
@@ -83,6 +97,40 @@ function CadastroClasseModal({
 
             return classe;
         };
+        const getRotulos = async () => {
+            const coll = collection(db, "rotulos_classes");
+            const q = query(
+                coll,
+                where("ministerioId", "==", user?.ministerioId),
+            );
+            const docs = await getDocs(q);
+
+            const rotulos = docs.docs
+                .map((v) => {
+                    const r = {
+                        id: v.id,
+                        ...v.data(),
+                    } as RotulosClassesInterface;
+                    const comIdade =
+                        typeof r?.idade_minima === "number" ||
+                        typeof r?.idade_maxima === "number";
+                    const idadeMinima = `${r.idade_minima}`;
+                    const idadeMaxima = ` - ${r.idade_maxima ? `${r.idade_maxima} anos` : "N/A anos"}`;
+
+                    r.nome = `${r?.nome}${comIdade ? ` (${idadeMinima}${idadeMaxima})` : ""}`;
+                    return r;
+                })
+                .sort((a, b) => {
+                    if (a.nome === "OUTRO") return 1;
+                    if (b.nome === "OUTRO") return -1;
+
+                    return a.idade_minima - b.idade_minima;
+                });
+
+            return rotulos.length > 0
+                ? rotulos
+                : [{ id: "id-outro", nome: "OUTRO" } as any];
+        };
         if (classeId)
             getClasse(classeId)
                 .then((v) => {
@@ -91,6 +139,7 @@ function CadastroClasseModal({
                         idade_maxima: v?.idade_maxima,
                         idade_minima: v?.idade_minima,
                         igrejaId: v?.igrejaId,
+                        rotuloId: v?.rotuloId,
                     });
                 })
                 .catch((err) => {
@@ -100,19 +149,21 @@ function CadastroClasseModal({
         else if (igrejas.find((v) => v.id === igrejaId)) {
             setValue("igrejaId", igrejaId || "");
         }
+
+        getRotulos()
+            .then((v) => {
+                setRotulos(v);
+            })
+            .catch((err) => {
+                console.log("deu esse erro", err);
+            })
+            .finally(() => setIsLoadingRotulos(false));
     }, [classeId, igrejaId]);
 
     return (
         <>
-            <motion.div
-                className="classe-modal-overlay"
-                ref={$container}
-                onClick={onCancel}
-            >
+            <div className="classe-modal-overlay" onClick={onCancel}>
                 <motion.div
-                    drag
-                    dragConstraints={$container}
-                    whileDrag={{ cursor: "grabbing" }}
                     className="classe-modal"
                     onClick={(e) => e.stopPropagation()}
                     initial={{ scale: 0.5, opacity: 0 }}
@@ -141,11 +192,55 @@ function CadastroClasseModal({
                             <div className="classe-modal__body">
                                 <div
                                     className={`classe-modal__input-group ${
+                                        errors.rotuloId && "input-error"
+                                    }`}
+                                >
+                                    <label htmlFor="igreja-classe">
+                                        Rótulo <span>*</span>
+                                    </label>
+                                    <Controller
+                                        name="rotuloId"
+                                        control={control}
+                                        rules={{
+                                            required: "O rótulo é obrigatório.",
+                                        }}
+                                        render={({ field }) => (
+                                            <Dropdown
+                                                lista={rotulos}
+                                                current={
+                                                    rotulos.find(
+                                                        (v) =>
+                                                            field.value ===
+                                                            v.id,
+                                                    )?.nome || ""
+                                                }
+                                                isAll={false}
+                                                isErro={!!errors.rotuloId}
+                                                isLoading={isLoadingRotulos}
+                                                selectId={field.value}
+                                                onSelect={(response) => {
+                                                    field.onChange(
+                                                        response?.id || null,
+                                                    );
+                                                    setCurrentRotulo(response);
+                                                }}
+                                            />
+                                        )}
+                                    />
+                                    {errors.rotuloId && (
+                                        <p className="classe-modal__input-erro">
+                                            {errors.rotuloId.message}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div
+                                    className={`classe-modal__input-group ${
                                         errors.igrejaId && "input-error"
                                     }`}
                                 >
                                     <label htmlFor="igreja-classe">
-                                        Igreja*
+                                        Igreja <span>*</span>
                                     </label>
                                     <Controller
                                         name="igrejaId"
@@ -159,14 +254,15 @@ function CadastroClasseModal({
                                                 current={
                                                     igrejas.find(
                                                         (v) =>
-                                                            v.id === field.value
+                                                            v.id ===
+                                                            field.value,
                                                     )?.nome || null
                                                 }
                                                 isAll={false}
                                                 isErro={!!errors.igrejaId}
                                                 onSelect={(response) =>
                                                     field.onChange(
-                                                        response?.id || null
+                                                        response?.id || null,
                                                     )
                                                 }
                                             />
@@ -181,7 +277,7 @@ function CadastroClasseModal({
 
                                 <div className="classe-modal__input-group">
                                     <label htmlFor="nome-classe">
-                                        Nome da Classe*
+                                        Nome da Classe <span>*</span>
                                     </label>
                                     <input
                                         className={errors.nome && "input-error"}
@@ -208,7 +304,11 @@ function CadastroClasseModal({
                                     <div className="classe-modal__input-group">
                                         <label htmlFor="idade-minima-classe">
                                             Idade Mínima{" "}
-                                            {idade_maxima ? "*" : ""}
+                                            {idade_maxima ? (
+                                                <span> *</span>
+                                            ) : (
+                                                ""
+                                            )}
                                         </label>
                                         <input
                                             className={
@@ -217,6 +317,12 @@ function CadastroClasseModal({
                                             }
                                             id="idade-minima-classe"
                                             type="number"
+                                            defaultValue={
+                                                typeof currentRotulo?.idade_minima ===
+                                                "number"
+                                                    ? currentRotulo.idade_minima
+                                                    : undefined
+                                            }
                                             {...register("idade_minima", {
                                                 min: {
                                                     value: 0,
@@ -246,6 +352,12 @@ function CadastroClasseModal({
                                                 "input-error"
                                             }
                                             id="idade-maxima-classe"
+                                            defaultValue={
+                                                typeof currentRotulo?.idade_maxima ===
+                                                "number"
+                                                    ? currentRotulo.idade_maxima
+                                                    : undefined
+                                            }
                                             type="number"
                                             {...register("idade_maxima", {
                                                 min: {
@@ -287,7 +399,7 @@ function CadastroClasseModal({
                         </form>
                     </FormProvider>
                 </motion.div>
-            </motion.div>
+            </div>
             <AlertModal
                 isOpen={!!mensagemErro}
                 message={mensagemErro}

@@ -5,16 +5,29 @@ import "./navbar.scss";
 import MobileNavbar from "./MobileNavbar";
 import { useAuthContext } from "../../../context/AuthContext";
 import { ROLES } from "../../../roles/Roles";
+import {
+    faBagShopping,
+    faBookOpen,
+    faChartColumn,
+    faCircleQuestion,
+    faFilePen,
+    faHouse,
+} from "@fortawesome/free-solid-svg-icons";
 
 function Navbar() {
     const OPCOES_NAV: NavbarItemInterface[] = [
-        { texto: "Início", caminho: "/dashboard" },
-        { texto: "Chamada", caminho: "/aulas" },
-        { texto: "Relatórios", caminho: "/relatorios" },
+        { texto: "Início", caminho: "/dashboard", icon: faHouse },
+        { texto: "Chamada", caminho: "/aulas", icon: faFilePen },
+        { texto: "Relatórios", caminho: "/relatorios", icon: faChartColumn },
         {
             texto: "Gestão",
             dropdown: [
                 { texto: "Igrejas", caminho: "/igrejas", superAdmin: true },
+                {
+                    texto: "Rótulos Classes",
+                    caminho: "/rotulos-classes",
+                    superAdmin: true,
+                },
                 { texto: "Classes", caminho: "/classes", admin: true },
                 { texto: "Membros", caminho: "/membros", admin: true },
                 { texto: "Alunos", caminho: "/alunos" },
@@ -35,13 +48,20 @@ function Navbar() {
             ],
         },
         {
-            texto: "Preparo 📖",
+            texto: "Preparo",
             caminho: "/preparo",
             notRoles: [ROLES.SECRETARIO_CLASSE],
+            icon: faBookOpen,
         },
-        { texto: "Ajuda", caminho: "/ajuda" },
+        {
+            texto: "Pedidos",
+            caminho: "/pedidos",
+            notRoles: [ROLES.PROFESSOR, ROLES.SECRETARIO_CLASSE],
+            icon: faBagShopping,
+        },
+        { texto: "Ajuda", caminho: "/ajuda", icon: faCircleQuestion },
     ];
-    const TAMANHO_MOBILE = 991;
+    const TAMANHO_MOBILE = 1010;
     const [isMobile, setIsMobile] = useState(
         window.innerWidth <= TAMANHO_MOBILE,
     );

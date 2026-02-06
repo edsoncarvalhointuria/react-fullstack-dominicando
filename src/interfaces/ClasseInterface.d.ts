@@ -6,4 +6,6 @@ interface ClasseInterface {
     nome: string;
     idade_minima: number;
     idade_maxima: number;
+    rotuloId: string;
+    rotuloNome: string;
 }

@@ -2,8 +2,9 @@ export const getOrdem = (a: any, b: any, ordemColuna: any, ordem: any) => {
     const itemA = a[ordemColuna];
     const itemB = b[ordemColuna];
 
-    if (!itemA) return 1;
-    if (!itemB) return -1;
+    if (typeof itemA === "number" && typeof itemB === "number") {
+        return ordem === "crescente" ? itemA - itemB : itemB - itemA;
+    }
 
     if (
         typeof itemA?.toDate === "function" &&
@@ -14,9 +15,8 @@ export const getOrdem = (a: any, b: any, ordemColuna: any, ordem: any) => {
             : itemB.toDate() - itemA.toDate();
     }
 
-    if (typeof itemA === "number" && typeof itemB === "number") {
-        return ordem === "crescente" ? itemA - itemB : itemB - itemA;
-    }
+    if (!itemA) return 1;
+    if (!itemB) return -1;
 
     return ordem === "crescente"
         ? itemA.localeCompare(itemB)
