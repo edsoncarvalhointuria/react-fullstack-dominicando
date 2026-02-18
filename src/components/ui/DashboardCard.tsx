@@ -14,7 +14,7 @@ import "./dashboard-card.scss";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUpRightAndDownLeftFromCenter } from "@fortawesome/free-solid-svg-icons";
-import { useState } from "react";
+import React, { useState } from "react";
 import DashboardCardModal from "./DashboardCardModal";
 
 function DashboardCard({
@@ -105,6 +105,7 @@ function DashboardCard({
                                         dataKey="value"
                                         innerRadius="60%"
                                         outerRadius="90%"
+                                        isAnimationActive={false}
                                     >
                                         {datas.map((_, i) => (
                                             <Cell
@@ -168,7 +169,7 @@ function DashboardCard({
                                                                 "number"
                                                                     ? current.value
                                                                     : 0) + prev,
-                                                            0
+                                                            0,
                                                         )}
                                                     </strong>
                                                 </span>
@@ -186,6 +187,7 @@ function DashboardCard({
 
                                     {dataKeys.map((v, i) => (
                                         <Area
+                                            isAnimationActive={false}
                                             type="monotone"
                                             key={v + i}
                                             dataKey={v}
@@ -250,7 +252,7 @@ function DashboardCard({
                                                                 "number"
                                                                     ? current.value
                                                                     : 0) + prev,
-                                                            0
+                                                            0,
                                                         )}
                                                     </strong>
                                                 </span>
@@ -268,6 +270,7 @@ function DashboardCard({
 
                                     {dataKeys.map((v, i) => (
                                         <Bar
+                                            isAnimationActive={false}
                                             dataKey={v}
                                             key={v + i}
                                             fill={
@@ -297,4 +300,4 @@ function DashboardCard({
     );
 }
 
-export default DashboardCard;
+export default React.memo(DashboardCard);

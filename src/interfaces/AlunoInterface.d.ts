@@ -11,3 +11,9 @@ interface AlunoInterface {
     isMembro: boolean;
     membroId: string | null;
 }
+
+interface CacheAlunoInteface {
+    igrejaId: string;
+    ministerioId: string;
+    lista: { [alunosId: string]: AlunoInterface };
+}

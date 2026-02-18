@@ -2,7 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { FieldValue, QuerySnapshot, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import JSZip from "jszip";
 
 enum Roles {
@@ -12,6 +12,33 @@ enum Roles {
     SECRETARIO_CONGREGACAO = "secretario_congregacao",
     PROFESSOR = "professor",
     SECRETARIO_CLASSE = "secretario_classe",
+}
+
+enum Cll {
+    ALUNOS = "alunos",
+    CACHE_ALUNOS = "cache_alunos",
+    CACHE_ANIVERSARIANTES = "cache_aniversariantes",
+    CACHE_CLASSES = "cache_classes",
+    CACHE_LICAO = "cache_licao",
+    CACHE_MATRICULAS = "cache_matriculas",
+    CACHE_MEMBROS = "cache_membros",
+    CACHE_USUARIOS = "cache_usuarios",
+    CLASSES = "classes",
+    IGREJAS = "igrejas",
+    LICOES = "licoes",
+    LICOES_PREPARO = "licoes_preparo",
+    MATRICULAS = "matriculas",
+    MEMBROS = "membros",
+    MINISTERIOS = "ministerios",
+    NOTIFICACOES = "notificacoes",
+    PEDIDOS = "pedidos",
+    PEDIDOS_RESPOSTA = "pedidos_respostas",
+    REGISTROS_AULA = "registros_aula",
+    RELATORIOS_TRIMESTRE = "relatorios_trimestre",
+    ROTULOS = "rotulos_classes",
+    TRIMESTRES = "trimestres",
+    USUARIOS = "usuarios",
+    VISITANTES = "visitantes",
 }
 
 interface ValidarUsuario {
@@ -77,6 +104,43 @@ function gerarCodigo() {
     return c;
 }
 
+function getNewCacheAluno(
+    nome: string,
+    id: string | number,
+    obj?: {
+        presente?: number;
+        atrasado?: number;
+        falta?: number;
+        falta_justificada?: number;
+        trouxe_biblia?: number;
+        trouxe_revista?: number;
+        nao_trouxe_biblia?: number;
+        nao_trouxe_revista?: number;
+        porcentagem_biblia?: number;
+        porcentagem_revista?: number;
+        porcentagem?: number;
+        matriculado?: boolean;
+    },
+) {
+    return {
+        id,
+        nome,
+        presente: 0,
+        atrasado: 0,
+        falta: 0,
+        falta_justificada: 0,
+        trouxe_biblia: 0,
+        trouxe_revista: 0,
+        nao_trouxe_biblia: 0,
+        nao_trouxe_revista: 0,
+        porcentagem_biblia: 0,
+        porcentagem_revista: 0,
+        porcentagem: 0,
+        matriculado: true,
+        ...obj,
+    };
+}
+
 async function validarUsuario(request: functions.https.CallableRequest) {
     if (!request.auth) {
         throw new functions.https.HttpsError(
@@ -110,14 +174,15 @@ async function validarUsuario(request: functions.https.CallableRequest) {
     return { user, db, isSuperAdmin, isAdmin, isSecretario };
 }
 
-async function baseDashboard(
+function baseDashboard(
     usuario: ValidarUsuario,
     request: functions.https.CallableRequest,
     collection: string,
+    withData?: boolean,
+    notData?: boolean,
 ) {
     const { db, isSecretario, isSuperAdmin, user } = usuario;
 
-    const isLicao = collection === "licoes";
     let { dataInicio, dataFim } = request.data;
     if (!dataInicio || !dataFim) {
         throw new functions.https.HttpsError(
@@ -130,12 +195,14 @@ async function baseDashboard(
     dataInicio.setHours(0, 0, 0, 0);
 
     dataFim = new Date(dataFim);
-    dataFim.setHours(23, 59, 59, 999);
+    dataFim.setHours(23, 59, 59, 59);
 
-    const baseQuery = db
-        .collection(collection)
-        .where(isLicao ? "data_inicio" : "data", ">=", dataInicio)
-        .where(isLicao ? "data_fim" : "data", "<=", dataFim);
+    const baseQuery = notData
+        ? db.collection(collection)
+        : db
+              .collection(collection)
+              .where(withData ? "data_inicio" : "data", ">=", dataInicio)
+              .where(withData ? "data_fim" : "data", "<=", dataFim);
 
     let q;
     if (isSecretario) q = baseQuery.where("classeId", "==", user.classeId);
@@ -146,124 +213,98 @@ async function baseDashboard(
     return q;
 }
 
-function calcRegistrosAula(
+function calcCacheLicao(
     documentos: admin.firestore.DocumentData[],
     isSuperAdmin: boolean,
     isSecretario: boolean,
     key: string,
 ) {
-    const itensTotal = documentos.map((v) => {
-        const data = v.data();
-        return {
-            data: data.data.toDate().toLocaleDateString("pt-BR"),
-            igreja: data.igrejaNome,
-            classe: data.classeNome,
-            [key]: data[key] || 0,
-        };
+    const listaItens: any[] = [];
+    documentos.forEach((v) => {
+        const cache = v.data() as CacheLicaoInterface;
+        if (!cache.igrejaNome) console.log("sem nome igreja", v.id);
+        if (!cache.classeNome) console.log("sem nome classe", v.id);
+
+        if (key === "total_matriculados") {
+            listaItens.push({
+                licao: cache.licaoNome,
+                igreja: cache.igrejaNome,
+                classe: cache.classeNome,
+                data: cache.data_inicio.toDate().toLocaleDateString("pt-BR"),
+                [key]: cache[key] || 0,
+            });
+        } else
+            Object.entries(cache.detalhes_aulas).forEach(([data, obj]) => {
+                listaItens.push({
+                    [key]: (obj as any)[key],
+                    data: data,
+                    igreja: cache.igrejaNome,
+                    classe: cache.classeNome,
+                });
+            });
     });
 
-    if (!itensTotal.length) return [];
-
     if (isSecretario)
-        return itensTotal.map((v) => ({ name: v.data, valor: v[key] }));
+        return listaItens.map((v: any) => ({
+            name: key === "total_matriculados" ? v.licao : v.data,
+            value: v[key],
+        }));
     else {
-        const mapTotal = new Map<string, { [key: string]: any }>();
-        const group = isSuperAdmin ? "igreja" : "classe";
+        const tipoKey = isSuperAdmin ? "igreja" : "classe";
+        const valoresMap = new Map();
 
-        itensTotal.forEach((v) => {
+        listaItens.forEach((v) => {
+            const nome = v[tipoKey];
             const data = v.data;
-            const keyGroup = v[group];
+            const item = valoresMap.get(data) || { name: data };
+            item[nome] = (item[nome] || 0) + v[key];
 
-            const item = mapTotal.get(data) || { name: data };
-            item[keyGroup] = (item[keyGroup] || 0) + v[key];
-            mapTotal.set(data, item);
+            valoresMap.set(data, item);
         });
 
-        return Array.from(mapTotal.values());
+        return Array.from(valoresMap.values()).sort((a, b) => {
+            const [d1, m1, a1] = a.name.split("/");
+            const [d2, m2, a2] = b.name.split("/");
+
+            return (
+                new Date(a1, m1, d1).getTime() - new Date(a2, m2, d2).getTime()
+            );
+        });
     }
 }
 
-async function calcTotalMatriculados(
-    q: admin.firestore.Query,
-    db: admin.firestore.Firestore,
-    isSuperAdmin: boolean,
+function calcCacheMembros(
+    documentos: admin.firestore.DocumentData[],
     isSecretario: boolean,
 ) {
-    const mapLicoes = new Map<string, any>();
-    (await q.get()).docs.forEach((v) => mapLicoes.set(v.id, v.data()));
+    if (isSecretario) return [];
 
-    const licoesIds = Array.from(mapLicoes.keys());
+    const membros = new Map();
+    documentos.forEach((v) => {
+        const cache = v.data();
+        const listaMembros = Array.from(Object.values(cache.lista || {}));
+        const total_membros = listaMembros.length;
+        const total_matriculados = listaMembros.filter(
+            (v: any) => v.alunoId,
+        ).length;
 
-    const promisesMatriculas = [];
-    const matriculasQuery = db.collection("matriculas");
-    for (let i = 0; i < licoesIds.length; i += 30) {
-        const licoesSplice = licoesIds.slice(i, i + 30);
-        promisesMatriculas.push(
-            matriculasQuery.where("licaoId", "in", licoesSplice).get(),
-        );
-    }
-    const matriculas = (await Promise.all(promisesMatriculas)).flatMap((v) =>
-        v.docs.map((d: any) => ({ ...d.data(), id: d.id })),
-    ) as any[];
+        membros.set(cache.igrejaId, { total_membros, total_matriculados });
+    });
 
-    if (isSecretario) {
-        const mapMatriculas = new Map<string, number>();
-
-        matriculas.forEach((m) => {
-            const item = mapLicoes.get(m.licaoId);
-            const name = m.licaoNome;
-            if (item)
-                mapMatriculas.set(name, (mapMatriculas.get(name) || 0) + 1);
-        });
-
-        return {
-            listaMatriculados: matriculas,
-            resultado: Array.from(mapMatriculas.entries()).map((v) => ({
-                name: v[0],
-                valor: v[1],
-            })),
-        };
-    } else {
-        const mapMatriculas = new Map<string, { [key: string]: any }>();
-        const group = isSuperAdmin ? "igrejaNome" : "classeNome";
-
-        matriculas.forEach((m) => {
-            const item = mapLicoes.get(m.licaoId);
-            if (item) {
-                const name = m[group];
-                const data = item.data_inicio
-                    .toDate()
-                    .toLocaleDateString("pt-BR");
-
-                const value = mapMatriculas.get(data) || { name: data };
-                value[name] = (value[name] || 0) + 1;
-                mapMatriculas.set(data, value);
-            }
-        });
-
-        return {
-            listaMatriculados: matriculas,
-            resultado: Array.from(mapMatriculas.values()),
-        };
-    }
+    return Object.fromEntries(membros);
 }
 
-async function getTotalMembros(
-    db: admin.firestore.Firestore,
-    isSuperAdmin: boolean,
-    isSecretario: boolean,
-    usuario: ValidarUsuario,
-) {
-    const { user } = usuario;
+function getIdade(data_nascimento: Timestamp) {
+    const hoje = new Date();
+    const nascimento = data_nascimento.toDate();
 
-    let baseQuery: any = db.collection("membros");
-    if (isSuperAdmin)
-        baseQuery = baseQuery.where("ministerioId", "==", user.ministerioId);
-    else baseQuery = baseQuery.where("igrejaId", "==", user.igrejaId);
+    let idade = hoje.getFullYear() - nascimento.getFullYear();
+    const mes = hoje.getMonth() - nascimento.getMonth();
 
-    const membrosSnap = await baseQuery.get();
+    if (mes < 0 || (mes === 0 && hoje.getDate() <= nascimento.getDate()))
+        idade--;
 
-    return membrosSnap;
+    return idade;
 }
 
 async function calcTrimestre(
@@ -281,8 +322,8 @@ async function calcTrimestre(
     }
 
     const [igrejaSnap, trimestreSnap] = await Promise.all([
-        db.collection("igrejas").doc(igrejaId).get(),
-        db.collection("trimestres").doc(trimestreId).get(),
+        db.collection(Cll.IGREJAS).doc(igrejaId).get(),
+        db.collection(Cll.TRIMESTRES).doc(trimestreId).get(),
     ]);
     if (!igrejaSnap.exists || !trimestreSnap.exists) {
         throw new functions.https.HttpsError(
@@ -308,7 +349,7 @@ async function calcTrimestre(
     dataFim.setHours(23, 59, 59, 59);
 
     const licoes = await db
-        .collection("licoes")
+        .collection(Cll.LICOES)
         .where("data_inicio", ">=", dataInicio)
         .where("data_fim", "<=", dataFim)
         .where("igrejaId", "==", igrejaId)
@@ -452,94 +493,43 @@ admin.initializeApp();
 
 export const getDashboard = functions.https.onCall(async (request) => {
     const usuario = await validarUsuario(request);
-    const { isSecretario, isSuperAdmin, db } = usuario;
+    const { isSecretario, isSuperAdmin } = usuario;
 
-    const [qRegistros, qLicoes]: any[] = await Promise.all([
-        baseDashboard(usuario, request, "registros_aula"),
-        baseDashboard(usuario, request, "licoes"),
+    const [cacheLicaoSnap, cacheMembrosSnap] = await Promise.all([
+        baseDashboard(usuario, request, Cll.CACHE_LICAO, true).get(),
+        baseDashboard(usuario, request, Cll.CACHE_MEMBROS, false, true).get(),
     ]);
-    const docsRegistrosAula = (await qRegistros.get()).docs;
+    const cacheLicaoDocs = cacheLicaoSnap.docs;
+    const cacheMembrosDocs = cacheMembrosSnap.docs;
 
-    const [
-        total_ofertas,
-        total_missoes,
-        total_presentes,
-        total_biblias,
-        total_licoes,
-        matriculados,
-        membros,
-    ] = await Promise.all([
-        calcRegistrosAula(
-            docsRegistrosAula,
-            isSuperAdmin,
-            isSecretario,
-            "ofertas_total",
-        ),
-        calcRegistrosAula(
-            docsRegistrosAula,
-            isSuperAdmin,
-            isSecretario,
-            "missoes_total",
-        ),
-        calcRegistrosAula(
-            docsRegistrosAula,
-            isSuperAdmin,
-            isSecretario,
-            "total_presentes",
-        ),
-        calcRegistrosAula(
-            docsRegistrosAula,
-            isSuperAdmin,
-            isSecretario,
-            "biblias",
-        ),
-        calcRegistrosAula(
-            docsRegistrosAula,
-            isSuperAdmin,
-            isSecretario,
-            "licoes_trazidas",
-        ),
-        calcTotalMatriculados(qLicoes, db, isSuperAdmin, isSecretario),
-        getTotalMembros(db, isSuperAdmin, isSecretario, usuario),
-    ]);
-
-    let total_membros_matriculados: any = {
-        total_membros: 0,
-        total_matriculados: 0,
+    const colunas = {
+        ofertas: "total_ofertas",
+        missoes: "total_missoes",
+        total_presenca: "total_presentes",
+        ausentes: "total_ausentes",
+        biblias: "total_biblias",
+        licoes: "total_licoes",
+        total_matriculados: "total_matriculados",
     };
-    if (!isSecretario && !membros.empty) {
-        const membrosMap = new Map<
-            string,
-            { total_membros: number; total_matriculados: number }
-        >();
-        const matriculasSet = new Set(
-            matriculados.listaMatriculados.map((v) => v.alunoId),
+
+    const respostasMap = new Map();
+    Object.entries(colunas).forEach(([key, resp]) => {
+        const r = calcCacheLicao(
+            cacheLicaoDocs,
+            isSuperAdmin,
+            isSecretario,
+            key,
         );
+        respostasMap.set(resp, r);
+    });
 
-        membros.docs.forEach((v: any) => {
-            const membro = v.data();
-            const value = membrosMap.get(membro.igrejaId) || {
-                total_membros: 0,
-                total_matriculados: 0,
-            };
-            value.total_membros += 1;
+    const total_membros_matriculados = calcCacheMembros(
+        cacheMembrosDocs,
+        isSecretario,
+    );
 
-            if (membro?.alunoId && matriculasSet.has(membro?.alunoId))
-                value.total_matriculados += 1;
-            membrosMap.set(membro.igrejaId, value);
-        });
-
-        total_membros_matriculados = Object.fromEntries(membrosMap.entries());
-    }
-
-    const total_matriculados = matriculados.resultado;
     return {
-        total_ofertas,
-        total_missoes,
-        total_presentes,
-        total_biblias,
-        total_licoes,
-        total_matriculados,
+        ...Object.fromEntries(respostasMap),
         total_membros_matriculados,
     };
 });
@@ -561,7 +551,7 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     fimDia.setHours(23, 59, 59, 59);
 
     const q = db
-        .collection("registros_aula")
+        .collection(Cll.REGISTROS_AULA)
         .where("data", ">=", inicioDia)
         .where("data", "<=", fimDia);
 
@@ -634,29 +624,32 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     const fimSemana = new Date(fimDia);
 
     const alunosSnap = await db
-        .collection("alunos")
-        .where("igrejaId", "==", igrejaId)
+        .collection(Cll.CACHE_ALUNOS)
+        .doc(igrejaId)
         .get();
 
-    if (alunosSnap.empty)
+    if (!alunosSnap.exists)
         return {
-            totais_gerais: Object.fromEntries(totaisGeraisMap.entries()),
-            totais_classes: Object.fromEntries(registrosMap.entries()),
+            totais_gerais: Object.fromEntries(totaisGeraisMap),
+            totais_classes: Object.fromEntries(registrosMap),
             classes_relatorio: classesRelatorio,
             aniversariantes: [],
         };
 
-    const alunos = alunosSnap.docs.map((v) => ({
-        id: v.id,
-        ...v.data(),
-    })) as any[];
+    const alunos = Array.from(Object.values(alunosSnap.data()?.lista || {}));
 
-    const alunosAtualizados = alunos.map((v) => ({
-        ...v,
-        data_nascimento: new Date(
-            v["data_nascimento"].toDate().setFullYear(fimSemana.getFullYear()),
-        ),
-    }));
+    const alunosAtualizados = alunos.map((v: any) => {
+        const idade = getIdade(v["data_nascimento"]);
+        return {
+            ...v,
+            idade,
+            data_nascimento: new Date(
+                v["data_nascimento"]
+                    .toDate()
+                    .setFullYear(fimSemana.getFullYear()),
+            ),
+        };
+    });
 
     const aniversariantes = alunosAtualizados
         .filter((v) => {
@@ -675,8 +668,8 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
         }));
 
     return {
-        totais_gerais: Object.fromEntries(totaisGeraisMap.entries()),
-        totais_classes: Object.fromEntries(registrosMap.entries()),
+        totais_gerais: Object.fromEntries(totaisGeraisMap),
+        totais_classes: Object.fromEntries(registrosMap),
         classes_relatorio: classesRelatorio,
         aniversariantes: aniversariantes,
     };
@@ -707,7 +700,7 @@ export const getRelatorioTrimestral = functions.https.onCall(
         );
 
         const relatorioSnap = await db
-            .collection("relatorios_trimestre")
+            .collection(Cll.RELATORIOS_TRIMESTRE)
             .where("igrejaId", "==", igrejaId)
             .where("trimestreId", "==", trimestreId)
             .get();
@@ -822,7 +815,7 @@ export const salvarRelatorioTrimestral = functions.https.onCall(
             await calcTrimestre(trimestreId, igrejaId, !isAdmin, user, db);
 
         const relatorioRef = db
-            .collection("relatorios_trimestre")
+            .collection(Cll.RELATORIOS_TRIMESTRE)
             .doc(`${trimestre.ano}-${numeroMes}-${igrejaId}`);
         const relatorioSnap = await relatorioRef.get();
 
@@ -925,7 +918,7 @@ export const desbloquearRelatorio = functions.https.onCall(async (request) => {
     const data = trimestre.data_inicio.toDate();
 
     const relatorioSnap = await db
-        .collection(`relatorios_trimestre`)
+        .collection(Cll.RELATORIOS_TRIMESTRE)
         .doc(`${data.getFullYear()}-${numeroMes}-${igrejaId}`)
         .get();
 
@@ -948,7 +941,7 @@ export const desbloquearRelatorio = functions.https.onCall(async (request) => {
     );
 
     const registrosSnap = await db
-        .collection("registros_aula")
+        .collection(Cll.REGISTROS_AULA)
         .where("data", ">=", dataInicio)
         .where("data", "<=", dataFim)
         .where("igrejaId", "==", igrejaId)
@@ -998,7 +991,7 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
         );
     }
 
-    const trimestreRef = db.collection("trimestres").doc(trimestreId);
+    const trimestreRef = db.collection(Cll.TRIMESTRES).doc(trimestreId);
     const trimestreSnap = await trimestreRef.get();
 
     if (!trimestreSnap.exists) {
@@ -1016,7 +1009,7 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
     dataFimAnterior.setHours(23, 59, 59, 59);
 
     const licoesSnap = await db
-        .collection("licoes")
+        .collection(Cll.LICOES)
         .where("ministerioId", "==", user.ministerioId)
         .where("data_inicio", ">=", dataInicioAnterior)
         .where("data_fim", "<=", dataFimAnterior)
@@ -1031,12 +1024,23 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
         dataFimNova.setDate(dataFimNova.getDate() + (numero_aulas - 1) * 7);
 
         licoesSnap.docs.forEach((v) => {
+            const novaDataInicio = Timestamp.fromDate(dataInicioNova);
+            const novaDataFim = Timestamp.fromDate(dataFimNova);
             batch.update(v.ref, {
-                data_inicio: Timestamp.fromDate(dataInicioNova),
-                data_fim: Timestamp.fromDate(dataFimNova),
+                data_inicio: novaDataInicio,
+                data_fim: novaDataFim,
                 numero_trimestre,
                 numero_aulas,
             });
+            batch.update(
+                db
+                    .collection(Cll.CACHE_LICAO)
+                    .doc(`${v.data().igrejaId}_${v.id}`),
+                {
+                    data_inicio: novaDataInicio,
+                    data_fim: novaDataFim,
+                },
+            );
         });
 
         batch.delete(trimestreRef);
@@ -1134,7 +1138,19 @@ export const salvarMembro = functions.https.onCall(async (request) => {
 
         if (isAdmin) dadosParaSalvar.igrejaId = user.igrejaId; //Apenas por precaução
 
-        await membroRef.update(dadosParaSalvar as any);
+        await Promise.all([
+            membroRef.update(dadosParaSalvar as any),
+            db
+                .collection(Cll.CACHE_MEMBROS)
+                .doc(igrejaId)
+                .update({
+                    [`lista.${membroRef.id}`]: {
+                        ...membroSnap.data(),
+                        ...dadosParaSalvar,
+                        id: membroRef.id,
+                    },
+                }),
+        ]);
 
         enviarLog(
             user,
@@ -1151,7 +1167,20 @@ export const salvarMembro = functions.https.onCall(async (request) => {
     }
 
     dadosParaSalvar["alunoId"] = null;
-    const membroRef = await db.collection("membros").add(dadosParaSalvar);
+    const membroRef = db.collection(Cll.MEMBROS).doc();
+
+    await Promise.all([
+        membroRef.set(dadosParaSalvar),
+        db
+            .collection(Cll.CACHE_MEMBROS)
+            .doc(igrejaId)
+            .update({
+                [`lista.${membroRef.id}`]: {
+                    ...dadosParaSalvar,
+                    id: membroRef.id,
+                },
+            }),
+    ]);
     enviarLog(
         user,
         request,
@@ -1172,8 +1201,9 @@ export const deletarMembro = functions.https.onCall(async (request) => {
         );
     }
 
-    const membroRef = db.collection("membros").doc(membroId);
+    const membroRef = db.collection(Cll.MEMBROS).doc(membroId);
     const membroSnap = await membroRef.get();
+    const igrejaId = membroSnap.data()?.igrejaId;
 
     if (!membroSnap.exists) {
         throw new functions.https.HttpsError(
@@ -1183,7 +1213,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
     }
     if (
         membroSnap.data()?.ministerioId !== user.ministerioId ||
-        (isAdmin && membroSnap.data()?.igrejaId !== user.igrejaId) ||
+        (isAdmin && igrejaId !== user.igrejaId) ||
         isSecretario
     ) {
         throw new functions.https.HttpsError(
@@ -1195,16 +1225,23 @@ export const deletarMembro = functions.https.onCall(async (request) => {
     try {
         const batch = db.batch();
         batch.delete(membroRef);
+        batch.update(db.collection(Cll.CACHE_MEMBROS).doc(igrejaId), {
+            [`lista.${membroId}`]: FieldValue.delete(),
+        });
 
         const alunoQuery = db
-            .collection("alunos")
+            .collection(Cll.ALUNOS)
             .where("membroId", "==", membroId);
         const alunoSnap = await alunoQuery.get();
 
         if (!alunoSnap.empty) {
-            alunoSnap.docs.forEach((v) =>
-                batch.update(v.ref, { membroId: null, isMembro: false }),
-            );
+            alunoSnap.docs.forEach((v) => {
+                batch.update(v.ref, { membroId: null, isMembro: false });
+                batch.update(db.collection(Cll.CACHE_ALUNOS).doc(igrejaId), {
+                    [`lista.${v.id}.membroId`]: null,
+                    [`lista.${v.id}.isMembro`]: false,
+                });
+            });
         }
 
         await batch.commit();
@@ -1235,7 +1272,7 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
         );
     }
 
-    const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+    const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
@@ -1292,7 +1329,8 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
                   )
                 : null;
         const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
-        batch.set(db.collection("membros").doc(), {
+
+        const dadosParaSalvar = {
             alunoId: null,
             contato: regex.test(contato) ? contato : null,
             data_nascimento: nascimento,
@@ -1302,8 +1340,16 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
             nome_completo,
             registro,
             validade: validadeMembro,
+        };
+        const membroRef = db.collection(Cll.MEMBROS).doc();
+        batch.set(membroRef, dadosParaSalvar);
+        batch.update(db.collection(Cll.CACHE_MEMBROS).doc(igrejaId), {
+            [`lista.${membroRef.id}`]: {
+                id: membroRef.id,
+                ...dadosParaSalvar,
+            },
         });
-        count++;
+        count += 2;
         if (count >= 499) {
             batch = db.batch();
             batches.push(batch);
@@ -1344,6 +1390,18 @@ interface AlunoCSVFront {
     igrejaId: string;
 }
 
+interface AlunoInterface {
+    id: string;
+    data_nascimento: Timestamp;
+    igrejaId: string;
+    igrejaNome: string;
+    ministerioId: string;
+    nome_completo: string;
+    contato: string | null;
+    isMembro: boolean;
+    membroId: string | null;
+}
+
 export const salvarAluno = functions.https.onCall(async (request) => {
     const { db, user, isSuperAdmin } = await validarUsuario(request);
     let { alunoId, igrejaId } = request.data;
@@ -1366,7 +1424,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
     };
 
     if (alunoId) {
-        const alunoRef = db.collection("alunos").doc(alunoId);
+        const alunoRef = db.collection(Cll.ALUNOS).doc(alunoId);
         const alunoDoc = await alunoRef.get();
 
         if (!alunoDoc.exists) {
@@ -1377,13 +1435,33 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         }
 
         if (dados.membroId) {
-            await db
-                .collection("membros")
-                .doc(dados.membroId)
-                .update({ alunoId: alunoDoc.id });
+            await Promise.all([
+                db
+                    .collection(Cll.MEMBROS)
+                    .doc(dados.membroId)
+                    .update({ alunoId: alunoDoc.id }),
+                db
+                    .collection(Cll.CACHE_MEMBROS)
+                    .doc(igrejaId)
+                    .update({
+                        [`lista.${dados.membroId}.alunoId`]: alunoDoc.id,
+                    }),
+            ]);
         }
 
-        await alunoRef.update(dadosAtualizados);
+        await Promise.all([
+            alunoRef.update(dadosAtualizados),
+            db
+                .collection(Cll.CACHE_ALUNOS)
+                .doc(igrejaId)
+                .update({
+                    [`lista.${alunoId}`]: {
+                        ...alunoDoc.data(),
+                        ...dadosAtualizados,
+                        id: alunoId,
+                    },
+                }),
+        ]);
 
         enviarLog(
             user,
@@ -1400,7 +1478,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         };
     }
 
-    const igreja = await db.collection("igrejas").doc(igrejaId).get();
+    const igreja = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igreja.exists) {
         throw new functions.https.HttpsError(
             "not-found",
@@ -1421,13 +1499,42 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         igrejaNome: igreja.data()!.nome,
     };
 
-    const docRef = await db.collection("alunos").add(aluno);
+    const docRef = db.collection(Cll.ALUNOS).doc();
 
+    await Promise.all([
+        docRef.set(aluno),
+        db
+            .collection(Cll.CACHE_ALUNOS)
+            .doc(igrejaId)
+            .update({ [`lista.${docRef.id}`]: { id: docRef.id, ...aluno } }),
+        db
+            .collection(Cll.CACHE_ANIVERSARIANTES)
+            .doc(
+                `${aluno.ministerioId}_${aluno.data_nascimento.toDate().getMonth()}`,
+            )
+            .update({
+                [`lista.${docRef.id}`]: {
+                    alunoId: docRef.id,
+                    alunoNome: aluno.nome_completo,
+                    data_nascimento: aluno.data_nascimento,
+                    dia_nascimento: aluno.data_nascimento.toDate().getDate(),
+                    mes_nascimento: aluno.data_nascimento.toDate().getMonth(),
+                    ministerioId: aluno.ministerioId,
+                    igrejaId: aluno.igrejaId,
+                },
+            }),
+    ]);
     if (dados.membroId) {
-        await db
-            .collection("membros")
-            .doc(dados.membroId)
-            .update({ alunoId: docRef.id });
+        await Promise.all([
+            db
+                .collection(Cll.MEMBROS)
+                .doc(dados.membroId)
+                .update({ alunoId: docRef.id }),
+            db
+                .collection(Cll.CACHE_MEMBROS)
+                .doc(igrejaId)
+                .update({ [`lista.${dados.membroId}.alunoId`]: docRef.id }),
+        ]);
     }
 
     enviarLog(
@@ -1443,8 +1550,8 @@ export const salvarAluno = functions.https.onCall(async (request) => {
 export const onAlunoUpdate = onDocumentUpdated(
     "alunos/{alunoId}",
     async (event) => {
-        const dadosAntigos = event.data?.before.data();
-        const dadosNovos = event.data?.after.data();
+        const dadosAntigos = event.data?.before.data() as AlunoInterface;
+        const dadosNovos = event.data?.after.data() as AlunoInterface;
 
         if (!dadosAntigos || !dadosNovos) {
             console.log(
@@ -1453,59 +1560,119 @@ export const onAlunoUpdate = onDocumentUpdated(
             return;
         }
 
-        if (dadosAntigos.nome_completo === dadosNovos.nome_completo) {
+        const nomeMudou =
+            dadosAntigos.nome_completo !== dadosNovos.nome_completo;
+        const dataMudou =
+            dadosAntigos.data_nascimento.toMillis() !==
+            dadosNovos.data_nascimento.toMillis();
+
+        if (!nomeMudou || !dataMudou) {
+            console.log("Nenhum dado mudou, encerrando trigger");
             return;
         }
 
         const { alunoId } = event.params;
-        const novoNome = dadosNovos.nome_completo;
         const db = admin.firestore();
         const batch = db.batch();
 
-        console.log(
-            `Aluno ${alunoId} mudou de nome para "${novoNome}". Iniciando fan-out...`,
-        );
+        if (dataMudou) {
+            console.log("As datas mudaram, iniciando update...");
 
-        const matriculasQuery = db
-            .collection("matriculas")
-            .where("alunoId", "==", alunoId);
-        const matriculasSnap = await matriculasQuery.get();
-        matriculasSnap.forEach((doc) => {
-            batch.update(doc.ref, { alunoNome: novoNome });
-        });
+            const cacheCollection = db.collection(Cll.CACHE_ANIVERSARIANTES);
+            const { ministerioId, igrejaId, nome_completo } = dadosNovos;
+            const dataAntiga = dadosAntigos.data_nascimento;
+            const dataNova = dadosNovos.data_nascimento;
 
-        const licoesIds = matriculasSnap.docs
-            .map((doc) => doc.data().licaoId)
-            .filter(Boolean);
+            const mesAntigo = dataAntiga.toDate().getMonth();
+            const mesNovo = dataNova.toDate().getMonth();
+            const diaNovo = dataNova.toDate().getDate();
 
-        if (licoesIds.length > 0) {
-            const licoesPromises: Promise<QuerySnapshot>[] = [];
-
-            for (let i = 0; i < licoesIds.length; i += 30) {
-                const l = licoesIds.slice(i, i + 30);
-                licoesPromises.push(
-                    db
-                        .collection("registros_aula")
-                        .where("licaoId", "in", l)
-                        .get(),
+            const dadosParaSalvar = {
+                alunoId,
+                alunoNome: nome_completo,
+                data_nascimento: dataNova,
+                dia_nascimento: diaNovo,
+                igrejaId,
+                mes_nascimento: mesNovo,
+                ministerioId,
+            };
+            if (mesAntigo === mesNovo) {
+                batch.update(
+                    cacheCollection.doc(`${ministerioId}_${mesNovo}`),
+                    { [`lista.${alunoId}`]: dadosParaSalvar },
+                );
+            } else {
+                batch.update(
+                    cacheCollection.doc(`${ministerioId}_${mesAntigo}`),
+                    { [`lista.${alunoId}`]: FieldValue.delete() },
+                );
+                batch.update(
+                    cacheCollection.doc(`${ministerioId}_${mesNovo}`),
+                    { [`lista.${alunoId}`]: dadosParaSalvar },
                 );
             }
+        }
 
-            const registrosSnap = (await Promise.all(licoesPromises)).flatMap(
-                (v) => v.docs,
+        if (nomeMudou) {
+            const novoNome = dadosNovos.nome_completo;
+            const { ministerioId } = dadosNovos;
+
+            console.log(
+                `Aluno ${alunoId} mudou de nome para "${novoNome}". Iniciando fan-out...`,
             );
 
-            await Promise.all(
-                registrosSnap.map(async (doc) => {
-                    const chamadaRef = doc.ref
-                        .collection("chamada")
-                        .doc(alunoId);
-                    const chamadaDoc = await chamadaRef.get();
+            const matriculasQuery = db
+                .collection(Cll.MATRICULAS)
+                .where("alunoId", "==", alunoId);
+            const matriculasSnap = await matriculasQuery.get();
+            matriculasSnap.forEach((doc) => {
+                const data = doc.data();
+                batch.update(doc.ref, { alunoNome: novoNome });
+                batch.update(
+                    db
+                        .collection(Cll.CACHE_MATRICULAS)
+                        .doc(`${data?.igrejaId}_${data?.licaoId}`),
+                    {
+                        [`lista.${doc.id}.alunoNome`]: novoNome,
+                    },
+                );
+            });
 
-                    if (chamadaDoc.exists)
-                        batch.update(chamadaRef, { nome: novoNome });
-                }),
-            );
+            const licoesIds = matriculasSnap.docs
+                .map((doc) => doc.data().licaoId)
+                .filter(Boolean);
+            if (licoesIds.length > 0) {
+                const cachePromises = [];
+                for (let i = 0; i < licoesIds.length; i += 30) {
+                    const l = licoesIds.slice(i, i + 30);
+                    cachePromises.push(
+                        db
+                            .collection(Cll.CACHE_LICAO)
+                            .where("licaoId", "in", l)
+                            .get(),
+                    );
+                }
+
+                const cacheSnap = (await Promise.all(cachePromises)).flatMap(
+                    (v) => v.docs,
+                );
+
+                cacheSnap.forEach((doc) => {
+                    batch.update(doc.ref, {
+                        [`detalhes_aluno.${alunoId}.nome`]: novoNome,
+                    });
+                });
+            }
+
+            if (!dataMudou) {
+                const mes = dadosNovos.data_nascimento.toDate().getMonth();
+                batch.update(
+                    db
+                        .collection(Cll.CACHE_ANIVERSARIANTES)
+                        .doc(`${ministerioId}_${mes}`),
+                    { [`lista.${alunoId}.alunoNome`]: novoNome },
+                );
+            }
         }
 
         await batch.commit();
@@ -1522,7 +1689,7 @@ export const deletarAluno = functions.https.onCall(async (request) => {
             "Dados inválidos ou ausentes",
         );
     }
-    const alunosRef = db.collection("alunos").doc(alunoId);
+    const alunosRef = db.collection(Cll.ALUNOS).doc(alunoId);
     const alunosSnap = await alunosRef.get();
 
     if (!alunosSnap.exists) {
@@ -1531,9 +1698,10 @@ export const deletarAluno = functions.https.onCall(async (request) => {
             "Aluno não encontrado",
         );
     }
+    const alunoData = alunosSnap.data() as AlunoInterface;
     if (
-        (!isSuperAdmin && alunosSnap.data()?.igrejaId !== user.igrejaId) ||
-        alunosSnap.data()?.ministerioId !== user.ministerioId
+        (!isSuperAdmin && alunoData?.igrejaId !== user.igrejaId) ||
+        alunoData?.ministerioId !== user.ministerioId
     ) {
         throw new functions.https.HttpsError(
             "permission-denied",
@@ -1546,44 +1714,85 @@ export const deletarAluno = functions.https.onCall(async (request) => {
         const licoesUpt: any[] = [];
         let count = 0;
         let batch = db.batch();
+        const batchs = [batch];
 
         const matriculasSnaps = await db
-            .collection("matriculas")
+            .collection(Cll.MATRICULAS)
             .where("alunoId", "==", alunoId)
             .get();
         matriculasSnaps.forEach((v) => {
             const matricula = v.data();
             refsDel.push(v.ref);
             licoesUpt.push(matricula.licaoRef);
+            batch.update(
+                db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${matricula.igrejaId}_${matricula.licaoId}`),
+                { [`lista.${v.id}`]: FieldValue.delete() },
+            );
+
+            count++;
+            if (count >= 499) {
+                batch = db.batch();
+                batchs.push(batch);
+                count = 0;
+            }
         });
 
         const licoesIds = matriculasSnaps.docs.map((v) => v.data().licaoId);
-        const promises = [];
         if (licoesIds.length > 0) {
+            const promisesRegistros = [];
+            const promisesCache = [];
+
             for (let i = 0; i < licoesIds.length; i += 30) {
                 const chunk = licoesIds.slice(i, i + 30);
-                promises.push(
+                promisesRegistros.push(
                     db
-                        .collection("registros_aula")
+                        .collection(Cll.REGISTROS_AULA)
+                        .where("licaoId", "in", chunk)
+                        .get(),
+                );
+                promisesCache.push(
+                    db
+                        .collection(Cll.CACHE_LICAO)
                         .where("licaoId", "in", chunk)
                         .get(),
                 );
             }
 
-            const registrosDocs = (await Promise.all(promises)).flatMap(
-                (v) => v.docs,
-            );
+            const registrosDocs = (
+                await Promise.all(promisesRegistros)
+            ).flatMap((v) => v.docs);
 
             const chamadas = registrosDocs.map(async (v) => {
-                const aluno = await v.ref
-                    .collection("chamada")
-                    .doc(alunoId)
-                    .get();
+                const listaAulasRef = v.ref.collection("chamada").doc("lista");
+                const listaAlunos = await listaAulasRef.get();
 
-                if (aluno.exists) refsDel.push(aluno.ref);
+                if (listaAlunos.exists) {
+                    const lista = listaAlunos
+                        .data()
+                        ?.chamada.filter((v: any) => v.alunoId !== alunoId);
+                    count++;
+                    batch.update(listaAulasRef, { chamada: lista });
+                }
             });
-
             await Promise.all(chamadas);
+
+            (await Promise.all(promisesCache)).forEach((v) => {
+                v.forEach((v) => {
+                    batch.update(v.ref, {
+                        total_matriculados: FieldValue.increment(-1),
+                        [`detalhes_aluno.${alunoId}`]: FieldValue.delete(),
+                    });
+                    count++;
+
+                    if (count >= 499) {
+                        batch = db.batch();
+                        batchs.push(batch);
+                        count = 0;
+                    }
+                });
+            });
         }
 
         const membros = await db
@@ -1594,11 +1803,31 @@ export const deletarAluno = functions.https.onCall(async (request) => {
         if (!membros.empty) {
             membros.docs.forEach((v) => {
                 batch.update(v.ref, { alunoId: null });
-                count++;
+                batch.update(
+                    db
+                        .collection(Cll.CACHE_MEMBROS)
+                        .doc(alunosSnap.data()?.igrejaId),
+                    { [`lista.${v.id}.alunoId`]: null },
+                );
+                count += 2;
             });
         }
 
-        const batchs = [batch];
+        batch.update(db.collection(Cll.CACHE_ALUNOS).doc(alunoData.igrejaId), {
+            [`lista.${alunoId}`]: FieldValue.delete(),
+        });
+        batch.update(
+            db
+                .collection(Cll.CACHE_ANIVERSARIANTES)
+                .doc(
+                    `${alunoData.ministerioId}_${alunoData.data_nascimento.toDate().getMonth()}`,
+                ),
+            {
+                [`lista.${alunoId}`]: FieldValue.delete(),
+            },
+        );
+        count += 2;
+
         for (let ref of refsDel) {
             batch.delete(ref);
             count++;
@@ -1657,7 +1886,7 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
         );
     }
 
-    const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+    const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
 
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
@@ -1698,7 +1927,8 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
             new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0),
         );
         const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
-        batch.set(db.collection("alunos").doc(), {
+
+        const dadosParaSalvar = {
             contato: regex.test(contato) ? contato : null,
             data_nascimento: nascimento,
             igrejaId,
@@ -1707,8 +1937,39 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
             membroId: null,
             ministerioId: user.ministerioId,
             nome_completo,
+        };
+        const alunoRef = db.collection(Cll.ALUNOS).doc();
+
+        batch.set(alunoRef, dadosParaSalvar);
+        batch.update(db.collection(Cll.CACHE_ALUNOS).doc(igrejaId), {
+            [`lista.${alunoRef.id}`]: {
+                ...dadosParaSalvar,
+                id: alunoRef.id,
+            },
         });
-        count++;
+        batch.update(
+            db
+                .collection(Cll.CACHE_ANIVERSARIANTES)
+                .doc(
+                    `${dadosParaSalvar.ministerioId}_${dadosParaSalvar.data_nascimento.toDate().getMonth()}`,
+                ),
+            {
+                [`lista.${alunoRef.id}`]: {
+                    alunoId: alunoRef.id,
+                    alunoNome: dadosParaSalvar.nome_completo,
+                    data_nascimento: dadosParaSalvar.data_nascimento,
+                    dia_nascimento: dadosParaSalvar.data_nascimento
+                        .toDate()
+                        .getDate(),
+                    mes_nascimento: dadosParaSalvar.data_nascimento
+                        .toDate()
+                        .getMonth(),
+                    ministerioId: dadosParaSalvar.ministerioId,
+                    igrejaId: dadosParaSalvar.igrejaId,
+                },
+            },
+        );
+        count += 3;
         if (count >= 499) {
             batch = db.batch();
             batches.push(batch);
@@ -1821,7 +2082,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
         idade_maxima: typeof idade_maxima !== "number" ? null : idade_maxima,
     };
     if (classeId) {
-        const classeRef = db.collection("classes").doc(classeId);
+        const classeRef = db.collection(Cll.CLASSES).doc(classeId);
         const classeSnap = await classeRef.get();
 
         if (!classeSnap.exists) {
@@ -1831,7 +2092,19 @@ export const salvarClasse = functions.https.onCall(async (request) => {
             );
         }
 
-        await classeRef.update(dadosAtualizados);
+        await Promise.all([
+            classeRef.update(dadosAtualizados),
+            db
+                .collection(Cll.CACHE_CLASSES)
+                .doc(igrejaId)
+                .update({
+                    [`lista.${classeId}`]: {
+                        ...classeSnap.data(),
+                        ...dadosAtualizados,
+                        id: classeId,
+                    },
+                }),
+        ]);
 
         enviarLog(
             user,
@@ -1856,7 +2129,15 @@ export const salvarClasse = functions.https.onCall(async (request) => {
         ministerioId: user.ministerioId,
     };
 
-    const docRef = await db.collection("classes").add(classe);
+    const docRef = db.collection("classes").doc();
+
+    await Promise.all([
+        docRef.set(classe),
+        db
+            .collection(Cll.CACHE_CLASSES)
+            .doc(igrejaId)
+            .update({ [`lista.${docRef.id}`]: { ...classe, id: docRef.id } }),
+    ]);
 
     enviarLog(
         user,
@@ -1882,38 +2163,70 @@ export const onClasseUpdate = onDocumentUpdated(
 
         const { classeId } = event.params;
         const novoNome = { classeNome: dadosNovos.nome };
+        const field = "classeId";
         const db = admin.firestore();
-        const batch = db.batch();
+        let batch = db.batch();
+        const batches = [batch];
+        let count = 0;
+        const listaRefs: any = [];
 
         console.log(
             `Nome antigo: ${dadosAntigos.nome} | Nome novo: ${dadosNovos.nome}`,
         );
 
-        const licoes = await db
-            .collection("licoes")
-            .where("classeId", "==", classeId)
-            .get();
-        licoes.docs.forEach((doc) => batch.update(doc.ref, novoNome));
+        const colecoes = [Cll.REGISTROS_AULA, Cll.CACHE_LICAO, Cll.LICOES];
+        const promises = colecoes.map((v) =>
+            db.collection(v).where(field, "==", classeId).get(),
+        );
+        (await Promise.all(promises)).forEach((v) => {
+            v.forEach((v) => {
+                listaRefs.push(v.ref);
+            });
+        });
 
-        const matriculas = await db
-            .collection("matriculas")
-            .where("classeId", "==", classeId)
-            .get();
-        matriculas.docs.forEach((doc) => batch.update(doc.ref, novoNome));
+        const [matriculasSnap, usuariosSnap] = await Promise.all([
+            db.collection(Cll.MATRICULAS).where(field, "==", classeId).get(),
+            db.collection(Cll.USUARIOS).where(field, "==", classeId).get(),
+        ]);
+        matriculasSnap.docs.forEach((v) => {
+            const data = v.data();
+            listaRefs.push(v.ref);
+            batch.update(
+                db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${dadosNovos.igrejaId}_${data?.licaoId}`),
+                { [`lista.${v.id}.classeNome`]: novoNome.classeNome },
+            );
+            count++;
 
-        const registros = await db
-            .collection("registros_aula")
-            .where("classeId", "==", classeId)
-            .get();
-        registros.docs.forEach((doc) => batch.update(doc.ref, novoNome));
+            if (count >= 499) {
+                batch = db.batch();
+                count = 0;
+                batches.push(batch);
+            }
+        });
+        usuariosSnap.docs.forEach((v) => {
+            listaRefs.push(v.ref);
+            batch.update(
+                db.collection(Cll.CACHE_USUARIOS).doc(dadosNovos.igrejaId),
+                { [`lista.${v.id}.classeNome`]: novoNome.classeNome },
+            );
+            count++;
+        });
 
-        const usuarios = await db
-            .collection("usuarios")
-            .where("classeId", "==", classeId)
-            .get();
-        usuarios.forEach((doc) => batch.update(doc.ref, novoNome));
+        for (const ref of listaRefs) {
+            batch.update(ref, novoNome);
+            count++;
 
-        await batch.commit();
+            if (count >= 499) {
+                batch = db.batch();
+                count = 0;
+                batches.push(batch);
+            }
+        }
+
+        await Promise.all(batches.map((v) => v.commit()));
+
         console.log("Fan-out realizado, classe alterada!");
     },
 );
@@ -1929,7 +2242,7 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         );
     }
 
-    const classeRef = db.collection("classes").doc(classeId);
+    const classeRef = db.collection(Cll.CLASSES).doc(classeId);
     const classeSnap = await classeRef.get();
     if (!classeSnap.exists) {
         throw new functions.https.HttpsError(
@@ -1938,9 +2251,10 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         );
     }
 
+    const igrejaId = classeSnap.data()!.igrejaId;
     if (
         isSecretario ||
-        (!isSuperAdmin && classeSnap.data()!.igrejaId !== user.igrejaId) ||
+        (!isSuperAdmin && igrejaId !== user.igrejaId) ||
         (isSuperAdmin && classeSnap.data()!.ministerioId !== user.ministerioId)
     ) {
         throw new functions.https.HttpsError(
@@ -1950,7 +2264,7 @@ export const deletarClasse = functions.https.onCall(async (request) => {
     }
 
     const licao = await db
-        .collection("licoes")
+        .collection(Cll.LICOES)
         .where("classeId", "==", classeId)
         .get();
 
@@ -1964,9 +2278,12 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         const batch = db.batch();
 
         batch.delete(classeRef);
+        batch.update(db.collection(Cll.CACHE_CLASSES).doc(igrejaId), {
+            [`lista.${classeId}`]: FieldValue.delete(),
+        });
 
         const usuariosSnap = await db
-            .collection("usuarios")
+            .collection(Cll.USUARIOS)
             .where("role", "in", [Roles.SECRETARIO_CLASSE, Roles.PROFESSOR])
             .where("classeId", "==", classeId)
             .get();
@@ -1974,7 +2291,9 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         const promises: Promise<any>[] = [];
         usuariosSnap.docs.forEach((v) => {
             batch.delete(v.ref);
-
+            batch.update(db.collection(Cll.CACHE_USUARIOS).doc(igrejaId), {
+                [`lista.${v.id}`]: FieldValue.delete(),
+            });
             const uid = v.data().uid;
             if (uid) promises.push(admin.auth().deleteUser(uid));
         });
@@ -2027,7 +2346,7 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
     }
     const igreja = { id: igrejaSnap.id, ...igrejaSnap.data() } as any;
 
-    if (isSecretario || igreja!.ministerioId != user.ministerioId) {
+    if (isSecretario || igreja!.ministerioId !== user.ministerioId) {
         throw new functions.https.HttpsError(
             "permission-denied",
             "Você não tem permissão para fazer isso",
@@ -2037,7 +2356,7 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
     let rotuloId;
     if (!rotuloSnap.empty) rotuloId = rotuloSnap.docs[0].id;
     else {
-        const rotulosCll = db.collection("rotulos_classes").doc();
+        const rotulosCll = db.collection(Cll.ROTULOS).doc();
         await rotulosCll.create({
             nome: "OUTRO",
             idade_minima: null,
@@ -2068,7 +2387,7 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
         if (idadeMaxima && idadeMinima && idadeMinima > idadeMaxima)
             return foraDaFaixa.push(nome);
 
-        batch.set(db.collection("classes").doc(), {
+        const dadosParaSalvar = {
             nome,
             idade_maxima: idadeMaxima,
             idade_minima: idadeMinima,
@@ -2077,8 +2396,16 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
             ministerioId: user.ministerioId,
             rotuloId,
             rotuloNome: "OUTRO",
+        };
+        const classeRef = db.collection("classes").doc();
+        batch.set(classeRef, dadosParaSalvar);
+        batch.update(db.collection(Cll.CACHE_CLASSES).doc(igrejaId), {
+            [`lista.${classeRef.id}`]: {
+                ...dadosParaSalvar,
+                id: classeRef.id,
+            },
         });
-        count++;
+        count += 2;
 
         if (count >= 499) {
             batch = db.batch();
@@ -2169,7 +2496,7 @@ export const salvarRotuloClasse = functions.https.onCall(async (request) => {
     }
 
     const dadosParaSalvar = { ...dados, ministerioId: user.ministerioId };
-    await db.collection("rotulos_classes").add(dadosParaSalvar);
+    await db.collection(Cll.ROTULOS).add(dadosParaSalvar);
 
     enviarLog(
         user,
@@ -2237,9 +2564,33 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
         return { id: igrejaSnap.id, ...igrejaSnap.data(), nome: dados.nome };
     }
 
-    const newIgreja = await db
-        .collection("igrejas")
-        .add({ nome: dados.nome, ministerioId: user.ministerioId });
+    const newIgrejaRef = db.collection(Cll.IGREJAS).doc();
+    const batch = db.batch();
+
+    const caches = [
+        Cll.CACHE_ALUNOS,
+        Cll.CACHE_CLASSES,
+        Cll.CACHE_USUARIOS,
+        Cll.CACHE_MEMBROS,
+        Cll.CACHE_ANIVERSARIANTES,
+    ];
+    batch.create(newIgrejaRef, {
+        nome: dados.nome,
+        ministerioId: user.ministerioId,
+    });
+    caches.forEach((v) => {
+        const obj = {
+            igrejaId: newIgrejaRef.id,
+            ministerioId: user.ministerioId,
+            lista: {},
+        } as any;
+
+        if (v === Cll.CACHE_ANIVERSARIANTES) obj["vazio"] = true;
+
+        batch.create(db.collection(v).doc(newIgrejaRef.id), obj);
+    });
+
+    await batch.commit();
 
     enviarLog(
         user,
@@ -2247,12 +2598,12 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
         "SALVAR_IGREJA",
         `Igreja criada pelo usuário : ${user.uid}`,
         {
-            newIgreja,
+            newIgrejaRef,
         },
     );
 
     return {
-        id: newIgreja.id,
+        id: newIgrejaRef.id,
         nome: dados.nome,
         ministerioId: user.ministerioId,
     };
@@ -2282,31 +2633,50 @@ export const onIgrejaUpdate = onDocumentUpdated(
         );
 
         const collections = [
-            "alunos",
-            "classes",
-            "licoes",
-            "matriculas",
-            "membros",
-            "registros_aula",
-            "usuarios",
-            "visitantes",
+            [Cll.ALUNOS, Cll.CACHE_ALUNOS],
+            [Cll.CLASSES, Cll.CACHE_CLASSES],
+            [Cll.LICOES],
+            [Cll.MATRICULAS, Cll.CACHE_MATRICULAS],
+            [Cll.MEMBROS, Cll.CACHE_MEMBROS],
+            [Cll.REGISTROS_AULA],
+            [Cll.USUARIOS, Cll.CACHE_USUARIOS],
+            [Cll.VISITANTES],
+            [Cll.CACHE_LICAO],
         ];
         const field = "igrejaId";
         const refs: any[] = [];
-
-        const promises = collections.map(async (v) => {
-            const item = await db
-                .collection(v)
-                .where(field, "==", igrejaId)
-                .get();
-            item.forEach((doc) => refs.push(doc.ref));
-        });
-
-        await Promise.all(promises);
-
         let batch = db.batch();
         const batches = [batch];
         let count = 0;
+
+        for (const [col, cache] of collections) {
+            const item = await db
+                .collection(col)
+                .where(field, "==", igrejaId)
+                .get();
+            item.forEach((v) => {
+                refs.push(v.ref);
+
+                if (cache) {
+                    const doc = db.collection(cache);
+                    const key =
+                        col !== "matriculas"
+                            ? igrejaId
+                            : `${igrejaId}_${v.data()?.licaoId}`;
+
+                    batch.update(doc.doc(key), {
+                        [`lista.${v.id}.igrejaNome`]: dadosNovos.nome,
+                    });
+
+                    count++;
+                    if (count >= 499) {
+                        batch = db.batch();
+                        batches.push(batch);
+                        count = 0;
+                    }
+                }
+            });
+        }
 
         for (let ref of refs) {
             batch.update(ref, novoNome);
@@ -2356,69 +2726,55 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
     try {
         const refs = [igrejaRef];
 
-        const [
-            classesSnap,
-            alunosSnap,
-            licoesSnap,
-            matriculasSnap,
-            registrosSnap,
-            usuariosSnap,
-            visitasSnap,
-            membrosSnap,
-            relatoriosSnap,
-        ] = await Promise.all([
-            db.collection("classes").where("igrejaId", "==", igrejaId).get(),
-            db.collection("alunos").where("igrejaId", "==", igrejaId).get(),
-            db.collection("licoes").where("igrejaId", "==", igrejaId).get(),
-            db.collection("matriculas").where("igrejaId", "==", igrejaId).get(),
-            db
-                .collection("registros_aula")
-                .where("igrejaId", "==", igrejaId)
-                .get(),
-            db.collection("usuarios").where("igrejaId", "==", igrejaId).get(),
-            db.collection("visitas").where("igrejaId", "==", igrejaId).get(),
-            db.collection("membros").where("igrejaId", "==", igrejaId).get(),
-            db
-                .collection("relatorios_trimestre")
-                .where("igrejaId", "==", igrejaId)
-                .get(),
-        ]);
+        const colecoes = [
+            Cll.ALUNOS,
+            Cll.CACHE_ALUNOS,
+            Cll.CLASSES,
+            Cll.CACHE_CLASSES,
+            Cll.LICOES,
+            Cll.CACHE_LICAO,
+            Cll.MATRICULAS,
+            Cll.CACHE_MATRICULAS,
+            Cll.MEMBROS,
+            Cll.CACHE_MEMBROS,
+            Cll.REGISTROS_AULA,
+            Cll.USUARIOS,
+            Cll.CACHE_USUARIOS,
+            Cll.VISITANTES,
+            Cll.PEDIDOS_RESPOSTA,
+            Cll.RELATORIOS_TRIMESTRE,
+            Cll.NOTIFICACOES,
+        ];
 
-        if (!classesSnap.empty) {
-            classesSnap.forEach((v) => refs.push(v.ref));
-        }
+        const promises = await Promise.all(
+            colecoes.map((v) =>
+                db.collection(v).where("igrejaId", "==", igrejaId).get(),
+            ),
+        );
 
-        if (!alunosSnap.empty) {
-            alunosSnap.forEach((v) => refs.push(v.ref));
-        }
+        const promisesRegistros = promises.map(async (v) => {
+            if (!v.empty) {
+                for (const doc of v.docs) {
+                    refs.push(doc.ref);
 
-        if (!licoesSnap.empty) {
-            licoesSnap.forEach((v) => refs.push(v.ref));
+                    const subColecoes = await doc.ref.listCollections();
+                    if (subColecoes.length) {
+                        for (const sub of subColecoes) {
+                            (await sub.get()).docs.forEach((v) =>
+                                refs.push(v.ref),
+                            );
+                        }
+                    }
+                }
+            }
+        });
 
-            const aulasPromises = licoesSnap.docs.map((v) =>
-                v.ref.collection("aulas").get(),
-            );
+        await Promise.all(promisesRegistros);
 
-            (await Promise.all(aulasPromises)).forEach((v) =>
-                v.forEach((a) => refs.push(a.ref)),
-            );
-        }
-
-        if (!matriculasSnap.empty) {
-            matriculasSnap.forEach((v) => refs.push(v.ref));
-        }
-
-        if (!registrosSnap.empty) {
-            registrosSnap.forEach((v) => refs.push(v.ref));
-
-            const chamadaPromises = registrosSnap.docs.map((v) =>
-                v.ref.collection("chamada").get(),
-            );
-            (await Promise.all(chamadaPromises)).forEach((v) =>
-                v.forEach((c) => refs.push(c.ref)),
-            );
-        }
-
+        const usuariosSnap = await db
+            .collection(Cll.USUARIOS)
+            .where("igrejaId", "==", igrejaId)
+            .get();
         const promisesUsers: any[] = [];
         if (!usuariosSnap.empty) {
             usuariosSnap.forEach((v) => {
@@ -2427,18 +2783,6 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
                 if (uid) promisesUsers.push(admin.auth().deleteUser(uid));
                 refs.push(v.ref);
             });
-        }
-
-        if (!visitasSnap.empty) {
-            visitasSnap.forEach((v) => refs.push(v.ref));
-        }
-
-        if (!membrosSnap.empty) {
-            membrosSnap.forEach((v) => refs.push(v.ref));
-        }
-
-        if (!relatoriosSnap.empty) {
-            relatoriosSnap.forEach((v) => refs.push(v.ref));
         }
 
         let count = 0;
@@ -2502,15 +2846,31 @@ export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
     const batchs = [batch];
     let count = 0;
 
+    const caches = [
+        Cll.CACHE_ALUNOS,
+        Cll.CACHE_CLASSES,
+        Cll.CACHE_USUARIOS,
+        Cll.CACHE_MEMBROS,
+    ];
+
     csv.forEach((v) => {
         const { nome } = v;
         if (!nome) return;
+        const newIgrejaRef = db.collection(Cll.IGREJAS).doc();
 
-        batch.set(db.collection("igrejas").doc(), {
+        batch.set(newIgrejaRef, {
             nome,
             ministerioId: user.ministerioId,
         });
-        count++;
+        caches.forEach((v) =>
+            batch.create(db.collection(v).doc(newIgrejaRef.id), {
+                igrejaId: newIgrejaRef.id,
+                ministerioId: user.ministerioId,
+                lista: {},
+            }),
+        );
+
+        count += caches.length + 1;
 
         if (count >= 499) {
             batch = db.batch();
@@ -2566,7 +2926,7 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         );
     }
 
-    const igreja = await db.collection("igrejas").doc(dados.igrejaId).get();
+    const igreja = await db.collection(Cll.IGREJAS).doc(dados.igrejaId).get();
     if (!igreja.exists) {
         throw new functions.https.HttpsError(
             "not-found",
@@ -2663,7 +3023,19 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
 
         if (isSecretario) delete dadosAtualizados.email;
 
-        await usuarioRef.update(dadosAtualizados as any);
+        await Promise.all([
+            usuarioRef.update(dadosAtualizados),
+            db
+                .collection(Cll.CACHE_USUARIOS)
+                .doc(igreja.id)
+                .update({
+                    [`lista.${usuarioId}`]: {
+                        ...usuarioSnap.data(),
+                        ...dadosAtualizados,
+                        id: usuarioId,
+                    },
+                }),
+        ]);
 
         enviarLog(
             user,
@@ -2691,7 +3063,18 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
             uid: newAuth.uid,
             id: newAuth.uid,
         };
-        await db.collection("usuarios").doc(newAuth.uid).set(newUser);
+        await Promise.all([
+            db.collection(Cll.USUARIOS).doc(newAuth.uid).set(newUser),
+            db
+                .collection(Cll.CACHE_USUARIOS)
+                .doc(igreja.id)
+                .update({
+                    [`lista.${newAuth.uid}`]: {
+                        ...newUser,
+                        id: newAuth.uid,
+                    },
+                }),
+        ]);
 
         enviarLog(
             user,
@@ -2736,7 +3119,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
         );
     }
 
-    const usuarioRef = db.collection("usuarios").doc(usuarioId);
+    const usuarioRef = db.collection(Cll.USUARIOS).doc(usuarioId);
     const usuario = await usuarioRef.get();
 
     if (!usuario.exists) {
@@ -2773,8 +3156,16 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
     }
 
     try {
-        await usuarioRef.delete();
-        await admin.auth().deleteUser(usuarioId);
+        await Promise.all([
+            usuarioRef.delete(),
+            admin.auth().deleteUser(usuarioId),
+            db
+                .collection(Cll.CACHE_USUARIOS)
+                .doc(usuario.data()?.igrejaId)
+                .update({
+                    [`lista.${uid}`]: FieldValue.delete(),
+                }),
+        ]);
 
         enviarLog(
             user,
@@ -2852,7 +3243,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         );
     }
 
-    const igreja = await db.collection("igrejas").doc(igrejaId).get();
+    const igreja = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igreja.exists) {
         throw new functions.https.HttpsError(
             "not-found",
@@ -2870,7 +3261,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         );
     }
 
-    const classe = await db.collection("classes").doc(classeId).get();
+    const classe = await db.collection(Cll.CLASSES).doc(classeId).get();
     if (!classe.exists || classe.data()?.igrejaId !== igrejaId) {
         throw new functions.https.HttpsError(
             "not-found",
@@ -2904,8 +3295,15 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         const alunosIds = dados.alunosSelecionados.map((a) => a.alunoId);
 
         if (licaoId) {
-            const licaoRef = db.collection("licoes").doc(licaoId);
-            const licao = await licaoRef.get();
+            const licaoRef = db.collection(Cll.LICOES).doc(licaoId);
+            const cacheRef = db
+                .collection(Cll.CACHE_LICAO)
+                .doc(`${igrejaId}_${licaoId}`);
+
+            const [licao, cacheSnap] = await Promise.all([
+                licaoRef.get(),
+                cacheRef.get(),
+            ]);
 
             if (!licao.exists) {
                 throw new functions.https.HttpsError(
@@ -2914,39 +3312,61 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 );
             }
 
-            const matriculas = await db
-                .collection("matriculas")
+            const cache = cacheSnap.data() as CacheLicaoInterface;
+
+            const matriculasCache = await db
+                .collection(Cll.CACHE_MATRICULAS)
                 .where("licaoId", "==", licaoId)
                 .get();
-            const todasMatriculasMap = new Map(
-                matriculas.docs.map((v) => [
-                    v.data()?.alunoId,
-                    {
-                        id: v.id,
-                        alunoId: v.data()?.alunoId,
-                    },
-                ]),
-            );
+            const todasMatriculasMap = new Map();
+            matriculasCache.docs.forEach((v) => {
+                Object.entries(v.data()?.lista || {}).forEach(([_, v]) => {
+                    const matricula = v as any;
+                    todasMatriculasMap.set(matricula.alunoId, {
+                        id: matricula.id,
+                        alunoId: matricula.alunoId,
+                    });
+                });
+            });
 
             const alunosSelecionadosMap = new Map(
                 dados.alunosSelecionados.map((v) => [v.alunoId, v]),
             );
+            cache.total_matriculados = dadosParaSalvar.total_matriculados;
 
             todasMatriculasMap.forEach((v) => {
-                const matriculaRef = db.collection("matriculas").doc(v.id);
-                if (!alunosSelecionadosMap.get(v.alunoId))
+                const matriculaRef = db.collection(Cll.MATRICULAS).doc(v.id);
+                const cacheMatriculaRef = db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${igrejaId}_${licaoId}`);
+
+                if (!alunosSelecionadosMap.has(v.alunoId)) {
                     batch.delete(matriculaRef);
-                else if (alunosSelecionadosMap.get(v.alunoId))
-                    batch.update(matriculaRef, {
-                        possui_revista: alunosSelecionadosMap.get(v.alunoId)
-                            ?.possui_revista,
+                    batch.update(cacheMatriculaRef, {
+                        [`lista.${v.id}`]: FieldValue.delete(),
                     });
+
+                    if (cache.detalhes_aluno[v.alunoId]) {
+                        cache.detalhes_aluno[v.alunoId].matriculado = false;
+                    }
+                } else if (alunosSelecionadosMap.has(v.alunoId)) {
+                    const p = alunosSelecionadosMap.get(
+                        v.alunoId,
+                    )?.possui_revista;
+                    batch.update(matriculaRef, {
+                        possui_revista: p,
+                    });
+                    batch.update(cacheMatriculaRef, {
+                        [`lista.${v.id}.possui_revista`]: p,
+                    });
+                }
             });
 
             const novosAlunos = dados.alunosSelecionados.filter(
                 (v) => !todasMatriculasMap.get(v.alunoId),
             );
 
+            const alunosMap = new Map();
             if (novosAlunos.length > 0) {
                 const alunosPromises = [];
                 for (let i = 0; i < novosAlunos.length; i += 30) {
@@ -2966,15 +3386,20 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 }
                 const alunosSnap = await Promise.all(alunosPromises);
                 const todosOsAlunos = alunosSnap.flatMap((snap) => snap.docs);
-                const alunosMap = new Map(
-                    todosOsAlunos.map((doc) => [doc.id, doc.data()]),
-                );
 
+                todosOsAlunos.forEach((doc) =>
+                    alunosMap.set(doc.id, doc.data()),
+                );
                 novosAlunos.forEach((aluno) => {
                     const alunoData = alunosMap.get(aluno.alunoId);
                     if (alunoData) {
-                        const matriculaRef = db.collection("matriculas").doc();
-                        batch.set(matriculaRef, {
+                        const matriculaRef = db
+                            .collection(Cll.MATRICULAS)
+                            .doc();
+                        const cacheMatriculasRef = db
+                            .collection(Cll.CACHE_MATRICULAS)
+                            .doc(`${igrejaId}_${licaoId}`);
+                        const dadosMatricula = {
                             alunoId: aluno.alunoId,
                             alunoNome: alunoData.nome_completo,
                             classeId,
@@ -2988,13 +3413,43 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                             licaoRef: licao.ref,
                             ministerioId: user.ministerioId,
                             possui_revista: aluno.possui_revista,
+                        };
+
+                        batch.set(matriculaRef, dadosMatricula);
+                        batch.update(cacheMatriculasRef, {
+                            [`lista.${matriculaRef.id}`]: {
+                                ...dadosMatricula,
+                                id: matriculaRef.id,
+                            },
                         });
                     }
+
+                    const detalhes = cache.detalhes_aluno;
+                    if (detalhes[aluno.alunoId])
+                        detalhes[aluno.alunoId].matriculado = true;
+                    else
+                        detalhes[aluno.alunoId] = {
+                            nome: alunosMap.get(aluno.alunoId)?.nome_completo,
+                            presente: 0,
+                            atrasado: 0,
+                            falta: 0,
+                            falta_justificada: 0,
+                            porcentagem: 0,
+                            matriculado: true,
+                            trouxe_biblia: 0,
+                            nao_trouxe_biblia: 0,
+                            porcentagem_biblia: 0,
+                            trouxe_revista: 0,
+                            nao_trouxe_revista: 0,
+                            porcentagem_revista: 0,
+                        };
                 });
             }
+            batch.update(cacheRef, { ...cache });
 
             dadosParaSalvar.ativo = licao.data()!.ativo;
             batch.update(licaoRef, dadosParaSalvar);
+
             await batch.commit();
 
             enviarLog(
@@ -3009,7 +3464,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         }
 
         const licaoAtivaQuery = db
-            .collection("licoes")
+            .collection(Cll.LICOES)
             .where("classeId", "==", classeId)
             .where("ativo", "==", true)
             .limit(1);
@@ -3030,7 +3485,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             }
         }
 
-        const novaLicaoRef = db.collection("licoes").doc();
+        const novaLicaoRef = db.collection(Cll.LICOES).doc();
         batch.set(novaLicaoRef, dadosParaSalvar);
 
         for (let i = 0; i < dados.numero_aulas; i++) {
@@ -3045,7 +3500,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 registroRef: null,
             });
         }
-
+        const alunosMap = new Map();
         if (dados.alunosSelecionados?.length > 0) {
             const alunosPromises = [];
             for (let i = 0; i < alunosIds.length; i += 30) {
@@ -3063,15 +3518,14 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             }
             const alunosSnap = await Promise.all(alunosPromises);
             const todosOsAlunos = alunosSnap.flatMap((snap) => snap.docs);
-            const alunosMap = new Map(
-                todosOsAlunos.map((doc) => [doc.id, doc.data()]),
-            );
+            todosOsAlunos.forEach((doc) => alunosMap.set(doc.id, doc.data()));
 
+            const matriculas: any = {};
             dados.alunosSelecionados.forEach((aluno) => {
                 const alunoData = alunosMap.get(aluno.alunoId);
                 if (alunoData) {
-                    const matriculaRef = db.collection("matriculas").doc();
-                    batch.set(matriculaRef, {
+                    const matriculaRef = db.collection(Cll.MATRICULAS).doc();
+                    const dadosMatricula = {
                         alunoId: aluno.alunoId,
                         alunoNome: alunoData.nome_completo,
                         classeId,
@@ -3085,9 +3539,27 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                         licaoRef: novaLicaoRef,
                         ministerioId: user.ministerioId,
                         possui_revista: aluno.possui_revista,
-                    });
+                    };
+
+                    batch.set(matriculaRef, dadosMatricula);
+                    matriculas[matriculaRef.id] = {
+                        ...dadosMatricula,
+                        id: matriculaRef.id,
+                    };
                 }
             });
+            batch.set(
+                db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${igrejaId}_${novaLicaoRef.id}`),
+                {
+                    igrejaId,
+                    ministerioId: dadosParaSalvar.ministerioId,
+                    licaoId: novaLicaoRef.id,
+                    lista: matriculas,
+                },
+                { merge: true },
+            );
         }
 
         const trimestre = {
@@ -3106,9 +3578,46 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             .toLocaleDateString("pt-BR")
             .replace(/\//g, "-")}-${dadosParaSalvar.numero_trimestre}`;
 
-        batch.set(db.collection("trimestres").doc(idTrimestre), trimestre, {
+        batch.set(db.collection(Cll.TRIMESTRES).doc(idTrimestre), trimestre, {
             merge: true,
         });
+
+        const cache: CacheLicaoInterface = {
+            classeId,
+            classeNome: classe.data()?.nome,
+            data_fim: dadosParaSalvar.data_fim,
+            data_inicio: dadosParaSalvar.data_inicio,
+            ministerioId: dadosParaSalvar.ministerioId,
+            igrejaId,
+            igrejaNome: igreja.data()?.nome,
+            licaoId: novaLicaoRef.id,
+            licaoNome: dadosParaSalvar.titulo,
+            pico_presenca: 0,
+            total_matriculados: dados.alunosSelecionados?.length,
+            total_missoes: 0,
+            total_missoes_dinheiro: 0,
+            total_missoes_pix: 0,
+            total_ofertas: 0,
+            total_ofertas_dinheiro: 0,
+            total_ofertas_pix: 0,
+            detalhes_aulas: {},
+            detalhes_aluno: dados.alunosSelecionados.reduce(
+                (prev: any, current) => {
+                    prev[current.alunoId] = getNewCacheAluno(
+                        alunosMap.get(current.alunoId)?.nome_completo,
+                        current.alunoId,
+                    );
+                    return prev;
+                },
+                {},
+            ),
+        };
+        batch.set(
+            db
+                .collection(Cll.CACHE_LICAO)
+                .doc(`${igrejaId}_${novaLicaoRef.id}`),
+            cache,
+        );
 
         await batch.commit();
 
@@ -3162,11 +3671,30 @@ export const onLicaoUpdate = onDocumentUpdated(
                     `O titulo ${dadosAntigos.titulo} foi alterado para ${dadosNovos.titulo}`,
                 );
 
-                const matriculas = await db
-                    .collection("matriculas")
-                    .where("licaoId", "==", licaoId)
-                    .get();
-                matriculas.forEach((v) => batch.update(v.ref, novoTitulo));
+                const registros = await Promise.all([
+                    db
+                        .collection(Cll.MATRICULAS)
+                        .where("licaoId", "==", licaoId)
+                        .get(),
+                    db
+                        .collection(Cll.CACHE_LICAO)
+                        .where("licaoId", "==", licaoId)
+                        .get(),
+                ]);
+                registros.forEach((v) =>
+                    v.docs.forEach((v) => batch.update(v.ref, novoTitulo)),
+                );
+
+                const cacheMatriculaRef = db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${dadosNovos.igrejaId}_${licaoId}`);
+                const cacheMatricula = await cacheMatriculaRef.get();
+                const cacheLista = cacheMatricula.data()?.lista;
+                for (const key in cacheLista) {
+                    cacheLista[key]["licaoNome"] = dadosNovos.titulo;
+                }
+
+                batch.update(cacheMatriculaRef, { lista: cacheLista });
             }
 
             if (dataMudou) {
@@ -3198,16 +3726,25 @@ export const onLicaoUpdate = onDocumentUpdated(
                     .toDate()
                     .toLocaleDateString("pt-BR")
                     .replace(/\//g, "-")}-${dadosNovos.numero_trimestre}`;
-
                 batch.set(
                     db.collection("trimestres").doc(idTrimestre),
                     trimestre,
                     { merge: true },
                 );
 
+                const cacheLicaoRef = db
+                    .collection(Cll.CACHE_LICAO)
+                    .doc(`${dadosNovos.igrejaId}_${licaoId}`);
+                const cacheLicao = (
+                    await cacheLicaoRef.get()
+                ).data() as CacheLicaoInterface;
+                cacheLicao.data_inicio = dadosNovos.data_inicio;
+                cacheLicao.data_fim = dadosNovos.data_fim;
+
                 for (let i = 0; i < dadosNovos.numero_aulas; i++) {
                     const data = dadosNovos.data_inicio.toDate();
                     data.setDate(data.getDate() + i * 7);
+                    const dataTimestamp = Timestamp.fromDate(data);
 
                     const licaoRef = db.collection("licoes").doc(licaoId);
                     const aulaRef = licaoRef
@@ -3217,14 +3754,31 @@ export const onLicaoUpdate = onDocumentUpdated(
                     const aula = (await aulaRef.get()).data();
 
                     batch.update(aulaRef, {
-                        data_prevista: Timestamp.fromDate(data),
+                        data_prevista: dataTimestamp,
                     });
 
-                    if (aula?.realizada)
+                    if (aula?.realizada) {
+                        const dataAntiga = aula.data_prevista
+                            ?.toDate()
+                            .toLocaleDateString("pt-BR");
+                        const dataNova = dataTimestamp
+                            .toDate()
+                            .toLocaleDateString("pt-BR");
+
+                        cacheLicao.detalhes_aulas[dataNova] = {
+                            ...cacheLicao.detalhes_aulas[dataAntiga],
+                        };
+                        delete cacheLicao.detalhes_aulas[dataAntiga];
+
                         batch.update(aula.registroRef, {
-                            data: Timestamp.fromDate(data),
+                            data: dataTimestamp,
                         });
+                    }
                 }
+
+                batch.update(cacheLicaoRef, {
+                    ...cacheLicao,
+                });
             }
 
             await batch.commit();
@@ -3279,28 +3833,33 @@ export const deletarLicao = functions.https.onCall(async (request) => {
         const refs = [licaoRef];
 
         const aulasRef = licaoRef.collection("aulas");
-        const matriculasRef = db
-            .collection("matriculas")
-            .where("licaoId", "==", licaoId);
-        const registrosRef = db
-            .collection("registros_aula")
-            .where("licaoId", "==", licaoId);
 
-        const [aulasSnap, matriculasSnap, registrosSnap] = await Promise.all([
+        const colecoes = [
+            Cll.MATRICULAS,
+            Cll.CACHE_MATRICULAS,
+            Cll.REGISTROS_AULA,
+            Cll.CACHE_LICAO,
+        ];
+
+        const promises = await Promise.all([
+            ...colecoes.map((v) =>
+                db.collection(v).where("licaoId", "==", licaoId).get(),
+            ),
             aulasRef.get(),
-            matriculasRef.get(),
-            registrosRef.get(),
         ]);
 
-        aulasSnap.docs.forEach((v) => refs.push(v.ref));
-        matriculasSnap.docs.forEach((v) => refs.push(v.ref));
-        registrosSnap.docs.forEach((v) => refs.push(v.ref));
+        for (const doc of promises) {
+            for (const v of doc.docs) {
+                refs.push(v.ref);
 
-        const chamadasRefs = await Promise.all(
-            registrosSnap.docs.map((v) => v.ref.collection("chamada").get()),
-        );
-
-        chamadasRefs.forEach((v) => v.docs.forEach((c) => refs.push(c.ref)));
+                const sub = await v.ref.listCollections();
+                if (sub.length) {
+                    for (const s of sub) {
+                        (await s.get()).docs.forEach((v) => refs.push(v.ref));
+                    }
+                }
+            }
+        }
 
         let batch = db.batch();
         let count = 0;
@@ -3340,11 +3899,6 @@ export const deletarLicao = functions.https.onCall(async (request) => {
             request,
             "DELETAR_LICAO",
             `A lição ${licaoId} foi deletada com sucesso pelo usuário: $${user.uid}`,
-            {
-                aulas: aulasSnap.docs,
-                matriculas: matriculasSnap.docs,
-                registros: registrosSnap.docs,
-            },
         );
 
         return { message: "Lição deletada com sucesso" };
@@ -3370,11 +3924,11 @@ interface ChamadaFront {
     totalAtrasados: number;
     visitas: number;
     visitasLista: VisitaFront[];
-    ofertaDinheiro: number;
-    ofertaPix: number;
+    ofertaDinheiro: number | string;
+    ofertaPix: number | string;
     imgsPixOfertas: string[];
-    missoesDinheiro: number;
-    missoesPix: number;
+    missoesDinheiro: number | string;
+    missoesPix: number | string;
     imgsPixMissoes: string[];
     descricao: string;
     data_chamada: string;
@@ -3406,6 +3960,69 @@ interface RegistroAulaInterface {
     imgsPixOfertas: string[] | null;
     numero_aula: number;
 }
+interface CacheLicaoInterface {
+    igrejaId: string;
+    igrejaNome: string;
+    ministerioId: string;
+    classeId: string;
+    classeNome: string;
+    licaoId: string;
+    licaoNome: string;
+    data_inicio: Timestamp;
+    data_fim: Timestamp;
+
+    total_ofertas: number;
+    total_ofertas_pix: number;
+    total_ofertas_dinheiro: number;
+    total_missoes: number;
+    total_missoes_dinheiro: number;
+    total_missoes_pix: number;
+
+    pico_presenca: number;
+    total_matriculados: number;
+    detalhes_aulas: {
+        [data: string]: {
+            presentes_chamada: number;
+            ausentes: number;
+            atrasados: number;
+            visitas: number;
+            total_presenca: number;
+            biblias: number;
+            licoes: number;
+            observacao?: string;
+            visitas_lista: VisitaFront[];
+
+            chamada: {
+                [alunoId: string]: {
+                    status:
+                        | "Presente"
+                        | "Atrasado"
+                        | "Falta Justificada"
+                        | "Falta";
+                    trouxe_licao: boolean;
+                    trouxe_biblia: boolean;
+                };
+            };
+        };
+    };
+    detalhes_aluno: {
+        [idAluno: string]: {
+            nome: string;
+            presente: number;
+            atrasado: number;
+            falta: number;
+            falta_justificada: number;
+            porcentagem: number;
+            matriculado: boolean;
+            trouxe_biblia: number;
+            nao_trouxe_biblia: number;
+            porcentagem_biblia: number;
+            trouxe_revista: number;
+            nao_trouxe_revista: number;
+            porcentagem_revista: number;
+        };
+    };
+}
 
 export const salvarChamada = functions.https.onCall(async (request) => {
     const { db, user, isSecretario, isAdmin } = await validarUsuario(request);
@@ -3420,15 +4037,11 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         );
     }
 
-    const licaoRef = db.collection("licoes").doc(licaoId);
-    const aulaRef = db
-        .collection("licoes")
-        .doc(licaoId)
-        .collection("aulas")
-        .doc(numeroAula);
+    const licaoRef = db.collection(Cll.LICOES).doc(licaoId);
+    const aulaRef = licaoRef.collection("aulas").doc(numeroAula);
 
     const [classe, licao, aula] = await Promise.all([
-        db.collection("classes").doc(classeId).get(),
+        db.collection(Cll.CLASSES).doc(classeId).get(),
         licaoRef.get(),
         aulaRef.get(),
     ]);
@@ -3439,7 +4052,6 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             "Coleções não foram encontradas",
         );
     }
-
     if (
         (isSecretario && user.classeId !== classeId) ||
         (isAdmin && licao.data()?.igrejaId !== user.igrejaId)
@@ -3450,13 +4062,26 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         );
     }
 
-    // if (licao.data()?.relatorio_enviado === true) {
-    //     throw new functions.https.HttpsError(
-    //         "permission-denied",
-    //         "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear.",
-    //     );
-    // }
-
+    const cacheRef = db
+        .collection(Cll.CACHE_LICAO)
+        .doc(`${classe.data()!.igrejaId}_${licaoId}`);
+    const cacheSnap = await cacheRef.get();
+    dados.missoesPix =
+        typeof dados.missoesPix === "string"
+            ? Number(dados.missoesPix.replace(",", "."))
+            : dados.missoesPix;
+    dados.missoesDinheiro =
+        typeof dados.missoesDinheiro === "string"
+            ? Number(dados.missoesDinheiro.replace(",", "."))
+            : dados.missoesDinheiro;
+    dados.ofertaDinheiro =
+        typeof dados.ofertaDinheiro === "string"
+            ? Number(dados.ofertaDinheiro.replace(",", "."))
+            : dados.ofertaDinheiro;
+    dados.ofertaPix =
+        typeof dados.ofertaPix === "string"
+            ? Number(dados.ofertaPix.replace(",", "."))
+            : dados.ofertaPix;
     const dadosParaSalvar: RegistroAulaInterface = {
         atrasados: dados.totalAtrasados,
         biblias: dados.totalBiblias,
@@ -3488,7 +4113,6 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         visitas_lista: dados.visitasLista,
         numero_aula: aula.data()?.numero_aula || 1,
     };
-
     try {
         const batch = db.batch();
 
@@ -3496,7 +4120,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         const isEditando = aula.exists && aula.data()?.realizada;
 
         if (isEditando) registrosRef = aula.data()!.registroRef;
-        else registrosRef = db.collection("registros_aula").doc();
+        else registrosRef = db.collection(Cll.REGISTROS_AULA).doc();
 
         batch.update(licaoRef, { total_matriculados: dados.totalMatriculados });
 
@@ -3519,38 +4143,180 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             });
         }
 
+        const dadosDia: any = {
+            atrasados: dadosParaSalvar.atrasados,
+            ausentes: dadosParaSalvar.total_ausentes,
+            biblias: dadosParaSalvar.biblias,
+            licoes: dadosParaSalvar.licoes_trazidas,
+            presentes_chamada: dadosParaSalvar.presentes_chamada,
+            visitas: dadosParaSalvar.visitas,
+            visitas_lista: dadosParaSalvar.visitas_lista,
+            total_presenca: dadosParaSalvar.total_presentes,
+            ofertas: dadosParaSalvar.ofertas_total,
+            ofertas_pix: dadosParaSalvar.ofertas.pix,
+            ofertas_dinheiro: dadosParaSalvar.ofertas.dinheiro,
+            missoes: dadosParaSalvar.missoes_total,
+            missoes_dinheiro: dadosParaSalvar.missoes.dinheiro,
+            missoes_pix: dadosParaSalvar.missoes.pix,
+        };
+        const dadosAlunos: any = {};
+        const dadosGeraisCache = {
+            classeId: dadosParaSalvar.classeId,
+            classeNome: dadosParaSalvar.classeNome,
+            igrejaId: dadosParaSalvar.igrejaId,
+            igrejaNome: dadosParaSalvar.igrejaNome,
+            licaoId: dadosParaSalvar.licaoId,
+            licaoNome: licao.data()?.titulo,
+            ministerioId: dadosParaSalvar.ministerioId,
+            data_fim: licao.data()?.data_fim,
+            data_inicio: licao.data()?.data_inicio,
+            detalhes_aulas: {
+                [dadosParaSalvar.data.toDate().toLocaleDateString("pt-BR")]:
+                    dadosDia,
+            },
+            total_matriculados: dadosParaSalvar.total_matriculados,
+        };
+
         const chamadaRef = registrosRef.collection("chamada");
         const alunosIds = Object.keys(dados.chamada);
+        const alunosStatus: any = {};
+
         if (alunosIds.length) {
-            const promises = [];
-            for (let i = 0; i < alunosIds.length; i += 30) {
-                const chunk = alunosIds.slice(i, i + 30);
-                promises.push(
-                    db
-                        .collection("alunos")
-                        .where(
-                            admin.firestore.FieldPath.documentId(),
-                            "in",
-                            chunk,
-                        )
-                        .get(),
-                );
+            const listaChamada = alunosIds.map((id) => {
+                const obj = {
+                    alunoId: id,
+                    status: dados.chamada[id],
+                    trouxe_biblia: dados.bibliasTrazidas.includes(id)
+                        ? true
+                        : false,
+                    trouxe_licao: dados.licoesTrazidas.includes(id)
+                        ? true
+                        : false,
+                };
+                alunosStatus[id] = obj;
+
+                const stts = dados.chamada[id]
+                    .toLocaleLowerCase()
+                    .replace(" ", "_");
+                dadosAlunos[id] = getNewCacheAluno("", id, { [stts]: 1 });
+
+                return obj;
+            });
+
+            batch.set(chamadaRef.doc("lista"), { chamada: listaChamada });
+            dadosDia["chamada"] = alunosStatus;
+        }
+
+        if (!cacheSnap.exists) {
+            const dadosCache = {
+                ...dadosGeraisCache,
+                detalhes_aluno: dadosAlunos,
+                pico_presenca: dadosParaSalvar.total_presentes,
+                total_matriculados: dadosParaSalvar.total_matriculados,
+                total_missoes: dadosParaSalvar.missoes_total,
+                total_missoes_dinheiro: dadosParaSalvar.missoes.dinheiro,
+                total_missoes_pix: dadosParaSalvar.missoes.pix,
+                total_ofertas: dadosParaSalvar.ofertas_total,
+                total_ofertas_dinheiro: dadosParaSalvar.ofertas.dinheiro,
+                total_ofertas_pix: dadosParaSalvar.ofertas.pix,
+            };
+
+            batch.set(cacheRef, dadosCache);
+        } else {
+            const cache = cacheSnap.data() as CacheLicaoInterface;
+            const detalhes_aulas = {
+                ...cache.detalhes_aulas,
+                ...dadosGeraisCache.detalhes_aulas,
+            };
+
+            const colunas: any = {
+                total_ofertas: "ofertas_total",
+                total_ofertas_pix: "ofertas.pix",
+                total_ofertas_dinheiro: "ofertas.dinheiro",
+                total_missoes: "missoes_total",
+                total_missoes_pix: "missoes.pix",
+                total_missoes_dinheiro: "missoes.dinheiro",
+            };
+            if (!isEditando) {
+                for (const col in colunas) {
+                    const cacheEdit = cache as any;
+                    const d = dadosParaSalvar as any;
+                    cacheEdit[col] =
+                        (cacheEdit[col] || 0) +
+                        (colunas[col]
+                            .split(".")
+                            .reduce(
+                                (prev: any, current: any) => prev[current],
+                                d,
+                            ) || 0);
+                }
             }
 
-            const alunos = (await Promise.all(promises)).flatMap((v) => v.docs);
-            const alunosMap = new Map(alunos.map((v) => [v.id, v.data()]));
+            const presencaAluno = new Map();
+            for (const dia in detalhes_aulas) {
+                const chamada = detalhes_aulas[dia].chamada;
+                for (const id in chamada) {
+                    const stts = chamada[id].status
+                        .toLowerCase()
+                        .replace(" ", "_");
 
-            alunosIds.forEach((id) => {
-                const aluno = alunosMap.get(id);
-                if (aluno)
-                    batch.set(chamadaRef.doc(id), {
-                        nome: aluno.nome_completo,
-                        status: dados.chamada[id],
-                        trouxe_biblia: dados.bibliasTrazidas.includes(id),
-                        trouxe_licao: dados.licoesTrazidas.includes(id),
-                    });
+                    const obj: any =
+                        presencaAluno.get(id) ||
+                        getNewCacheAluno(
+                            cache.detalhes_aluno[id]?.nome || "",
+                            id,
+                            {
+                                matriculado:
+                                    cache.detalhes_aluno[id]?.matriculado ||
+                                    false,
+                            },
+                        );
+
+                    const trouxeRevista = chamada[id].trouxe_revista;
+                    const trouxeBiblia = chamada[id].trouxe_biblia;
+
+                    obj[stts]++;
+                    obj["trouxe_biblia"] += trouxeBiblia ? 1 : 0;
+                    obj["trouxe_revista"] += trouxeRevista ? 1 : 0;
+                    obj["nao_trouxe_biblia"] += !trouxeBiblia ? 1 : 0;
+                    obj["nao_trouxe_revista"] += !trouxeRevista ? 1 : 0;
+
+                    presencaAluno.set(id, obj);
+                }
+            }
+
+            const detalhes_aluno = Object.fromEntries(presencaAluno);
+            const totalAulas = Object.keys(detalhes_aulas).length;
+            for (const id in detalhes_aluno) {
+                const a = detalhes_aluno;
+                const totalPontos =
+                    (a[id].presente || 0) +
+                    (a[id].atrasado || 0) * 0.9 +
+                    (a[id].falta_justificada || 0) * 0.5;
+
+                const porcentagem = ((totalPontos || 0) / totalAulas) * 100;
+                const porcentagemRevista =
+                    (a[id].trouxe_licao / totalAulas) * 100;
+                const porcentagemBiblia =
+                    (a[id].trouxe_biblia / totalAulas) * 100;
+
+                a[id].porcentagem = porcentagem;
+                a[id].porcentagem_biblia = porcentagemBiblia;
+                a[id].trouxe_revista = porcentagemRevista;
+            }
+
+            batch.update(cacheRef, {
+                ...cache,
+                ...dadosGeraisCache,
+                detalhes_aluno,
+                detalhes_aulas,
+                pico_presenca:
+                    cache.pico_presenca < dadosParaSalvar.total_presentes
+                        ? dadosParaSalvar.total_presentes
+                        : cache.pico_presenca,
             });
         }
+
         await batch.commit();
 
         enviarLog(
@@ -3598,27 +4364,70 @@ export const onSalvarChamadaUpdate = onDocumentUpdated(
             ...(imgsOfertasDeletar || []),
         ];
 
-        if (!imgsDeletar.length) {
-            console.log("As imagens não mudaram, encerrando trigger");
+        if (imgsDeletar.length) {
+            const bucket = admin.storage().bucket();
+            const regex = /\/o\/(.*)\?/;
+            const promises = imgsDeletar
+                ?.map((v) => {
+                    const caminho = v?.match(regex);
+                    if (caminho?.length) {
+                        const url = decodeURIComponent(caminho[1]);
+                        return bucket.file(url).delete();
+                    }
+                    return;
+                })
+                .filter(Boolean);
+
+            await Promise.all(promises!);
+
+            console.log("Imagens apagadas com sucesso!");
+        } else {
+            console.log("As imagens não mudaram...");
+        }
+
+        console.log("Iniciando Atualização do cache");
+
+        const db = admin.firestore();
+
+        const cacheRef = db
+            .collection("cache_licao")
+            .doc(`${dadosNovos.igrejaId}_${dadosNovos.licaoId}`);
+        const cacheSnap = await cacheRef.get();
+
+        if (!cacheSnap.exists) {
+            console.log("cache não encontrado, encerrando trigger");
             return;
         }
 
-        const bucket = admin.storage().bucket();
-        const regex = /\/o\/(.*)\?/;
-        const promises = imgsDeletar
-            ?.map((v) => {
-                const caminho = v?.match(regex);
-                if (caminho?.length) {
-                    const url = decodeURIComponent(caminho[1]);
-                    return bucket.file(url).delete();
-                }
-                return;
-            })
-            .filter(Boolean);
+        const cache = { ...cacheSnap.data() } as CacheLicaoInterface;
+        const colunas: any = {
+            total_ofertas: "ofertas_total",
+            total_ofertas_pix: "ofertas.pix",
+            total_ofertas_dinheiro: "ofertas.dinheiro",
+            total_missoes: "missoes_total",
+            total_missoes_pix: "missoes.pix",
+            total_missoes_dinheiro: "missoes.dinheiro",
+        };
 
-        await Promise.all(promises!);
+        for (const key in colunas) {
+            const c = cache as any;
+            const da = dadosAntigos as any;
+            const dn = dadosNovos as any;
 
-        console.log("Imagens apagadas com sucesso!");
+            c[key] =
+                c[key] -
+                colunas[key]
+                    .split(".")
+                    .reduce((prev: any, current: any) => prev[current], da) +
+                colunas[key]
+                    .split(".")
+                    .reduce((prev: any, current: any) => prev[current], dn);
+
+            if (c[key] < 0) c[key] = 0;
+        }
+
+        await cacheRef.update({ ...cache });
+        console.log("Dados atualizados, encerrando trigger");
     },
 );
 
@@ -3660,7 +4469,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
 
     try {
         const matriculas = await db
-            .collection("matriculas")
+            .collection(Cll.MATRICULAS)
             .where("licaoId", "==", licaoId)
             .where("alunoId", "==", alunoId)
             .limit(1)
@@ -3668,13 +4477,23 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
 
         if (!matriculas.empty) {
             const matriculaDoc = matriculas.docs[0];
-
-            await matriculaDoc.ref.update({
-                ...dados,
-                data_matricula: Timestamp.fromDate(
-                    new Date(dados.data_matricula + "T12:00:00"),
-                ),
-            });
+            const data_matricula = Timestamp.fromDate(
+                new Date(dados.data_matricula + "T12:00:00"),
+            );
+            await Promise.all([
+                matriculaDoc.ref.update({ ...dados, data_matricula }),
+                db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${matriculaDoc.data()?.igrejaId}_${licaoId}`)
+                    .update({
+                        [`lista.${matriculaDoc.id}`]: {
+                            ...matriculaDoc.data(),
+                            ...dados,
+                            data_matricula,
+                            id: matriculaDoc.id,
+                        },
+                    }),
+            ]);
 
             enviarLog(
                 user,
@@ -3690,8 +4509,8 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             };
         }
 
-        const alunoRef = db.collection("alunos").doc(alunoId);
-        const licaoRef = db.collection("licoes").doc(licaoId);
+        const alunoRef = db.collection(Cll.ALUNOS).doc(alunoId);
+        const licaoRef = db.collection(Cll.LICOES).doc(licaoId);
         const [aluno, licao] = await Promise.all([
             alunoRef.get(),
             licaoRef.get(),
@@ -3703,9 +4522,17 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
                 "Aluno ou Lição não encontrado",
             );
         }
+        const igrejaId = licao.data()?.igrejaId;
+        const cacheRef = db
+            .collection(Cll.CACHE_LICAO)
+            .doc(`${igrejaId}_${licaoId}`);
 
         const classeRef = db.collection("classes").doc(licao.data()!.classeId);
-        const classe = await classeRef.get();
+        const [classe, cacheSnap] = await Promise.all([
+            classeRef.get(),
+            cacheRef.get(),
+        ]);
+        const cache = cacheSnap.data() as CacheLicaoInterface;
 
         if (!classe.exists) {
             throw new functions.https.HttpsError(
@@ -3731,13 +4558,35 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             ministerioId: user.ministerioId,
             possui_revista: dados.possui_revista,
         };
+        const dadosNovoAluno = getNewCacheAluno(
+            dadosParaSalvar.alunoNome,
+            alunoId,
+        );
 
         const batch = db.batch();
 
         const matricula = db.collection("matriculas").doc();
         batch.set(matricula, dadosParaSalvar);
+        batch.update(
+            db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${licaoId}`),
+            {
+                [`lista.${matricula.id}`]: {
+                    ...dadosParaSalvar,
+                    id: matricula.id,
+                },
+            },
+        );
 
         batch.update(licaoRef, { total_matriculados: FieldValue.increment(1) });
+        batch.update(cacheRef, {
+            total_matriculados: FieldValue.increment(1),
+            [`detalhes_aluno.${alunoId}`]: {
+                ...dadosNovoAluno,
+                ...cache.detalhes_aluno?.[alunoId],
+                matriculado: true,
+                nome: dadosNovoAluno.nome,
+            },
+        });
 
         await batch.commit();
 
@@ -3774,7 +4623,7 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
         );
     }
 
-    const matriculaRef = db.collection("matriculas").doc(matriculaId);
+    const matriculaRef = db.collection(Cll.MATRICULAS).doc(matriculaId);
     const matriculaSnap = await matriculaRef.get();
 
     if (!matriculaSnap.exists) {
@@ -3796,12 +4645,28 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
 
     try {
         const batch = db.batch();
-        const licaoRef = matriculaSnap.data()!.licaoRef;
+        const matricula = matriculaSnap.data();
+        const licaoRef = matricula?.licaoRef;
+
+        const cacheRef = db
+            .collection(Cll.CACHE_LICAO)
+            .doc(`${matricula?.igrejaId}_${matricula?.licaoId}`);
+
+        batch.update(cacheRef, {
+            total_matriculados: FieldValue.increment(-1),
+            [`detalhes_aluno.${matricula?.alunoId}.matriculado`]: false,
+        });
 
         batch.update(licaoRef, {
             total_matriculados: FieldValue.increment(-1),
         });
         batch.delete(matriculaRef);
+        batch.update(
+            db
+                .collection(Cll.CACHE_MATRICULAS)
+                .doc(`${matricula?.igrejaId}_${matricula?.licaoId}`),
+            { [`lista.${matriculaId}`]: FieldValue.delete() },
+        );
 
         await batch.commit();
 
@@ -3844,7 +4709,7 @@ interface GerarRelatorioInterface {
     grafico: "bar" | "line" | "pie";
 }
 
-export const gerarRelatorio = functions.https.onCall(async (request) => {
+export const gerarRelatorioGrafico = functions.https.onCall(async (request) => {
     const { user, db, isSecretario, isSuperAdmin, isAdmin } =
         await validarUsuario(request);
 
@@ -3859,7 +4724,7 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
     }
 
     let baseQuery = db
-        .collection("registros_aula")
+        .collection(Cll.REGISTROS_AULA)
         .where("data", ">=", new Date(dataInicio + "T00:00:00"))
         .where("data", "<=", new Date(dataFim + "T23:59:59"));
 
@@ -3886,43 +4751,44 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
     if (metrica === "frequencia_alunos") {
         if (!registroDocs.length) return [];
 
-        const totalAulasNoPeriodo = registroDocs.length;
         const presencas = new Map<string, any>();
+        const licoes = new Set();
 
-        const promises = registroDocs.map(async (doc) => {
-            const chamada = await doc.ref.collection("chamada").get();
-            const docData = doc.data();
+        for (const registro of registros) {
             let key = "desconhecido";
             switch (agrupamento) {
                 case "classe":
-                    key = docData.classeNome;
+                    key = registro.classeNome;
                     break;
                 case "igreja":
-                    key = docData.igrejaNome;
+                    key = registro.igrejaNome;
                     break;
             }
 
-            chamada.docs.forEach((v) => {
-                const aluno = v.data();
-                if (agrupamento === "aluno") key = aluno.nome;
-                let soma = 0;
-                if (aluno.status === "Presente") soma = 1;
-                else if (aluno.status === "Atrasado") soma = 0.9;
-                const valor = presencas.get(key) || { [aluno.nome]: 0 };
-                valor[aluno.nome] = (valor[aluno.nome] || 0) + soma;
+            if (licoes.has(registro.licaoId)) continue;
+
+            const cache = (
+                await db
+                    .collection(Cll.CACHE_LICAO)
+                    .doc(`${registro.igrejaId}_${registro.licaoId}`)
+                    .get()
+            ).data() as CacheLicaoInterface;
+
+            Object.values(cache.detalhes_aluno).forEach((v) => {
+                if (agrupamento === "aluno") key = v.nome;
+
+                const valor = presencas.get(key) || { [v.nome]: 0 };
+                valor[v.nome] = (valor[v.nome] || 0) + v.porcentagem;
 
                 presencas.set(key, valor);
             });
-        });
 
-        await Promise.all(promises);
+            licoes.add(registro.licaoId);
+        }
 
         return Array.from(presencas.entries()).map(([name, valor]) => {
             for (let key in valor) {
-                const porcentagem = (
-                    (valor[key] / totalAulasNoPeriodo) *
-                    100
-                ).toFixed(2);
+                const porcentagem = (valor[key] / licoes.size).toFixed(2);
                 valor[key] = Number.parseFloat(porcentagem);
             }
             return {
@@ -3942,7 +4808,7 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
             const chunk = ids.slice(i, i + 30);
             promises.push(
                 db
-                    .collection("licoes")
+                    .collection(Cll.LICOES)
                     .where(admin.firestore.FieldPath.documentId(), "in", chunk)
                     .get(),
             );
@@ -3973,49 +4839,49 @@ export const gerarRelatorio = functions.https.onCall(async (request) => {
 
     if (agrupamento === "aluno") {
         const alunosMap = new Map<string, any>();
+        const licoes = new Set();
 
-        const promises = registroDocs.map((v) =>
-            v.ref.collection("chamada").get(),
-        );
-        (await Promise.all(promises)).forEach((v) =>
-            v.forEach((a) => {
-                const aluno = a.data();
+        for (const registro of registroDocs) {
+            const registroData = registro.data() as RegistroAulaInterface;
+
+            if (licoes.has(registroData.licaoId)) continue;
+
+            const cacheSnap = await db
+                .collection("cache_licao")
+                .doc(`${registroData.igrejaId}_${registroData.licaoId}`)
+                .get();
+
+            if (!cacheSnap.exists) return;
+
+            const cache = cacheSnap.data() as CacheLicaoInterface;
+            Object.values(cache.detalhes_aluno).forEach((v) => {
                 let valor = 0;
-
+                const nome = v.nome;
                 switch (metrica) {
                     case "biblias":
-                        valor = aluno.trouxe_biblia ? 1 : 0;
+                        valor = v.trouxe_biblia;
                         break;
                     case "licoes_trazidas":
-                        valor = aluno.trouxe_licao ? 1 : 0;
+                        valor = v.trouxe_revista;
                         break;
                     case "presentes_chamada":
-                        valor = aluno.status === "Presente" ? 1 : 0;
+                        valor = v.presente;
                         break;
                     case "total_presentes":
-                        valor =
-                            aluno.status === "Atrasado" ||
-                            aluno.status === "Presente"
-                                ? 1
-                                : 0;
+                        valor = v.presente + v.atrasado;
                         break;
                     case "atrasados":
-                        valor = aluno.status === "Atrasado" ? 1 : 0;
+                        valor = v.atrasado;
                         break;
                     case "total_ausentes":
-                        valor =
-                            aluno.status === "Falta" ||
-                            aluno.status === "Falta Justificada"
-                                ? 1
-                                : 0;
+                        valor = v.falta + v.falta_justificada;
                 }
 
-                alunosMap.set(
-                    aluno.nome,
-                    (alunosMap.get(aluno.nome) || 0) + valor,
-                );
-            }),
-        );
+                alunosMap.set(nome, (alunosMap.get(nome) || 0) + valor);
+            });
+
+            licoes.add(registroData.licaoId);
+        }
 
         return Array.from(alunosMap.entries()).map(([name, valor]) => ({
             name,
@@ -4198,15 +5064,18 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
         const d: any[] = [];
         const promises = dadosSnap.docs.map(async (v) => {
             const registro = v.data() as RegistroAulaInterface;
-            const chamadaSnap = await v.ref.collection("chamada").get();
+            const chamadaSnap = await v.ref
+                .collection("chamada")
+                .doc("lista")
+                .get();
 
-            chamadaSnap.docs.forEach((c) => {
+            chamadaSnap.data()?.chamada.forEach((c: any) => {
                 d.push({
+                    ...c,
                     id: v.id,
                     igrejaNome: registro.igrejaNome,
                     classeNome: registro.classeNome,
                     data: registro.data.toDate().toLocaleDateString("pt-BR"),
-                    ...c.data(),
                 });
             });
         });
@@ -4318,7 +5187,7 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
             (registro.ofertas_total || 0) + (registro.missoes_total || 0),
         );
 
-        const chamadaRef = await v.ref.collection("chamada").get();
+        const chamadaRef = await v.ref.collection("chamada").get(); ////AAAAAAAAAAA
 
         if (chamadaRef.empty) return;
 
@@ -4489,7 +5358,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
         );
     }
 
-    const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+    const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igrejaSnap.exists) {
         throw new functions.https.HttpsError(
             "not-found",
@@ -4503,7 +5372,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
             data = new Date(dados.data_nascimento);
             data.setHours(0, 0, 0, 0);
         }
-        const visitaRef = db.collection("visitantes").doc(visitaId);
+        const visitaRef = db.collection(Cll.VISITANTES).doc(visitaId);
         const visita = await visitaRef.get();
 
         if (!visita.exists) {
@@ -4542,7 +5411,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
                 v.nome_completo.toLowerCase(),
             );
             const visitasExistentesQuery = db
-                .collection("visitantes")
+                .collection(Cll.VISITANTES)
                 .where("igrejaId", "==", igrejaId)
                 .where("nome_completo", "in", nomesParaBuscar);
 
@@ -4627,7 +5496,7 @@ export const deletarVisita = functions.https.onCall(async (request) => {
     const { user, db, isSuperAdmin } = await validarUsuario(request);
 
     const { visitaId } = request.data;
-    const visitaRef = db.collection("visitantes").doc(visitaId);
+    const visitaRef = db.collection(Cll.VISITANTES).doc(visitaId);
     const visitaSnap = await visitaRef.get();
 
     if (!visitaSnap.exists) {
@@ -4725,7 +5594,7 @@ export const gerarCodigoConvite = functions.https.onCall(async (request) => {
     }
 
     const agora = new Date();
-    const expiracao = new Date(agora.setDate(agora.getDate() + 2));
+    const expiracao = new Date(agora.setDate(agora.getDate() + 3));
 
     let codigo;
     let codigoExiste = true;
@@ -4835,11 +5704,11 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
         }
 
         const promises = [
-            db.collection("igrejas").doc(igrejaId).get(),
-            db.collection("usuarios").doc(criadoPorUid).get(),
+            db.collection(Cll.IGREJAS).doc(igrejaId).get(),
+            db.collection(Cll.USUARIOS).doc(criadoPorUid).get(),
         ];
         if (classeId)
-            promises.push(db.collection("classes").doc(classeId).get());
+            promises.push(db.collection(Cll.CLASSES).doc(classeId).get());
         const [igrejaSnap, criador, classeSnap] = await Promise.all(promises);
 
         if (!criador.exists) {
@@ -4902,11 +5771,22 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
                 uid: newAuth.uid,
                 id: newAuth.uid,
             };
-            await db.collection("usuarios").doc(newAuth.uid).set(newUser);
-            await codigoRef.update({
-                usado: true,
-                usadoPorUid: newAuth.uid,
-            });
+            await Promise.all([
+                db.collection(Cll.USUARIOS).doc(newAuth.uid).set(newUser),
+                codigoRef.update({
+                    usado: true,
+                    usadoPorUid: newAuth.uid,
+                }),
+                db
+                    .collection(Cll.CACHE_USUARIOS)
+                    .doc(igrejaId)
+                    .update({
+                        [`lista.${newUser.uid}`]: {
+                            ...newUser,
+                            id: newAuth.uid,
+                        },
+                    }),
+            ]);
 
             const c = criador.data();
 
@@ -4942,12 +5822,15 @@ export const cadastrarUsuarioComConvite = functions.https.onCall(
     },
 );
 
-export const limparconvitesexpirados = onSchedule(
-    "every 24 hours",
+export const limparconvitesexpiradoseenviaraniversario = onSchedule(
+    {
+        schedule: "0 3 * * *",
+        timeZone: "America/Sao_Paulo",
+    },
     async (event) => {
         const db = admin.firestore();
         console.log(
-            "INICIANDO TAREFA AGENDADA: Limpeza de convites expirados...",
+            "INICIANDO TAREFA AGENDADA: Limpeza de convites expirados e atualizando notificacoes...",
         );
 
         try {
@@ -4957,44 +5840,100 @@ export const limparconvitesexpirados = onSchedule(
                 .where("dataExpiracao", "<", agora);
             const convitesExpiradosSnap = await query.get();
 
-            if (convitesExpiradosSnap.empty) {
-                console.log(
-                    "Nenhum convite expirado para limpar. Trabalho concluído!",
-                );
-                return;
-            }
-
             console.log(
                 `Encontrados ${convitesExpiradosSnap.size} convites expirados para deletar.`,
             );
 
-            // 2. Usa o padrão de "loop de batches" para deletar de forma segura.
             const refsParaDeletar = convitesExpiradosSnap.docs.map(
                 (doc) => doc.ref,
             );
 
-            const batches = [];
             let batch = db.batch();
-            let operationCounter = 0;
+            const batches = [batch];
+            let count = 0;
 
             for (const ref of refsParaDeletar) {
                 batch.delete(ref);
-                operationCounter++;
-                if (operationCounter === 499) {
-                    batches.push(batch.commit());
+                count++;
+                if (count >= 499) {
                     batch = db.batch();
-                    operationCounter = 0;
+                    batches.push(batch);
+                    count = 0;
                 }
             }
-            if (operationCounter > 0) {
-                batches.push(batch.commit());
+            await Promise.all(batches.map((v) => v.commit()));
+
+            console.log("iniciando o envio de lembrete de aniversário");
+
+            const igrejaId = process.env.IGREJAID!;
+
+            const url = "https://api.green-api.com";
+            const instanceId = process.env.GREEN_API_ID_INSTANCE;
+            const apiToken = process.env.GREEN_API_TOKEN;
+            const idGrupo = process.env.ID_GRUPO;
+
+            const [alunosDoc, membrosDoc] = await Promise.all([
+                db.collection("cache_alunos").doc(igrejaId).get(),
+                db.collection("cache_membros").doc(igrejaId).get(),
+            ]);
+            const alunosData = alunosDoc.data() as any;
+            const listaAlunos = Object.values(alunosData.lista);
+
+            const membrosData = membrosDoc.data() as any;
+            const listaMembros = Object.values(membrosData.lista);
+
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+
+            const listaAniversariantes = listaAlunos.filter((v: any) => {
+                const dataNascimento = v.data_nascimento.toDate();
+                dataNascimento.setFullYear(hoje.getFullYear());
+                dataNascimento.setHours(0, 0, 0, 0);
+                const isData = dataNascimento >= hoje && dataNascimento <= hoje;
+                return isData;
+            });
+            const listaMembrosAniversariantes = listaMembros.filter(
+                (v: any) => {
+                    if (v.alunoId) return false;
+                    const dataNascimento = v.data_nascimento.toDate();
+                    dataNascimento.setFullYear(hoje.getFullYear());
+                    dataNascimento.setHours(0, 0, 0, 0);
+                    const isData =
+                        dataNascimento >= hoje && dataNascimento <= hoje;
+                    return isData;
+                },
+            );
+
+            if (
+                !listaAniversariantes.length &&
+                !listaMembrosAniversariantes.length
+            ) {
+                console.log("Sem aniversariantes, encerrando.");
+                return;
             }
 
-            await Promise.all(batches);
+            let mensagem = "Hoje é aniversário de:";
+            listaAniversariantes.forEach((v: any) => {
+                if (v.nome_completo)
+                    mensagem += `\n\n ${v.nome_completo} (${getIdade(v.data_nascimento)} anos)`;
+            });
+            listaMembrosAniversariantes.forEach((v: any) => {
+                if (v.nome_completo)
+                    mensagem += `\n\n ${v.nome_completo} (${getIdade(v.data_nascimento)} anos)`;
+            });
 
-            console.log(
-                "Limpeza de convites expirados finalizada com sucesso!",
-            );
+            await fetch(
+                `${url}/waInstance${instanceId}/sendMessage/${apiToken}`,
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        chatId: idGrupo,
+                        message: mensagem,
+                    }),
+                },
+            ).catch((v) => console.log("erro eo enviar", v));
+
+            console.log("Tudo finalizado!");
         } catch (error) {
             console.error("ERRO na limpeza de convites expirados:", error);
             return;
@@ -5020,7 +5959,7 @@ export const baixarTodosComprovantes = functions.https.onCall(
             );
         }
 
-        const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
+        const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
 
         if (!igrejaSnap.exists) {
             throw new functions.https.HttpsError(
@@ -5074,7 +6013,7 @@ export const limparimagenscomprovantes = onSchedule(
     async (event) => {
         const bucket = admin.storage().bucket();
         console.log(
-            "INICIANDO TAREFA AGENDADA: Limpeza de imagens com mais de 100 dias...",
+            "INICIANDO TAREFA AGENDADA: Limpeza de imagens com mais de 360 dias...",
         );
 
         try {
@@ -5082,7 +6021,7 @@ export const limparimagenscomprovantes = onSchedule(
                 prefix: "comprovantes-pix/",
             });
             const dataLimite = new Date();
-            dataLimite.setDate(dataLimite.getDate() - 100);
+            dataLimite.setDate(dataLimite.getDate() - 360);
             const promises = files
                 .filter((v) => {
                     if (!v.name.endsWith("/")) {
@@ -5626,6 +6565,8 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
         realizado: true,
     });
 
+    await aulaRef.collection("visualizacoes").doc("lista").set({ lista: {} });
+
     enviarLog(
         user,
         request,
@@ -5749,27 +6690,14 @@ export const registrarVisualizacao = functions.https.onCall(async (request) => {
         ultima_visualizacao: Timestamp.now(),
     };
 
-    const registroRef = aulaRef.collection("visualizacoes").doc(user.uid);
-    const registroSnap = await registroRef.get();
+    const registroRef = aulaRef.collection("visualizacoes").doc("lista");
 
-    if (registroSnap.exists) {
-        await registroRef.update({
+    await registroRef.update({
+        [`lista.${user.uid}`]: {
             ...dadosParaSalvar,
             contagem_visualizacoes: FieldValue.increment(1),
-        });
-
-        enviarLog(
-            user,
-            request,
-            "REGISTRAR_VISUALIZACAO",
-            `Visualização do usuário ${user.uid} atualizada com sucesso!`,
-            { dadosParaSalvar },
-        );
-
-        return { message: "Visualização contabilizada com sucesso" };
-    }
-
-    await registroRef.create({ ...dadosParaSalvar, contagem_visualizacoes: 1 });
+        },
+    });
 
     enviarLog(
         user,
@@ -5780,123 +6708,6 @@ export const registrarVisualizacao = functions.https.onCall(async (request) => {
     );
 
     return { message: "Visualização contabilizada com sucesso" };
-});
-
-export const getVisualizacoes = functions.https.onCall(async (request) => {
-    const { db, user, isSuperAdmin } = await validarUsuario(request);
-    if (!isSuperAdmin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
-    }
-
-    const { aulaId, licaoId } = request.data;
-    if (!aulaId || !licaoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
-    }
-
-    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
-    const aulaRef = licaoRef.collection("aulas").doc(aulaId);
-    const visualizacoesRef = aulaRef.collection("visualizacoes");
-
-    const [licaoSnap, aulaSnap, viewsSnap] = await Promise.all([
-        licaoRef.get(),
-        aulaRef.get(),
-        visualizacoesRef.get(),
-    ]);
-
-    if (!licaoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Lição não encontrada.",
-        );
-    } else if (!aulaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Aula não encontrada.",
-        );
-    }
-
-    const usuariosSnaps = await db
-        .collection("usuarios")
-        .where("ministerioId", "==", user.ministerioId)
-        .where("role", "in", [
-            Roles.PASTOR,
-            Roles.PROFESSOR,
-            Roles.SECRETARIO_CONGREGACAO,
-        ])
-        .get();
-
-    const viewsMap = new Map(viewsSnap.docs.map((v) => [v.id, v.data()]));
-    const usuariosMap = new Map();
-
-    usuariosSnaps.docs.forEach((v) => {
-        const usuario = v.data() as User;
-        const view = viewsMap.get(usuario.uid) || {
-            classe: usuario.classeNome,
-            contagem_visualizacoes: 0,
-            igreja: usuario.igrejaNome,
-            nome: usuario.nome,
-            ultima_visualizacao: null,
-        };
-
-        const obj = usuariosMap.get(usuario.igrejaId) || [];
-        obj.push(view);
-
-        usuariosMap.set(usuario.igrejaId, obj);
-    });
-
-    enviarLog(
-        user,
-        request,
-        "GET_VISUALIZACOES",
-        "Mensagens geradas com sucesso",
-    );
-
-    return Object.fromEntries(usuariosMap.entries());
-});
-
-export const getLicoesPreparo = functions.https.onCall(async (request) => {
-    const { db, user } = await validarUsuario(request);
-
-    if (user.role === Roles.SECRETARIO_CLASSE) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para isso",
-        );
-    }
-
-    const aulasDocs = await db
-        .collection("licoes_preparo")
-        .where("ministerioId", "==", user.ministerioId)
-        .orderBy("data_inicio", "desc")
-        .limit(10)
-        .get();
-
-    if (aulasDocs.empty) return [];
-
-    const aulas = aulasDocs.docs.map((v) => {
-        const id = v.id;
-        const data = v.data();
-        const aulas = Object.entries(data?.status_aulas || {}).map(
-            ([id, status]) => ({ id, nome: id, status }),
-        );
-
-        return {
-            id,
-            nome: `${data?.titulo || "Sem título"} - ${
-                data?.trimestre || 1
-            }º Trimestre de ${data?.data_inicio.toDate().getFullYear()}`,
-            aulas,
-        };
-    });
-
-    console.log("Aulas geradas com sucesso pelo usuário " + user.uid);
-    return aulas;
 });
 
 // --- Pedidos ---
@@ -5989,6 +6800,11 @@ export const salvarFormularioPedido = functions.https.onCall(
                     );
 
                     return { id: modeloId };
+                } else if (tipo === "modelo") {
+                    throw new functions.https.HttpsError(
+                        "invalid-argument",
+                        "Modelo já existe",
+                    );
                 }
             }
         }
@@ -6011,160 +6827,7 @@ export const salvarFormularioPedido = functions.https.onCall(
             `Formulário salvo com sucesso pelo usuário: ${user.uid}`,
         );
 
-        return { id: pedidoRef.id };
-    },
-);
-
-interface SugestaoFront {
-    rotulos: string[];
-    modeloId: string;
-}
-export const getSugestaoPedidosRevistas = functions.https.onCall(
-    async (request) => {
-        const { db, user, isSecretario } = await validarUsuario(request);
-
-        if (isSecretario) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão para isso.",
-            );
-        }
-
-        const { rotulos } = request.data as SugestaoFront;
-
-        if (!rotulos?.length) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Dados inválidos ou ausentes.",
-            );
-        }
-
-        const promisesClasses = [];
-        for (let i = 0; i < rotulos.length; i += 30) {
-            const chunk = rotulos.slice(i, i + 30);
-            promisesClasses.push(
-                db
-                    .collection("classes")
-                    .where("igrejaId", "==", user.igrejaId)
-                    .where("rotuloId", "in", chunk)
-                    .get(),
-            );
-        }
-
-        const classeInfosMap = new Map<
-            string,
-            {
-                rotuloId: string;
-                totalMatriculados: number;
-                sugestao: number;
-                totalProfessores: number;
-            }
-        >();
-        const classesId = (await Promise.all(promisesClasses)).flatMap((v) =>
-            v.docs.flatMap((v) => {
-                const data = v.data();
-                classeInfosMap.set(v.id, {
-                    rotuloId: data.rotuloId,
-                    totalMatriculados: 0,
-                    sugestao: 0,
-                    totalProfessores: 0,
-                });
-
-                return v.id;
-            }),
-        );
-
-        const professoresPromises = [];
-        for (let i = 0; i < classesId.length; i += 30) {
-            const chunk = classesId.slice(i, i + 30);
-            professoresPromises.push(
-                db
-                    .collection("usuarios")
-                    .where("igrejaId", "==", user.igrejaId)
-                    .where("role", "==", "professor")
-                    .where("classeId", "in", chunk)
-                    .get(),
-            );
-        }
-
-        (await Promise.all(professoresPromises)).forEach((v) => {
-            v.docs.forEach((v) => {
-                const p = v.data();
-                const obj = classeInfosMap.get(p.classeId);
-                if (obj) obj.totalProfessores += 1;
-            });
-        });
-
-        const licoesIds = (
-            await db
-                .collection("licoes")
-                .where("ativo", "==", true)
-                .where("igrejaId", "==", user.igrejaId)
-                .get()
-        ).docs.map((v) => {
-            const l = { id: v.id, ...v.data() } as Licao;
-            const c = classeInfosMap.get(l.classeId);
-            if (c) c.totalMatriculados = l.total_matriculados;
-            return v.id;
-        });
-
-        const promisesRegistrosAula = [];
-        for (let i = 0; i < licoesIds.length; i += 30) {
-            const chunk = licoesIds.slice(i, i + 30);
-            promisesRegistrosAula.push(
-                db
-                    .collection("registros_aula")
-                    .where("igrejaId", "==", user.igrejaId)
-                    .where("licaoId", "in", chunk)
-                    .get(),
-            );
-        }
-
-        let totalOfertas = 0;
-        (await Promise.all(promisesRegistrosAula)).forEach((v) =>
-            v.docs.forEach((v) => {
-                const r = { id: v.id, ...v.data() } as RegistroAulaInterface & {
-                    id: string;
-                };
-                totalOfertas += r.ofertas_total;
-
-                const rotuloObj = classeInfosMap.get(r.classeId);
-                if (rotuloObj) {
-                    const { sugestao } = rotuloObj;
-                    rotuloObj.sugestao = Math.max(sugestao, r.total_presentes);
-                }
-            }),
-        );
-
-        const rotulosMap = new Map();
-        classeInfosMap.forEach((v) => {
-            if (rotulosMap.has(v.rotuloId)) {
-                const r = rotulosMap.get(v.rotuloId);
-                r.total_sugerido += v.sugestao;
-                r.total_professores += v.totalProfessores;
-                return;
-            }
-
-            rotulosMap.set(v.rotuloId, {
-                total_sugerido: v.sugestao,
-                total_matriculados: v.totalMatriculados,
-                total_professores: v.totalProfessores,
-            });
-        });
-
-        const result = {
-            total_ofertas: totalOfertas,
-            sugestoes: Object.fromEntries(rotulosMap.entries()),
-        };
-
-        enviarLog(
-            user,
-            request,
-            "GET_SUGESTAO_PEDIDOS_REVISTA",
-            `Sugestão gerada pelo usuário: ${user.uid}`,
-        );
-
-        return result;
+        return { id: pedidoRef.id, tipo: dadosPedido?.tipo };
     },
 );
 
@@ -6266,4 +6929,69 @@ export const salvarRespostaPedido = functions.https.onCall(async (request) => {
     );
 
     return { message: "Formulário salvo com sucesso" };
+});
+
+export const pegarRankingPublico = functions.https.onCall(async (request) => {
+    const { igrejaId, licaoId } = request.data;
+
+    if (!igrejaId || !licaoId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados ausentes",
+        );
+    }
+    const db = admin.firestore();
+    const [cacheLicaoSnap, licaoSnap] = await Promise.all([
+        db.collection("cache_licao").doc(`${igrejaId}_${licaoId}`).get(),
+        db.collection("licoes").doc(licaoId).get(),
+    ]);
+
+    if (!licaoSnap.exists || !cacheLicaoSnap.exists) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados não encontrados",
+        );
+    }
+
+    const licaoData = licaoSnap.data() as Licao;
+    const cacheData = cacheLicaoSnap.data() as CacheLicaoInterface;
+    const lista_aulas = [];
+    const detalhes_aulas: any = {};
+    const detalhes_aluno: any = {};
+
+    const dataInicio = licaoData.data_inicio.toDate();
+    for (let i = 0; i < licaoData.numero_aulas; i++) {
+        const newDate = new Date(dataInicio);
+        newDate.setDate(dataInicio.getDate() + i * 7);
+        const dataString = newDate.toLocaleDateString("pt-BR");
+
+        const aula = {
+            numero: i + 1,
+            data: Timestamp.fromDate(newDate),
+            aulaRegistrada: {
+                realizada: cacheData.detalhes_aulas[dataString] ? true : false,
+            },
+        };
+        lista_aulas.push(aula);
+
+        if (cacheData.detalhes_aulas[dataString]) {
+            detalhes_aulas[dataString] = {
+                chamada: cacheData.detalhes_aulas[dataString].chamada,
+            };
+        }
+    }
+
+    for (const alunoId in cacheData.detalhes_aluno) {
+        const aluno = cacheData.detalhes_aluno[alunoId];
+        const alunoNome = aluno.nome.trim().split(" ");
+
+        const alunoObj = {
+            ...aluno,
+            nome: `${alunoNome[0]}${alunoNome.length > 1 ? ` ${alunoNome[alunoNome.length - 1][0]}.` : ""}`,
+        };
+
+        detalhes_aluno[alunoId] = alunoObj;
+    }
+
+    return { lista_aulas, detalhes_aulas, detalhes_aluno };
 });

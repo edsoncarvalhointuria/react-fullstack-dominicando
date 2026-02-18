@@ -45,6 +45,18 @@
             }
         }
 
+        &--panorama {
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: space-between;
+            padding-bottom: 0;
+            border-bottom: none;
+
+            & + .licao-modal__body {
+                padding: 0;
+            }
+        }
+
         &-infos {
             display: flex;
             // padding-top: 1.5rem;

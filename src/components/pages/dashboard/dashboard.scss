@@ -125,4 +125,61 @@
             }
         }
     }
+
+    &__sem-itens {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 6rem 2rem;
+        background-color: white;
+        border: 2px dashed #e5e7eb;
+        // border-radius: 1.5rem;
+        gap: 3rem;
+        margin: 0 2rem;
+        text-align: center;
+        transition: all 0.3s ease;
+
+        &:hover {
+            border-color: color.scale(v.$cor-primaria-itens, $alpha: -50%);
+            background-color: #f9fafb;
+        }
+
+        &-titulo {
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 2rem;
+
+            h3 {
+                font-size: 1.8rem;
+                font-weight: 500;
+                color: v.$cor-secundaria-texto;
+                max-width: 40rem;
+                line-height: 1.5;
+            }
+
+            span {
+                font-size: 4rem;
+                color: v.$cor-primaria-itens;
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $alpha: -90%
+                );
+                width: 10rem;
+                height: 10rem;
+                border-radius: 50%;
+                display: grid;
+                place-items: center;
+                box-shadow: 0 10px 25px rgba(v.$cor-primaria-itens, 0.15);
+                transition: transform 0.3s
+                    cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+                // Animaçãozinha suave no ícone ao passar o mouse no card pai
+                .dashboard-page__sem-itens:hover & {
+                    transform: scale(1.05) rotate(-6deg);
+                }
+            }
+        }
+    }
 }

@@ -1,12 +1,10 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { MatriculasInterface } from "../../../interfaces/MatriculasInterface";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { useEffect, useMemo, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faBookBible,
     faBookOpen,
-    faChevronDown,
     faNoteSticky,
     faUserCheck,
     faUserClock,
@@ -17,79 +15,7 @@ import {
     faPlane,
     faUsersRectangle,
 } from "@fortawesome/free-solid-svg-icons";
-
-const AcordeaoItem = ({
-    titulo,
-    icone,
-    total,
-    listaAlunos,
-    secaoId,
-    secaoAberta,
-    setSecaoAberta,
-}: any) => {
-    const isOpen = secaoAberta === secaoId;
-
-    return (
-        <div className="resumo-chamada__acordeao-item">
-            <div
-                className="resumo-chamada__item-header"
-                onClick={() => setSecaoAberta(isOpen ? null : secaoId)}
-            >
-                <div className="resumo-chamada__item-header-label">
-                    <FontAwesomeIcon icon={icone} />
-                    <h4>{titulo}</h4>
-                </div>
-                <motion.span
-                    className="resumo-chamada__item-header-chevron"
-                    animate={{ rotate: isOpen ? 180 : 0 }}
-                >
-                    <FontAwesomeIcon icon={faChevronDown} />
-                </motion.span>
-                <p className="resumo-chamada__item-header-total">{total}</p>
-            </div>
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.ul
-                        className="resumo-chamada__acordeao-lista"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                    >
-                        {listaAlunos.length > 0 ? (
-                            listaAlunos.map((aluno: any) => (
-                                <li key={aluno.alunoId}>{aluno.alunoNome}</li>
-                            ))
-                        ) : (
-                            <li className="lista-vazia">
-                                Nenhum aluno nesta categoria.
-                            </li>
-                        )}
-                    </motion.ul>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-};
-
-const InfoLinha = ({
-    icon,
-    label,
-    value,
-    isTotal = false,
-}: {
-    icon: any;
-    label: string;
-    value: string | number;
-    isTotal?: boolean;
-}) => (
-    <div className={`info-linha ${isTotal ? "info-linha--total" : ""}`}>
-        <div className="info-linha__label">
-            <FontAwesomeIcon icon={icon} />
-            <span>{label}</span>
-        </div>
-        <div className="info-linha__valor">{value}</div>
-    </div>
-);
+import { AcordeaoItem, InfoLinha } from "./ChamadaItens";
 
 function ResumoChamada({
     matriculados,
@@ -99,30 +25,21 @@ function ResumoChamada({
     visitas_lista: VisitaFront[];
 }) {
     const [secaoAberta, setSecaoAberta] = useState<string | null>(null);
-    const { watch, setValue } = useFormContext();
-
-    const formValues = watch();
-    const {
-        chamada,
-        ofertaDinheiro,
-        visitas,
-        ofertaPix,
-        missoesDinheiro,
-        missoesPix,
-        descricao,
-        totalBiblias,
-        totalLicoes,
-        totalMatriculados,
-    } = formValues;
+    const { setValue, getValues, control } = useFormContext();
+    const ofertaPix = useWatch({ name: "ofertaPix", control });
+    const ofertaDinheiro = useWatch({ name: "ofertaDinheiro", control });
+    const missoesPix = useWatch({ name: "missoesPix", control });
+    const missoesDinheiro = useWatch({ name: "missoesDinheiro", control });
 
     const dadosProcessados = useMemo(() => {
         const matriculadosMap = new Map(
-            matriculados.map((m) => [m.alunoId, m])
+            matriculados.map((m) => [m.alunoId, m]),
         );
 
         const presentes: MatriculasInterface[] = [];
         const atrasados: MatriculasInterface[] = [];
         const ausentes: MatriculasInterface[] = [];
+        const chamada = getValues("chamada");
 
         if (chamada) {
             for (const alunoId in chamada) {
@@ -140,25 +57,58 @@ function ResumoChamada({
         }
 
         return { presentes, atrasados, ausentes };
-    }, [chamada, matriculados]);
+    }, [matriculados]);
 
     useEffect(() => {
         const totalPresentesCalc = dadosProcessados.presentes.length;
         const totalAtrasadosCalc = dadosProcessados.atrasados.length;
         const totalAusentesCalc = dadosProcessados.ausentes.length;
+        const mDinheiro = getValues("missoesDinheiro");
+        const mPix = getValues("missoesPix");
+        const oDinheiro = getValues("ofertaDinheiro");
+        const oPix = getValues("ofertaPix");
 
         setValue("totalPresentes", totalPresentesCalc);
         setValue("totalAtrasados", totalAtrasadosCalc);
         setValue("totalAusentes", totalAusentesCalc);
         setValue("totalMatriculados", matriculados.length);
+        setValue(
+            "ofertaDinheiro",
+            Number(
+                typeof oDinheiro === "string"
+                    ? oDinheiro.replace(",", ".")
+                    : oDinheiro,
+            ),
+        );
+        setValue(
+            "ofertaPix",
+            Number(typeof oPix === "string" ? oPix.replace(",", ".") : oPix),
+        );
+        setValue(
+            "missoesDinheiro",
+            Number(
+                typeof mDinheiro === "string"
+                    ? mDinheiro.replace(",", ".")
+                    : mDinheiro,
+            ),
+        );
+        setValue(
+            "missoesPix",
+            Number(typeof mPix === "string" ? mPix.replace(",", ".") : mPix),
+        );
     }, [dadosProcessados, setValue]);
 
+    const visitas = getValues("visitas");
     const totalPresentes = dadosProcessados.presentes.length;
     const totalAtrasados = dadosProcessados.atrasados.length;
     const totalAusentes = dadosProcessados.ausentes.length;
     const totalDePessoas = totalPresentes + totalAtrasados + (visitas || 0);
     const totalOfertas = (ofertaDinheiro || 0) + (ofertaPix || 0);
     const totalMissoes = (missoesDinheiro || 0) + (missoesPix || 0);
+    const totalBiblias = getValues("totalBiblias");
+    const totalLicoes = getValues("totalLicoes");
+    const descricao = getValues("descricao");
+    const totalMatriculados = getValues("totalMatriculados");
 
     return (
         <motion.div

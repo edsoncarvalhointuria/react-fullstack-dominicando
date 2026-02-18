@@ -86,13 +86,8 @@ function CadastroUsuarioModal({
     const [isEnviando, setIsEnviando] = useState(false);
     const [mensagemErro, setMensagemErro] = useState("");
     const [roles, setRoles] = useState(ROLES_LIST);
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
-    );
-    const [currentRole, setCurrentRole] = useState<{
-        nome: string;
-        id: Roles;
-    } | null>(null);
+    const [currentIgreja, setCurrentIgreja] = useState<string | null>(null);
+    const [currentRole, setCurrentRole] = useState<string | null>(null);
 
     const onSubmit = (dados: Form) => {
         setIsEnviando(true);
@@ -123,7 +118,7 @@ function CadastroUsuarioModal({
 
     const classesMemo = useMemo(() => {
         let c = classes;
-        if (currentIgreja) c = c.filter((v) => v.igrejaId === currentIgreja.id);
+        if (currentIgreja) c = c.filter((v) => v.igrejaId === currentIgreja);
 
         return c;
     }, [currentIgreja]);
@@ -148,31 +143,32 @@ function CadastroUsuarioModal({
                         (v) =>
                             v.id !== "pastor_presidente" &&
                             v.id !== "super_admin" &&
-                            v.id !== "pastor"
-                    )
+                            v.id !== "pastor",
+                    ),
                 );
             else if (user.role === ROLES.SUPER_ADMIN)
                 setRoles(
-                    ROLES_LIST.filter((v) => v.id !== "pastor_presidente")
+                    ROLES_LIST.filter((v) => v.id !== "pastor_presidente"),
                 );
             else if (isAdmin.current)
                 setRoles(
                     ROLES_LIST.filter(
                         (v) =>
                             v.id !== "pastor_presidente" &&
-                            v.id !== "super_admin"
-                    )
+                            v.id !== "super_admin",
+                    ),
                 );
             else if (user.role === "professor")
                 setRoles(
                     ROLES_LIST.filter(
                         (v) =>
-                            v.id === "secretario_classe" || v.id === "professor"
-                    )
+                            v.id === "secretario_classe" ||
+                            v.id === "professor",
+                    ),
                 );
             else if (user.role === "secretario_classe")
                 setRoles(
-                    ROLES_LIST.filter((v) => v.id === "secretario_classe")
+                    ROLES_LIST.filter((v) => v.id === "secretario_classe"),
                 );
         if (usuarioId)
             getUsuario()
@@ -187,7 +183,8 @@ function CadastroUsuarioModal({
                             senha: "",
                         });
 
-                        setCurrentRole((v.role as any) || null);
+                        setCurrentIgreja(v.igrejaId || null);
+                        setCurrentRole(v.role || null);
                     } else
                         reset({
                             classeId: "",
@@ -243,7 +240,9 @@ function CadastroUsuarioModal({
                                     className="cadastro-usuario__form-input"
                                     style={{ zIndex: 9 }}
                                 >
-                                    <p>Cargo*</p>
+                                    <p>
+                                        Cargo <span>*</span>
+                                    </p>
                                     <Controller
                                         name="role"
                                         control={control}
@@ -256,13 +255,14 @@ function CadastroUsuarioModal({
                                                 current={
                                                     roles.find(
                                                         (v) =>
-                                                            v.id === field.value
+                                                            v.id ===
+                                                            field.value,
                                                     )?.nome || null
                                                 }
                                                 onSelect={(v) => {
-                                                    setCurrentRole(v);
+                                                    setCurrentRole(v?.id!);
                                                     field.onChange(
-                                                        v?.id || null
+                                                        v?.id || null,
                                                     );
                                                 }}
                                                 isAll={false}
@@ -277,7 +277,9 @@ function CadastroUsuarioModal({
                                     variants={variantsItem}
                                     className="cadastro-usuario__form-input"
                                 >
-                                    <p>Igreja*</p>
+                                    <p>
+                                        Igreja <span>*</span>
+                                    </p>
                                     <Controller
                                         name="igrejaId"
                                         control={control}
@@ -290,17 +292,18 @@ function CadastroUsuarioModal({
                                                 current={
                                                     igrejas.find(
                                                         (v) =>
-                                                            v.id === field.value
+                                                            v.id ===
+                                                            field.value,
                                                     )?.nome || null
                                                 }
                                                 onSelect={(v) => {
                                                     setValue(
                                                         "classeId",
-                                                        undefined
+                                                        undefined,
                                                     );
-                                                    setCurrentIgreja(v);
+                                                    setCurrentIgreja(v?.id!);
                                                     field.onChange(
-                                                        v?.id || null
+                                                        v?.id || null,
                                                     );
                                                 }}
                                                 isAll={false}
@@ -313,16 +316,16 @@ function CadastroUsuarioModal({
                                 </motion.div>
 
                                 <AnimatePresence>
-                                    {(currentRole?.id ===
-                                        ROLES.SECRETARIO_CLASSE ||
-                                        currentRole?.id ===
-                                            ROLES.PROFESSOR) && (
+                                    {(currentRole === ROLES.SECRETARIO_CLASSE ||
+                                        currentRole === ROLES.PROFESSOR) && (
                                         <motion.div
                                             variants={variantsItem}
                                             key="secretario-classe-input"
                                             className="cadastro-usuario__form-input"
                                         >
-                                            <p>Classe*</p>
+                                            <p>
+                                                Classe <span>*</span>
+                                            </p>
                                             <Controller
                                                 name="classeId"
                                                 control={control}
@@ -338,12 +341,12 @@ function CadastroUsuarioModal({
                                                             classesMemo.find(
                                                                 (v) =>
                                                                     v.id ===
-                                                                    field.value
+                                                                    field.value,
                                                             )?.nome || null
                                                         }
                                                         onSelect={(v) => {
                                                             field.onChange(
-                                                                v?.id || null
+                                                                v?.id || null,
                                                             );
                                                         }}
                                                         isErro={
@@ -363,7 +366,7 @@ function CadastroUsuarioModal({
                                     className="cadastro-usuario__form-input"
                                 >
                                     <label htmlFor="cadastro-usuario-nome">
-                                        Nome Completo*
+                                        Nome Completo <span>*</span>
                                     </label>
                                     <input
                                         className={errors.nome && "input-error"}
@@ -389,7 +392,7 @@ function CadastroUsuarioModal({
                                     >
                                         <div className="cadastro-usuario__form-input">
                                             <label htmlFor="cadastro-usuario-email">
-                                                E-mail*
+                                                E-mail <span>*</span>
                                             </label>
                                             <input
                                                 type="email"
@@ -417,7 +420,12 @@ function CadastroUsuarioModal({
                                         </div>
                                         <div className="cadastro-usuario__form-input">
                                             <label htmlFor="cadastro-usuario-senha">
-                                                Senha{usuarioId ? "" : "*"}
+                                                Senha
+                                                {usuarioId ? (
+                                                    ""
+                                                ) : (
+                                                    <span>*</span>
+                                                )}
                                             </label>
                                             <div className="cadastro-usuario__form-input--senha">
                                                 <input

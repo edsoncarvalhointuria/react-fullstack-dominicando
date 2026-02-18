@@ -15,20 +15,17 @@ import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-    collection,
-    getDocs,
-    query,
-    Timestamp,
-    where,
-} from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import { useNavigate } from "react-router-dom";
 import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
 import AlertModal from "../../ui/AlertModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import type { MembroInterface } from "../../../interfaces/MembroInterface";
+import type {
+    CacheMembroInterface,
+    MembroInterface,
+} from "../../../interfaces/MembroInterface";
 import CadastroMembroModal from "../../ui/CadastroMembroModal";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
@@ -101,6 +98,14 @@ function Membros() {
             isFilter: false,
             placeholder: "-",
         },
+        {
+            nome: "Matriculado?",
+            id: "isMatriculado",
+            icon: faAddressCard,
+            isFilter: true,
+            placeholder: "",
+            isBoolean: true,
+        },
     ];
     const COLUNAS = [
         "nome_completo",
@@ -114,7 +119,7 @@ function Membros() {
     const [addMembro, setAddMembro] = useState(false);
     const [importCSV, setImportCSV] = useState(false);
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
+        null,
     );
     const [membros, setMembros] = useState<
         (MembroInterface & { idade: string })[]
@@ -123,10 +128,11 @@ function Membros() {
     const [ordemColuna, setOrdemColuna] = useState<
         keyof (MembroInterface & {
             idade: number;
+            isMatriculado: boolean;
         })
     >("nome_completo");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const [mensagem, setMensagem] = useState<{
         titulo: string;
@@ -181,32 +187,26 @@ function Membros() {
                     .includes(pesquisa) ||
                 v.idade === pesquisa ||
                 v.contato?.includes(pesquisa) ||
-                v.registro === pesquisa
+                v.registro === pesquisa,
         );
 
         return m.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
     }, [membros, pesquisa, ordemColuna, ordem]);
     useEffect(() => {
         const getMembros = async (igrejaId: string) => {
-            const membrosCll = collection(db, "membros");
-            const q = query(
-                membrosCll,
-                where("igrejaId", "==", igrejaId),
-                where("ministerioId", "==", user?.ministerioId)
-            );
-            const membrosSnap = await getDocs(q);
+            const membrosDoc = doc(db, "cache_membros", igrejaId);
+            const membrosSnap = await getDoc(membrosDoc);
 
-            if (membrosSnap.empty) return [];
+            if (!membrosSnap.exists()) return [];
 
-            const membros = membrosSnap.docs.map((v) => ({
-                id: v.id,
-                ...v.data(),
-                idade: `${getIdade(
-                    v.data().data_nascimento as Timestamp
-                )} anos`,
-            })) as (MembroInterface & { idade: string })[];
+            const membros = membrosSnap.data() as CacheMembroInterface;
+            const listaMembros = Object.values(membros.lista).map((v) => ({
+                ...v,
+                idade: `${getIdade(v.data_nascimento)} anos`,
+                isMatriculado: v.alunoId ? true : false,
+            }));
 
-            return membros;
+            return listaMembros;
         };
         if (currentIgreja)
             getMembros(currentIgreja.id)
@@ -292,7 +292,7 @@ function Membros() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             onSelect={(v) => setOrdemColuna(v.id as any)}
@@ -315,7 +315,7 @@ function Membros() {
                                     setOrdem((v) =>
                                         v === "crescente"
                                             ? "decrescente"
-                                            : "crescente"
+                                            : "crescente",
                                     );
                                     setOrdemColuna(v.id as any);
                                 }}
@@ -386,7 +386,7 @@ function Membros() {
                             const membroComIdade = {
                                 ...value,
                                 idade: `${getIdade(
-                                    value.data_nascimento
+                                    value.data_nascimento,
                                 )} anos`,
                             };
 

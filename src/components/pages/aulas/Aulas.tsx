@@ -3,15 +3,7 @@ import { useDataContext } from "../../../context/DataContext";
 import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useEffect, useState } from "react";
-import {
-    collection,
-    doc,
-    documentId,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import Loading from "../../layout/loading/Loading";
 import LicoesGrid from "./LicoesGrid";
@@ -20,9 +12,11 @@ import CadastroClasseModal from "../../ui/CadastroClasseModal";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
 
 function Aulas() {
+    const LIMITE = 6;
     const [isLoading, setIsLoading] = useState<boolean | null>(null);
     const [licoes, setLicoes] = useState<any[]>([]);
     const [update, setUpdate] = useState(0);
+    const [limite, setLimite] = useState(LIMITE);
     const navigate = useNavigate();
     let { igrejaId, classeId } = useParams();
     const { classes, igrejas, isLoadingData, refetchData } = useDataContext();
@@ -30,51 +24,6 @@ function Aulas() {
 
     if (!user) return <Loading />;
 
-    const getLicoes = async (igreja: string, classe: string) => {
-        setIsLoading(true);
-        const docIgreja = doc(db, "igrejas", igreja);
-        const classeCll = collection(db, "classes");
-        const queryClasse = query(
-            classeCll,
-            where(documentId(), "==", classe),
-            !isSuperAdmin.current
-                ? where("igrejaId", "==", user.igrejaId)
-                : where("ministerioId", "==", user.ministerioId)
-        );
-
-        const [docSnapI, docSnapC] = await Promise.all([
-            getDoc(docIgreja),
-            getDocs(queryClasse),
-        ]);
-
-        if (docSnapC.empty || !docSnapI.exists()) return navigate("/aulas");
-
-        const collectionLicoes = collection(db, "licoes");
-        const q = query(
-            collectionLicoes,
-            where("classeId", "==", classe),
-            !isSuperAdmin.current
-                ? where("igrejaId", "==", user.igrejaId)
-                : where("ministerioId", "==", user.ministerioId)
-        );
-        const docs = await getDocs(q);
-        const licoes = docs.docs.map(
-            (v) => ({ ...v.data(), id: v.id } as LicaoInterface)
-        );
-        const licaoAtiva = licoes.splice(
-            licoes.findIndex((v) => v.ativo),
-            1
-        );
-
-        setLicoes([
-            ...licaoAtiva,
-            ...licoes.sort(
-                (a, b) =>
-                    (b.data_inicio.toDate() as any) -
-                    (a.data_inicio.toDate() as any)
-            ),
-        ]);
-    };
     const pastorPresidente = () => {
         if (!igrejaId)
             return (
@@ -141,9 +90,47 @@ function Aulas() {
     if (isAdmin.current) igrejaId = user.igrejaId as string;
 
     useEffect(() => {
-        if (classeId && igrejaId)
-            getLicoes(igrejaId, classeId).finally(() => setIsLoading(false));
-    }, [classeId, update]);
+        const getLicoes = async (
+            igreja: string,
+            classe: string,
+            limite: number,
+        ) => {
+            setIsLoading(true);
+            if (
+                !classes.find((v) => v.id === classe) ||
+                !igrejas.find((v) => v.id === igreja)
+            )
+                return navigate("/aulas");
+
+            const collectionLicoes = collection(db, "licoes");
+            const q = query(
+                collectionLicoes,
+                where("classeId", "==", classe),
+                !isSuperAdmin.current
+                    ? where("igrejaId", "==", user.igrejaId)
+                    : where("ministerioId", "==", user.ministerioId),
+                limit(limite),
+            );
+            const docs = await getDocs(q);
+            const licoes = docs.docs
+                .map((v) => ({ ...v.data(), id: v.id }) as LicaoInterface)
+                .sort((a, b) => {
+                    if (a.ativo) return -1;
+                    if (b.ativo) return 1;
+
+                    return (
+                        b.data_inicio.toDate().getTime() -
+                        a.data_inicio.toDate().getTime()
+                    );
+                });
+
+            setLicoes(licoes);
+        };
+        if (classeId && igrejaId && classes.length)
+            getLicoes(igrejaId, classeId, limite).finally(() =>
+                setIsLoading(false),
+            );
+    }, [classeId, update, limite, classes]);
 
     return (
         <>
@@ -158,6 +145,8 @@ function Aulas() {
                         classes.find((v) => v.id === classeId)?.nome || ""
                     }
                     onUpdate={() => setUpdate((v) => v + 1)}
+                    limite={limite}
+                    onUpdateLimit={() => setLimite((v) => v + LIMITE)}
                 />
             ) : isSuperAdmin.current ? (
                 pastorPresidente()

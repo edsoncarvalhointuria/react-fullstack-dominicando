@@ -15,5 +15,5 @@ createRoot(document.getElementById("root")!).render(
                 </DataContext>
             </AuthContext>
         </BrowserRouter>
-    </StrictMode>
+    </StrictMode>,
 );

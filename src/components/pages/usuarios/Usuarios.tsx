@@ -3,7 +3,14 @@ import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import "./usuarios.scss";
 import Loading from "../../layout/loading/Loading";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    where,
+} from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import {
     faAt,
@@ -25,7 +32,10 @@ import CadastroUsuarioModal from "../../ui/CadastroUsuarioModal";
 import AlertModal from "../../ui/AlertModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { ROLES, RolesLabel } from "../../../roles/Roles";
-import type { UsuarioInterface } from "../../../interfaces/UsuarioInterface";
+import type {
+    CacheUsuarioInteface,
+    UsuarioInterface,
+} from "../../../interfaces/UsuarioInterface";
 import CadastroConviteModal from "../../ui/CadastroConviteModal";
 import { getOrdem } from "../../../utils/getOrdem";
 import OrderInput from "../../ui/OrderInput";
@@ -83,10 +93,10 @@ function Usuarios() {
             placeholder: "sem classe",
         },
     ];
-    const { isAdmin, isSuperAdmin, isSecretario, user } = useAuthContext();
+    const { isSuperAdmin, isSecretario, user } = useAuthContext();
     const { igrejas, isLoadingData } = useDataContext();
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
+        null,
     );
     const [pesquisa, setPesquisa] = useState("");
     const [usuarios, setUsuarios] = useState<UsuarioInterface[]>([]);
@@ -99,7 +109,7 @@ function Usuarios() {
     const [ordemColuna, setOrdemColuna] =
         useState<keyof UsuarioInterface>("nome");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const [mensagem, setMensagem] = useState<{
         mensagem: string | ReactNode;
@@ -151,73 +161,78 @@ function Usuarios() {
                     v.igrejaNome.toLowerCase().includes(p) ||
                     v.role.replace(/_/g, " ").includes(p) ||
                     v.email.includes(p) ||
-                    v.id.toLowerCase() === p
+                    v.id.toLowerCase() === p,
             );
         }
         return u.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
     }, [currentIgreja, pesquisa, usuarios, ordemColuna, ordem]);
     useEffect(() => {
-        const getUsuarios = async () => {
-            const c = collection(db, "usuarios");
-            let q;
-
-            if (isSuperAdmin.current)
-                q = query(c, where("ministerioId", "==", user?.ministerioId));
-            else if (isAdmin.current)
-                q = query(c, where("igrejaId", "==", user?.igrejaId));
-            else if (isSecretario.current)
-                q = query(
-                    c,
-                    where("classeId", "==", user?.classeId),
-                    where("igrejaId", "==", user?.igrejaId)
-                );
-            else throw new Error("Seu usuário está invalido");
-
-            const snap = await getDocs(q);
-
-            if (snap.empty) return [];
-
-            let usuarios = snap.docs.map(
-                (v) => ({ id: v.id, ...v.data() } as UsuarioInterface)
+        const getAllUsuarios = async () => {
+            const usuariosCll = collection(db, "cache_usuarios");
+            const q = query(
+                usuariosCll,
+                where("ministerioId", "==", user?.ministerioId),
             );
+            const usuariosDocs = await getDocs(q);
+            const usuarios = usuariosDocs.docs
+                .map((v) => {
+                    const data = v.data() as CacheUsuarioInteface;
+                    return Object.values(data.lista);
+                })
+                .flat();
+
+            setUsuarios(usuarios);
+        };
+        const getUsuarios = async () => {
+            const usuariosDoc = await getDoc(
+                doc(db, "cache_usuarios", user?.igrejaId!),
+            );
+            const usuarioData = usuariosDoc.data() as CacheUsuarioInteface;
+
+            let usuarios = Object.values(usuarioData.lista);
 
             if (!isSuperAdmin.current)
                 usuarios = usuarios.filter(
                     (v) =>
                         v.role !== ROLES.PASTOR_PRESIDENTE &&
-                        v.role !== ROLES.SUPER_ADMIN
+                        v.role !== ROLES.SUPER_ADMIN,
                 );
             if (user?.role === ROLES.SUPER_ADMIN)
-                return usuarios.filter(
-                    (v) => v.role !== ROLES.PASTOR_PRESIDENTE
+                usuarios = usuarios.filter(
+                    (v) => v.role !== ROLES.PASTOR_PRESIDENTE,
                 );
             if (user?.role === ROLES.SECRETARIO_CONGREGACAO)
-                return usuarios.filter((v) => v.role !== ROLES.PASTOR);
+                usuarios = usuarios.filter((v) => v.role !== ROLES.PASTOR);
             if (isSecretario.current)
-                usuarios.filter(
+                usuarios = usuarios.filter(
                     (v) =>
                         v.role !== ROLES.PASTOR &&
-                        v.role !== ROLES.SECRETARIO_CONGREGACAO
+                        v.role !== ROLES.SECRETARIO_CONGREGACAO,
                 );
             if (user?.role === ROLES.SECRETARIO_CLASSE)
-                return usuarios.filter((v) => v.role !== ROLES.PROFESSOR);
-            return usuarios;
+                usuarios = usuarios.filter((v) => v.role !== ROLES.PROFESSOR);
+
+            setUsuarios(usuarios);
         };
 
         if (user) {
-            getUsuarios()
-                .then((v) => setUsuarios(v))
-                .catch((err) => console.log("deu esse erro", err));
-            if (!isSuperAdmin.current)
+            if (!isSuperAdmin.current) {
+                getUsuarios().catch((err) => console.log("deu esse erro", err));
                 setCurrentIgreja({
                     id: user.igrejaId!,
                     ministerioId: user.ministerioId!,
                     nome: user.nome!,
                 });
-            if (isSecretario.current)
+            } else
+                getAllUsuarios().catch((err) =>
+                    console.log("deu esse erro", err),
+                );
+
+            if (isSecretario.current) {
                 setOptions(OPTIONS.filter((v) => v.id !== "email"));
+            }
         }
-    }, [update]);
+    }, [update, user]);
     if (isLoadingData || isLoading) return <Loading />;
     return (
         <>
@@ -283,7 +298,7 @@ function Usuarios() {
                                 lista={igrejas}
                                 current={
                                     igrejas.find(
-                                        (v) => v.id === currentIgreja?.id
+                                        (v) => v.id === currentIgreja?.id,
                                     )?.nome || null
                                 }
                                 onSelect={(v) => setCurrentIgreja(v)}
@@ -302,7 +317,7 @@ function Usuarios() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             options={OPTIONS.filter((v) => v.isFilter)}
@@ -331,7 +346,7 @@ function Usuarios() {
                                                     setOrdem((v) =>
                                                         v === "crescente"
                                                             ? "decrescente"
-                                                            : "crescente"
+                                                            : "crescente",
                                                     );
                                                     setOrdemColuna(v.id as any);
                                                 }}
@@ -361,7 +376,7 @@ function Usuarios() {
                                                     {v.nome}
                                                 </p>
                                             </th>
-                                        )
+                                        ),
                                     )}
                                     <th>
                                         <p>
@@ -437,11 +452,11 @@ function Usuarios() {
                                                                     "Sim, deletar usuário",
                                                                 onCancel: () =>
                                                                     setMensagem(
-                                                                        null
+                                                                        null,
                                                                     ),
                                                                 onConfirm: () =>
                                                                     apagarUsuario(
-                                                                        v.id
+                                                                        v.id,
                                                                     ),
                                                             })
                                                         }

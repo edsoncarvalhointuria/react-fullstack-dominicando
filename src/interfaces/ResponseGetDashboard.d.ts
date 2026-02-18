@@ -3,6 +3,7 @@ interface ResponseGetDashboard {
     total_missoes: DashboardInterface[];
     total_presentes: DashboardInterface[];
     total_biblias: DashboardInterface[];
+    total_ausentes: DashboardInterface[];
     total_licoes: DashboardInterface[];
     total_matriculados: DashboardInterface[];
     total_membros_matriculados: {

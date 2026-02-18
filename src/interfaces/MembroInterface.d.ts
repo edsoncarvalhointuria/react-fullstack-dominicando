@@ -12,3 +12,9 @@ interface MembroInterface {
     igrejaNome: string;
     alunoId: string | null;
 }
+
+interface CacheMembroInterface {
+    ministerioId: string;
+    igrejaId: string;
+    lista: { [membroId: string]: MembroInterface };
+}

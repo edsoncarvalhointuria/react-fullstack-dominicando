@@ -1,9 +1,10 @@
 @use "@/styles/variables" as v;
 @use "sass:color";
 
-body:has(nav:not(.nav-desktop)) {
-    .pedidos-resposta__header {
-        z-index: 59;
+body:has(nav:not(.nav-desktop)),
+body:has(.mobile-notificacao__overlay) {
+    header {
+        z-index: 2000;
     }
 }
 .pedidos-resposta {
@@ -62,6 +63,7 @@ body:has(nav:not(.nav-desktop)) {
             font-weight: 600;
             font-size: 1.4rem;
             transition: color 0.2s;
+            user-select: none;
 
             &:hover {
                 color: v.$cor-primaria-texto;
@@ -149,6 +151,41 @@ body:has(nav:not(.nav-desktop)) {
                 font-size: 1.5rem;
                 color: v.$cor-secundaria-texto;
                 line-height: 1.6;
+            }
+        }
+
+        &-ja-enviado {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background-color: #ecfdf5;
+            border: 1px solid #10b981;
+            padding: 1.5rem 2rem;
+            border-radius: 0.8rem;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1);
+
+            > span {
+                font-size: 2.4rem;
+                color: #10b981;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            p {
+                margin: 0;
+                font-size: 1.4rem;
+                color: #065f46;
+                font-weight: 500;
+
+                span {
+                    font-weight: 800;
+                    color: #047857;
+                    margin-left: 0.4rem;
+                    background-color: color.scale(#10b981, $alpha: -80%);
+                    padding: 0.2rem 0.8rem;
+                    border-radius: 2rem;
+                }
             }
         }
 
@@ -531,6 +568,18 @@ body:has(nav:not(.nav-desktop)) {
 
                     &:active {
                         transform: scale(0.98);
+                    }
+
+                    &:disabled {
+                        background-color: v.$cor-secundaria-texto;
+                        cursor: not-allowed;
+                        box-shadow: none;
+                        transform: none;
+                        opacity: 0.7;
+
+                        span {
+                            font-size: 1.4rem;
+                        }
                     }
                 }
             }
@@ -985,6 +1034,236 @@ body:has(nav:not(.nav-desktop)) {
     }
 }
 
+.pedidos-referencia {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    padding: 4rem;
+    padding-bottom: 2rem;
+
+    @media all and (max-width: 30em) {
+        padding: 4rem 1.5rem;
+    }
+
+    &__header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    &__title {
+        h2 {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+
+            i {
+                font-size: 2rem;
+                color: v.$cor-primaria-itens;
+                width: 4rem;
+                height: 4rem;
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $alpha: -90%
+                );
+                border-radius: 1rem;
+                display: grid;
+                place-items: center;
+                font-style: normal;
+            }
+        }
+    }
+
+    &__descricao {
+        p {
+            font-size: 1.4rem;
+            color: v.$cor-secundaria-texto;
+            margin-left: 5rem;
+        }
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    &__title-body {
+        h3 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: v.$cor-primaria-texto;
+            border-left: 4px solid v.$cor-primaria-itens;
+            padding-left: 1rem;
+        }
+    }
+
+    &__classe {
+        background-color: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 1.2rem;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        transition:
+            transform 0.2s,
+            box-shadow 0.2s;
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+            border-color: v.$cor-primaria-itens;
+        }
+
+        &-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            border-bottom: 1px solid #f3f4f6;
+            padding-bottom: 1.5rem;
+
+            h4 {
+                font-size: 1.8rem;
+                font-weight: 700;
+                color: v.$cor-primaria-texto;
+                margin: 0;
+            }
+        }
+
+        &-container {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+
+            p {
+                font-size: 1.2rem;
+                font-weight: 600;
+                padding: 0.4rem 1rem;
+                border-radius: 2rem;
+                background-color: #f3f4f6;
+                color: v.$cor-secundaria-texto;
+                white-space: nowrap;
+
+                &:first-child {
+                    background-color: color.scale(
+                        v.$cor-primaria-itens,
+                        $alpha: -90%
+                    );
+                    color: v.$cor-primaria-itens;
+                }
+            }
+        }
+
+        &-body {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        &-infos {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 2rem;
+
+            @media all and (max-width: 30em) {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        &-profs,
+        &-matriculados,
+        &-media,
+        &-pico {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: center;
+
+            @media all and (max-width: 30em) {
+                flex-direction: row;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            h5 {
+                font-size: 1.2rem;
+                font-weight: 600;
+                color: v.$cor-secundaria-texto;
+                text-transform: uppercase;
+                display: flex;
+                align-items: center;
+                gap: 0.6rem;
+                margin: 0;
+                justify-content: center;
+
+                i {
+                    font-style: normal;
+                    font-size: 1.4rem;
+                }
+            }
+
+            p {
+                font-size: 1.8rem;
+                font-weight: 700;
+                color: v.$cor-primaria-texto;
+                margin: 0;
+            }
+        }
+
+        &-arrecadado {
+            margin-top: 0.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px dashed #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            h5 {
+                display: flex;
+                align-items: center;
+                gap: 0.8rem;
+                font-size: 1.4rem;
+                font-weight: 600;
+                color: v.$cor-secundaria-texto;
+                margin: 0;
+
+                i {
+                    color: v.$cor-sucesso;
+                    font-size: 1.6rem;
+                }
+            }
+
+            p {
+                font-size: 2rem;
+                font-weight: 700;
+                color: v.$cor-sucesso;
+                margin: 0;
+            }
+        }
+    }
+
+    &__vazio {
+        padding: 4rem;
+        text-align: center;
+        background-color: white;
+        border: 2px dashed #e5e7eb;
+        border-radius: 1rem;
+
+        p {
+            font-size: 1.6rem;
+            color: v.$cor-secundaria-texto;
+            font-style: italic;
+        }
+    }
+}
+
 .compartilhar-modal {
     position: fixed;
     top: 50%;
@@ -1094,6 +1373,97 @@ body:has(nav:not(.nav-desktop)) {
             display: grid;
             place-items: center;
             min-width: 3rem;
+        }
+    }
+}
+
+.pedidos-sugestao-button {
+    position: relative;
+    display: inline-block;
+
+    > button {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.8rem 1.6rem;
+        background-color: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.8rem;
+        color: v.$cor-secundaria-texto;
+        font-size: 1.4rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease-out;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+        i {
+            font-size: 1.6rem;
+            color: v.$cor-primaria-itens;
+        }
+
+        &:hover {
+            border-color: v.$cor-primaria-itens;
+            color: v.$cor-primaria-texto;
+            background-color: #f9fafb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+    }
+
+    &__opcoes {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 0.8rem;
+        background-color: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 1rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        min-width: 22rem;
+        overflow: hidden;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__opcao {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+        padding: 1.2rem 1.6rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        border-bottom: 1px solid #f3f4f6;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        i {
+            width: 2.4rem;
+            display: grid;
+            place-items: center;
+            font-size: 1.6rem;
+            color: v.$cor-secundaria-texto;
+        }
+
+        p {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: v.$cor-primaria-texto;
+            white-space: nowrap;
+            margin: 0;
+        }
+
+        &:hover {
+            background-color: color.scale(v.$cor-primaria-itens, $alpha: -95%);
+
+            i {
+                color: v.$cor-primaria-itens;
+            }
+
+            p {
+                color: v.$cor-primaria-itens;
+            }
         }
     }
 }

@@ -17,7 +17,7 @@ import {
     faChartSimple,
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import { useState } from "react";
+import React, { useState } from "react";
 import useIsMobile from "../../hooks/useIsMobile";
 
 function DashboardCardModal({
@@ -163,7 +163,7 @@ function DashboardCardModal({
                                                                 "number"
                                                                     ? current.value
                                                                     : 0) + prev,
-                                                            0
+                                                            0,
                                                         )}
                                                     </strong>
                                                 </span>
@@ -264,7 +264,7 @@ function DashboardCardModal({
                                                                 "number"
                                                                     ? current.value
                                                                     : 0) + prev,
-                                                            0
+                                                            0,
                                                         )}
                                                     </strong>
                                                 </span>
@@ -319,4 +319,4 @@ function DashboardCardModal({
     );
 }
 
-export default DashboardCardModal;
+export default React.memo(DashboardCardModal);

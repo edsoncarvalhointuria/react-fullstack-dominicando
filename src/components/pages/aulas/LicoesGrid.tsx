@@ -4,10 +4,11 @@ import {
     faCalendarDay,
     faCaretLeft,
     faCaretRight,
+    faMagnifyingGlass,
 } from "@fortawesome/free-solid-svg-icons";
 import LicaoCard from "../../ui/LicaoCard";
 import "./licoes-grid.scss";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import LicaoModal from "../../ui/LicaoModal";
 import NovoTrimestreModal from "../../ui/NovoTrimestreModal";
@@ -19,16 +20,20 @@ function LicoesGrid({
     classeId,
     igrejaId,
     onUpdate,
+    limite,
+    onUpdateLimit,
 }: {
     revistas: LicaoInterface[];
     classeNome: string;
     classeId: string;
     igrejaId: string;
     onUpdate: () => void;
+    onUpdateLimit: () => void;
+    limite: number;
 }) {
     const TOTAL_ITENS = 6;
     const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(
-        null
+        null,
     );
     const [newTrimestre, setNewTrimestre] = useState(false);
     const [editLicao, setEditLicao] = useState<LicaoInterface | null>(null);
@@ -51,7 +56,7 @@ function LicoesGrid({
                         .toDate()
                         .toLocaleDateString("pt-BR")
                         .includes(pesquisa) ||
-                    v.id === pesquisa
+                    v.id === pesquisa,
             );
 
         return i;
@@ -80,10 +85,13 @@ function LicoesGrid({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 1 }}
             >
                 <div className="licoes-grid__header">
                     <div className="licoes-grid__header--title">
-                        <h2>Revistas da classe {classeNome}</h2>
+                        <h2>
+                            Revistas da classe <span>{classeNome}</span>
+                        </h2>
                     </div>
                     <div className="licoes-grid__header--controls">
                         <div className="licoes-grid__header--novo-trimestre">
@@ -92,7 +100,7 @@ function LicoesGrid({
                                     setNewTrimestre(true);
                                     window.history.pushState(
                                         { modal: true },
-                                        ""
+                                        "",
                                     );
                                 }}
                             >
@@ -103,20 +111,40 @@ function LicoesGrid({
 
                         <SearchInput
                             onSearch={(texto: string) => setPesquisa(texto)}
-                            texto="Revista"
+                            texto="Ano, Trimestre, Nome"
                         />
                     </div>
                 </div>
                 <div className="licoes-grid__grid">
                     <AnimatePresence>
-                        {itensPaginados.length > 0 ? (
-                            itensPaginados.map((v) => (
-                                <LicaoCard
-                                    licao={v}
-                                    key={v.id}
-                                    openModal={setCurrentLicao}
-                                />
-                            ))
+                        {itensPaginados.length > 0 ||
+                        revistas.length >= limite ? (
+                            <>
+                                {itensPaginados.map((v) => (
+                                    <LicaoCard
+                                        licao={v}
+                                        key={v.id}
+                                        openModal={setCurrentLicao}
+                                    />
+                                ))}
+
+                                {revistas.length >= limite && (
+                                    <motion.button
+                                        className="licao-card__more"
+                                        onTap={onUpdateLimit}
+                                    >
+                                        <p>
+                                            Clique aqui para carregar lições
+                                            mais antigas.
+                                        </p>
+                                        <i>
+                                            <FontAwesomeIcon
+                                                icon={faMagnifyingGlass}
+                                            />
+                                        </i>
+                                    </motion.button>
+                                )}
+                            </>
                         ) : (
                             <motion.div
                                 className="licoes-grid__vazia"
@@ -140,21 +168,21 @@ function LicoesGrid({
                 </div>
                 {totalPaginas > 1 && (
                     <div className="licoes-grid__paginacao">
-                        <button
-                            onClick={() => setPaginaAtual((p) => p - 1)}
+                        <motion.button
+                            onTap={() => setPaginaAtual((p) => p - 1)}
                             disabled={paginaAtual === 1}
                         >
                             <FontAwesomeIcon icon={faCaretLeft} />
-                        </button>
+                        </motion.button>
                         <span>
                             {paginaAtual} de {totalPaginas}
                         </span>
-                        <button
-                            onClick={() => setPaginaAtual((p) => p + 1)}
+                        <motion.button
+                            onTap={() => setPaginaAtual((p) => p + 1)}
                             disabled={paginaAtual >= totalPaginas}
                         >
                             <FontAwesomeIcon icon={faCaretRight} />
-                        </button>
+                        </motion.button>
                     </div>
                 )}
                 <AnimatePresence>
@@ -184,4 +212,4 @@ function LicoesGrid({
     );
 }
 
-export default LicoesGrid;
+export default React.memo(LicoesGrid);

@@ -3,11 +3,22 @@ import Loading from "../../layout/loading/Loading";
 import "./preparo-aula.scss";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    orderBy,
+    query,
+    Timestamp,
+    where,
+} from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faChevronDown,
+    faPlay,
     faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { FormProvider, useForm } from "react-hook-form";
@@ -18,6 +29,8 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import YouTube from "react-youtube";
 import { useDataContext } from "../../../context/DataContext";
 import AlertModal from "../../ui/AlertModal";
+import type { LicaoPreparoInterface } from "../../../interfaces/LicaoPreparoInterface";
+import type { CacheUsuarioInteface } from "../../../interfaces/UsuarioInterface";
 
 interface Aula {
     aula: string;
@@ -34,8 +47,20 @@ interface VideoForm {
     titulo_aula: string;
 }
 
+interface Visualizacao {
+    classe: string;
+    contagem_visualizacoes: number;
+    igreja: string;
+    nome: string;
+    ultima_visualizacao: Timestamp | null;
+}
+
+interface VisualizacoesLista {
+    lista: { [usuarioId: string]: Visualizacao };
+}
+
 interface Visualicoes {
-    [Key: string]: {
+    [igrejaId: string]: {
         classe: string;
         contagem_visualizacoes: number;
         igreja: string;
@@ -54,8 +79,6 @@ const functions = getFunctions();
 const salvarAulaPreparo = httpsCallable(functions, "salvarAulaPreparo");
 const deletarAulaPreparo = httpsCallable(functions, "deletarAulaPreparo");
 const registrarVisualizacao = httpsCallable(functions, "registrarVisualizacao");
-const getVisualizacoes = httpsCallable(functions, "getVisualizacoes");
-const getLicoesPreparo = httpsCallable(functions, "getLicoesPreparo");
 
 function PreparoAula() {
     const { licaoId, aulaId } = useParams();
@@ -79,6 +102,7 @@ function PreparoAula() {
     const [currentAulaId, setCurrentAulaId] = useState<string | null>(null);
     const [listaLicoes, setListaLicoes] = useState<LicoesDropdown[]>([]);
     const [isLoadingVideo, setIsLoadingVideo] = useState(true);
+    const [isInitial, setIsInitial] = useState(true);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
         title: string;
@@ -91,6 +115,7 @@ function PreparoAula() {
     } | null>(null);
 
     const jaViu = useRef(false);
+    const { user } = useAuthContext();
 
     const methods = useForm<VideoForm>();
     const {
@@ -208,13 +233,55 @@ function PreparoAula() {
             }
         };
         const pegarViews = async () => {
-            if (!isSuperAdmin.current) return;
+            if (!isSuperAdmin.current || !licaoId || !aulaId) return;
             setLoadingViews(true);
 
             try {
-                const { data } = await getVisualizacoes({ aulaId, licaoId });
-                const dados = data as any;
-                setViews(dados);
+                const visualizacoesDoc = doc(
+                    db,
+                    "licoes_preparo",
+                    licaoId,
+                    "aulas",
+                    aulaId,
+                    "visualizacoes",
+                    "lista",
+                );
+                const usuariosCll = collection(db, "cache_usuarios");
+                const qUsuarios = query(
+                    usuariosCll,
+                    where("ministerioId", "==", user?.ministerioId),
+                );
+
+                const [visualizacoesDocs, usuariosDocs] = await Promise.all([
+                    getDoc(visualizacoesDoc),
+                    getDocs(qUsuarios),
+                ]);
+                const viewsMap = new Map(
+                    Object.entries(
+                        visualizacoesDocs.data() as VisualizacoesLista,
+                    ),
+                );
+
+                const usuariosMap = new Map();
+                usuariosDocs.docs.forEach((v) => {
+                    const data = v.data() as CacheUsuarioInteface;
+
+                    Object.values(data.lista).forEach((v) => {
+                        const usuario = viewsMap.get(v.id) || {
+                            classe: v.classeNome || "",
+                            contagem_visualizacoes: 0,
+                            igreja: v.igrejaNome,
+                            nome: v.nome,
+                            ultima_visualizacao: Timestamp.now(),
+                        };
+                        const listaViews = usuariosMap.get(v.igrejaId) || [];
+                        listaViews.push(usuario);
+
+                        usuariosMap.set(v.igrejaId, listaViews);
+                    });
+                });
+
+                setViews(Object.fromEntries(usuariosMap));
             } catch (Error: any) {
                 console.log("deu esse erro", Error);
             } finally {
@@ -226,13 +293,39 @@ function PreparoAula() {
         pegarViews();
     }, [licaoId, aulaId, update]);
     useEffect(() => {
-        getLicoesPreparo().then(({ data }) => {
-            const result = data as LicoesDropdown[];
-            setListaLicoes(result);
+        if (!user) return;
+        const getLicoes = async () => {
+            const licoesCll = collection(db, "licoes_preparo");
+            const q = query(
+                licoesCll,
+                where("ministerioId", "==", user?.ministerioId),
+                orderBy("data_inicio", "desc"),
+                limit(2),
+            );
+            const licoesDocs = await getDocs(q);
+
+            const aulas = licoesDocs.docs.map((v) => {
+                const id = v.id;
+                const licao = v.data() as LicaoPreparoInterface;
+                const aulas = Object.entries(licao?.status_aulas || {}).map(
+                    ([id, status]) => ({ id, nome: id, status }),
+                );
+
+                return {
+                    id,
+                    nome: `${licao?.titulo || "Sem título"} - ${
+                        licao?.trimestre || 1
+                    }º Trimestre de ${licao?.data_inicio.toDate().getFullYear()}`,
+                    aulas,
+                };
+            });
+            setListaLicoes(aulas);
             setCurrentAulaId(aulaId || "1");
-            setCurrentLicao(result.find((v) => v.id === licaoId) || null);
-        });
-    }, []);
+            setCurrentLicao(aulas.find((v) => v.id === licaoId) || null);
+        };
+
+        getLicoes();
+    }, [user]);
 
     if (isLoading) return <Loading />;
     if (!aula)
@@ -558,27 +651,54 @@ function PreparoAula() {
 
                     {aula.realizado ? (
                         <div className="preparo-aula__video-container">
-                            {isLoadingVideo && (
-                                <div className="video-loader"></div>
+                            {isInitial ? (
+                                <div
+                                    onClick={() => {
+                                        setIsInitial(false);
+                                        if (!jaViu.current) {
+                                            countVisualizacao();
+                                            jaViu.current = true;
+                                        }
+                                    }}
+                                    className="preparo-aula__video-container--img"
+                                >
+                                    <img
+                                        src={`https://img.youtube.com/vi/${aula?.link_youtube?.slice(
+                                            aula.link_youtube.lastIndexOf("/") +
+                                                1,
+                                            aula.link_youtube.lastIndexOf("?"),
+                                        )}/hqdefault.jpg`}
+                                    />
+
+                                    <span>
+                                        <FontAwesomeIcon icon={faPlay} />
+                                    </span>
+                                </div>
+                            ) : (
+                                <>
+                                    {isLoadingVideo && (
+                                        <div className="video-loader"></div>
+                                    )}
+                                    <YouTube
+                                        videoId={aula.link_youtube?.slice(
+                                            aula.link_youtube.lastIndexOf("/") +
+                                                1,
+                                            aula.link_youtube.lastIndexOf("?"),
+                                        )}
+                                        onReady={() =>
+                                            setTimeout(
+                                                () => setIsLoadingVideo(false),
+                                                500,
+                                            )
+                                        }
+                                        opts={{
+                                            playerVars: {
+                                                autoplay: 1,
+                                            },
+                                        }}
+                                    />
+                                </>
                             )}
-                            <YouTube
-                                videoId={aula.link_youtube?.slice(
-                                    aula.link_youtube.lastIndexOf("/") + 1,
-                                    aula.link_youtube.lastIndexOf("?"),
-                                )}
-                                onPlay={() => {
-                                    if (!jaViu.current) {
-                                        countVisualizacao();
-                                        jaViu.current = true;
-                                    }
-                                }}
-                                onReady={() =>
-                                    setTimeout(
-                                        () => setIsLoadingVideo(false),
-                                        500,
-                                    )
-                                }
-                            />
                         </div>
                     ) : (
                         <div className="preparo-aula__video--vazio">

@@ -16,8 +16,20 @@ import { Controller, FormProvider, useForm } from "react-hook-form";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
 import SearchInput from "../../ui/SearchInput";
-import type { MatriculasInterface } from "../../../interfaces/MatriculasInterface";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import type {
+    CacheMatriculasInterface,
+    MatriculasInterface,
+} from "../../../interfaces/MatriculasInterface";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    orderBy,
+    query,
+    where,
+} from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import MatriculaModal from "../../ui/MatriculaModal";
 import MatriculaAlunoModal from "../../ui/MatriculaAlunoModal";
@@ -57,13 +69,13 @@ function Matriculas() {
             nome: "Possui Revista?",
             id: "possui_revista",
             icon: faBookOpenReader,
-            isFilter: false,
+            isFilter: true,
             placeholder: "",
             isBoolean: true,
         },
     ];
     const [licoes, setLicoes] = useState<(LicaoInterface & { nome: string })[]>(
-        []
+        [],
     );
     const [matriculas, setMatriculas] = useState<MatriculasInterface[]>([]);
     const [pesquisa, setPesquisa] = useState("");
@@ -85,7 +97,7 @@ function Matriculas() {
     const [ordemColuna, setOrdemColuna] =
         useState<keyof MatriculasInterface>("alunoNome");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const { classes, igrejas, isLoadingData } = useDataContext();
     const { user, isSecretario, isAdmin, isSuperAdmin } = useAuthContext();
@@ -103,22 +115,17 @@ function Matriculas() {
     const { classe, igreja, licao } = watch();
 
     const onSubmit = async (data: Form) => {
-        const matriculasColl = collection(db, "matriculas");
-        const q = query(
-            matriculasColl,
-            where("licaoId", "==", data.licao),
-            isSuperAdmin.current
-                ? where("ministerioId", "==", user?.ministerioId)
-                : where("igrejaId", "==", user?.igrejaId)
+        const matriculasDoc = doc(
+            db,
+            "cache_matriculas",
+            `${data.igreja}_${data.licao}`,
         );
-        const matriculasSnap = await getDocs(q);
+        const matriculasSnap = await getDoc(matriculasDoc);
 
-        if (matriculasSnap.empty) return;
+        if (!matriculasSnap.exists()) return;
 
-        const matriculas = matriculasSnap.docs.map(
-            (v) => ({ id: v.id, ...v.data() } as MatriculasInterface)
-        );
-        setMatriculas(matriculas);
+        const matriculas = matriculasSnap.data() as CacheMatriculasInterface;
+        setMatriculas(Object.values(matriculas.lista));
     };
 
     const getLicoes = async (classeId: string) => {
@@ -129,7 +136,9 @@ function Matriculas() {
             where("classeId", "==", classeId),
             isSuperAdmin.current
                 ? where("ministerioId", "==", user?.ministerioId)
-                : where("igrejaId", "==", user?.igrejaId)
+                : where("igrejaId", "==", user?.igrejaId),
+            limit(10),
+            orderBy("data_inicio", "desc"),
         );
         const licoesSnap = await getDocs(q);
 
@@ -146,7 +155,7 @@ function Matriculas() {
                         ?.data_inicio.toDate()
                         .toLocaleDateString("pt-BR", { year: "numeric" })}`,
                     ...v.data(),
-                } as LicaoInterface & { nome: string })
+                }) as LicaoInterface & { nome: string },
         );
 
         return licoes.sort((a, b) => Number(b.ativo) - Number(a.ativo));
@@ -195,7 +204,7 @@ function Matriculas() {
                     v.data_matricula
                         .toDate()
                         .toLocaleDateString("pt-BR")
-                        .includes(pesquisa)
+                        .includes(pesquisa),
             )
             .sort((a, b) => getOrdem(a, b, ordemColuna, ordem));
     }, [matriculas, pesquisa, ordem, ordemColuna]);
@@ -276,7 +285,7 @@ function Matriculas() {
                                                         igrejas.find(
                                                             (v) =>
                                                                 v.id ===
-                                                                field.value
+                                                                field.value,
                                                         )?.nome || null
                                                     }
                                                     onSelect={(v) => {
@@ -315,7 +324,7 @@ function Matriculas() {
                                                         classesMemo.find(
                                                             (v) =>
                                                                 v.id ===
-                                                                field.value
+                                                                field.value,
                                                         )?.nome || null
                                                     }
                                                     onSelect={(v) => {
@@ -349,7 +358,8 @@ function Matriculas() {
                                                 current={
                                                     licoes.find(
                                                         (v) =>
-                                                            v.id === field.value
+                                                            v.id ===
+                                                            field.value,
                                                     )?.titulo || null
                                                 }
                                                 onSelect={(v) =>
@@ -388,7 +398,7 @@ function Matriculas() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             onSelect={(v) => setOrdemColuna(v.id as any)}
@@ -412,7 +422,7 @@ function Matriculas() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 );
                             }}
                             onEdit={(v) => {

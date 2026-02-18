@@ -1,5 +1,8 @@
+import { limparLocalStorage } from "./adicionarIdsLocalStorage";
+
 export const limparCache = async () => {
     try {
+        limparLocalStorage();
         if ("caches" in window) {
             const names = await caches.keys();
             await Promise.all(names.map((n) => caches.delete(n)));

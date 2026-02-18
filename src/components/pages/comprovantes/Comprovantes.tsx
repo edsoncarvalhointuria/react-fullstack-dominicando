@@ -24,6 +24,8 @@ import {
     doc,
     getDoc,
     getDocs,
+    limit,
+    orderBy,
     query,
     where,
 } from "firebase/firestore";
@@ -201,15 +203,15 @@ const Acordeao = ({ tipo, total, comprovantes, onBaixarZip }: any) => {
 const functions = getFunctions();
 const baixarTodosComprovantes = httpsCallable(
     functions,
-    "baixarTodosComprovantes"
+    "baixarTodosComprovantes",
 );
 
 function Comprovantes() {
     const [licoes, setLicoes] = useState<(LicaoInterface & { nome: string })[]>(
-        []
+        [],
     );
     const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(
-        null
+        null,
     );
     const [aulas, setAulas] = useState<{ nome: any; id: any }[]>([]);
     const [registroAula, setRegistroAula] =
@@ -275,7 +277,7 @@ function Comprovantes() {
                     (_, i) => {
                         const data = new Date(
                             dataInicial.toISOString().split("T")[0] +
-                                "T12:00:00"
+                                "T12:00:00",
                         );
                         data.setDate(data.getDate() + i * 7);
 
@@ -283,8 +285,8 @@ function Comprovantes() {
                             nome: `${i + 1} - ${data.toLocaleDateString()}`,
                             id: i + 1,
                         };
-                    }
-                )
+                    },
+                ),
             );
         }
     }, [currentLicao]);
@@ -297,7 +299,9 @@ function Comprovantes() {
                 where("classeId", "==", classeId),
                 isSuperAdmin.current
                     ? where("ministerioId", "==", user?.ministerioId)
-                    : where("igrejaId", "==", user?.igrejaId)
+                    : where("igrejaId", "==", user?.igrejaId),
+                limit(10),
+                orderBy("data_inicio", "desc"),
             );
             const licoesSnap = await getDocs(q);
 
@@ -315,7 +319,7 @@ function Comprovantes() {
                                 ?.data_inicio?.toDate()
                                 ?.getFullYear()}`,
                             ...v.data(),
-                        } as LicaoInterface & { nome: string })
+                        }) as LicaoInterface & { nome: string },
                 )
                 .sort((a, b) => Number(b.ativo) - Number(a.ativo));
         };
@@ -370,7 +374,7 @@ function Comprovantes() {
                                                                     igrejas.find(
                                                                         (v) =>
                                                                             v.id ===
-                                                                            field.value
+                                                                            field.value,
                                                                     )?.nome ||
                                                                     null
                                                                 }
@@ -380,22 +384,22 @@ function Comprovantes() {
                                                                     field.value
                                                                 }
                                                                 onSelect={(
-                                                                    v
+                                                                    v,
                                                                 ) => {
                                                                     field.onChange(
-                                                                        v?.id
+                                                                        v?.id,
                                                                     );
                                                                     setValue(
                                                                         "classeId",
-                                                                        ""
+                                                                        "",
                                                                     );
                                                                     setValue(
                                                                         "licaoId",
-                                                                        ""
+                                                                        "",
                                                                     );
                                                                     setValue(
                                                                         "aula",
-                                                                        undefined
+                                                                        undefined,
                                                                     );
                                                                 }}
                                                                 isErro={
@@ -426,32 +430,32 @@ function Comprovantes() {
                                                                     classes.find(
                                                                         (v) =>
                                                                             v.id ===
-                                                                            field.value
+                                                                            field.value,
                                                                     )?.nome ||
                                                                     null
                                                                 }
                                                                 lista={classes.filter(
                                                                     (v) =>
                                                                         v.igrejaId ===
-                                                                        igrejaId
+                                                                        igrejaId,
                                                                 )}
                                                                 isAll={false}
                                                                 selectId={
                                                                     field.value
                                                                 }
                                                                 onSelect={(
-                                                                    v
+                                                                    v,
                                                                 ) => {
                                                                     field.onChange(
-                                                                        v?.id
+                                                                        v?.id,
                                                                     );
                                                                     setValue(
                                                                         "licaoId",
-                                                                        ""
+                                                                        "",
                                                                     );
                                                                     setValue(
                                                                         "aula",
-                                                                        undefined
+                                                                        undefined,
                                                                     );
                                                                 }}
                                                                 isErro={
@@ -483,7 +487,7 @@ function Comprovantes() {
                                                             licoes.find(
                                                                 (v) =>
                                                                     v.id ===
-                                                                    field.value
+                                                                    field.value,
                                                             )?.titulo || null
                                                         }
                                                         lista={licoes}
@@ -492,11 +496,11 @@ function Comprovantes() {
                                                         onSelect={(v) => {
                                                             setCurrentLicao(v);
                                                             field.onChange(
-                                                                v?.id
+                                                                v?.id,
                                                             );
                                                             setValue(
                                                                 "aula",
-                                                                undefined
+                                                                undefined,
                                                             );
                                                         }}
                                                         isErro={
@@ -528,7 +532,7 @@ function Comprovantes() {
                                                             aulas.find(
                                                                 (v) =>
                                                                     v.id ===
-                                                                    field.value
+                                                                    field.value,
                                                             )?.nome || null
                                                         }
                                                         lista={aulas}
@@ -538,7 +542,7 @@ function Comprovantes() {
                                                         }
                                                         onSelect={(v) => {
                                                             field.onChange(
-                                                                v?.id
+                                                                v?.id,
                                                             );
                                                         }}
                                                         isErro={!!errors.aula}
@@ -595,7 +599,7 @@ function Comprovantes() {
                                             const { file } = data as any;
                                             baixarZip(
                                                 `${tipo} - ${registroAula.id}`,
-                                                file
+                                                file,
                                             );
                                         })
                                         .catch((Error: any) =>
@@ -610,7 +614,7 @@ function Comprovantes() {
                                                     setMensagem(null),
                                                 onConfirm: () =>
                                                     setMensagem(null),
-                                            })
+                                            }),
                                         )
                                         .finally(() => setIsLoading(false));
                                 }}
@@ -630,7 +634,7 @@ function Comprovantes() {
                                             const { file } = data as any;
                                             baixarZip(
                                                 `${tipo} - ${registroAula.id}`,
-                                                file
+                                                file,
                                             );
                                         })
                                         .catch((Error: any) =>
@@ -645,7 +649,7 @@ function Comprovantes() {
                                                     setMensagem(null),
                                                 onConfirm: () =>
                                                     setMensagem(null),
-                                            })
+                                            }),
                                         )
                                         .finally(() => setIsLoading(false));
                                 }}

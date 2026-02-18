@@ -17,3 +17,9 @@ interface MatriculasInterface {
     ministerioId: string;
     possui_revista: boolean;
 }
+
+interface CacheMatriculasInterface {
+    igrejaId: string;
+    ministerioId: string;
+    lista: { [matriculaId: string]: MatriculasInterface };
+}

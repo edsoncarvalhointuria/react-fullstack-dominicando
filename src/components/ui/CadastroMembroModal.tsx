@@ -87,13 +87,13 @@ function CadastroMembroModal({
                     data_nascimento: result.data_nascimento
                         ? new Timestamp(
                               result.data_nascimento._seconds,
-                              result.data_nascimento._nanoseconds
+                              result.data_nascimento._nanoseconds,
                           )
                         : null,
                     validade: result.validade
                         ? new Timestamp(
                               result.validade._seconds,
-                              result.validade._nanoseconds
+                              result.validade._nanoseconds,
                           )
                         : null,
                 };
@@ -191,7 +191,7 @@ function CadastroMembroModal({
                                 >
                                     <div className="cadastro-aluno__input">
                                         <label htmlFor="cadastro-membro-nome">
-                                            Nome Completo*
+                                            Nome Completo <span>*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -221,7 +221,7 @@ function CadastroMembroModal({
                                     >
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="cadastro-membro-data-nascimento">
-                                                Data Nascimento*
+                                                Data Nascimento <span>*</span>
                                             </label>
                                             <input
                                                 type="date"
@@ -236,7 +236,7 @@ function CadastroMembroModal({
                                                     {
                                                         required:
                                                             "A data é obrigatória",
-                                                    }
+                                                    },
                                                 )}
                                                 className={
                                                     errors.data_nascimento
@@ -275,7 +275,7 @@ function CadastroMembroModal({
                                                             /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
                                                         return (
                                                             regex.test(
-                                                                value.trim()
+                                                                value.trim(),
                                                             ) ||
                                                             "Número invalido"
                                                         );

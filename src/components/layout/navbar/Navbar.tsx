@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DesktopNavbar from "./DesktopNavbar";
 import "./navbar.scss";
 
@@ -66,27 +66,33 @@ function Navbar() {
         window.innerWidth <= TAMANHO_MOBILE,
     );
     const { isSuperAdmin, isAdmin, user, logout } = useAuthContext();
+
     const isMobileRef = useRef(isMobile);
 
-    const listaFiltrada = OPCOES_NAV.map((item) => {
-        if (item.dropdown) {
-            return {
-                ...item,
-                dropdown: item.dropdown.filter(
-                    (v) =>
-                        (!v.superAdmin && !v.admin && !v.professor) ||
-                        (v.superAdmin && isSuperAdmin.current) ||
-                        (v.admin &&
-                            (isAdmin.current || isSuperAdmin.current)) ||
-                        (v.professor &&
-                            (user?.role === ROLES.PROFESSOR ||
-                                isAdmin.current ||
-                                isSuperAdmin.current)),
-                ),
-            };
-        } else if (!item.notRoles) return item;
-        else if (!item.notRoles.includes(user?.role)) return item;
-    }).filter(Boolean);
+    const listaFiltrada = useMemo(
+        () =>
+            OPCOES_NAV.map((item) => {
+                if (item.dropdown) {
+                    return {
+                        ...item,
+                        dropdown: item.dropdown.filter(
+                            (v) =>
+                                (!v.superAdmin && !v.admin && !v.professor) ||
+                                (v.superAdmin && isSuperAdmin.current) ||
+                                (v.admin &&
+                                    (isAdmin.current ||
+                                        isSuperAdmin.current)) ||
+                                (v.professor &&
+                                    (user?.role === ROLES.PROFESSOR ||
+                                        isAdmin.current ||
+                                        isSuperAdmin.current)),
+                        ),
+                    };
+                } else if (!item.notRoles) return item;
+                else if (!item.notRoles.includes(user?.role)) return item;
+            }).filter(Boolean),
+        [OPCOES_NAV],
+    );
 
     useEffect(() => {
         const resize = (evt: UIEvent) => {

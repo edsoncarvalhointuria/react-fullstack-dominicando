@@ -88,4 +88,54 @@
         align-items: center;
         gap: 0.8rem;
     }
+
+    &__more {
+        width: 100%;
+        min-height: 30rem;
+        background-color: transparent;
+        border: 2px dashed v.$cor-secundaria-texto;
+        border-radius: 1.2rem;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+        padding: 2rem;
+        transition: all 0.3s ease-out;
+
+        p {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: v.$cor-secundaria-texto;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.4;
+            transition: color 0.3s;
+        }
+
+        i {
+            font-size: 4rem;
+            color: v.$cor-secundaria-texto;
+            transition:
+                transform 0.3s,
+                color 0.3s;
+        }
+
+        &:hover {
+            border-color: v.$cor-primaria-itens;
+            background-color: rgba(v.$cor-primaria-itens, 0.03);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(v.$cor-primaria-itens, 0.1);
+
+            h2 {
+                color: v.$cor-primaria-itens;
+            }
+
+            i {
+                color: v.$cor-primaria-itens;
+                transform: scale(1.1) rotate(10deg);
+            }
+        }
+    }
 }

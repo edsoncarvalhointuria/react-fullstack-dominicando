@@ -9,12 +9,17 @@ import {
 import { useAuthContext } from "./AuthContext";
 import {
     collection,
+    doc,
     documentId,
+    getDoc,
     getDocs,
     query,
     where,
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
+import type { ListaNotificacao } from "../interfaces/NotificacaoInterface";
+import type { DataContextInterface } from "../interfaces/DataContextInterface";
+import type { CacheAlunoInteface } from "../interfaces/AlunoInterface";
 
 const context = createContext({});
 export const useDataContext = () => useContext(context) as DataContextInterface;
@@ -23,6 +28,7 @@ function DataContext({ children }: { children: ReactNode }) {
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [igrejas, setIgrejas] = useState<IgrejaInterface[]>([]);
     const [classes, setClasses] = useState<ClasseInterface[]>([]);
+    const [notificacoes, setNotificacoes] = useState<ListaNotificacao[]>([]);
     const { user, isSuperAdmin, isAdmin } = useAuthContext();
 
     const getPastorPresidente = (collectionName: string) => {
@@ -32,49 +38,130 @@ function DataContext({ children }: { children: ReactNode }) {
 
         return docs;
     };
-    const getPastor = (collectionName: string) => {
-        const c = collection(db, collectionName);
-        const q = query(c, where("igrejaId", "==", user!.igrejaId));
-        const docs = getDocs(q);
-
-        return docs;
-    };
     const getClasseSecretario = (collectionName: string) => {
         const c = collection(db, collectionName);
         const q = query(
             c,
             where("igrejaId", "==", user!.igrejaId),
-            where(documentId(), "==", user!.classeId)
+            where(documentId(), "==", user!.classeId),
         );
         const docs = getDocs(q);
 
         return docs;
     };
+    const removerNotificacoes = useCallback(
+        (...args: string[]) => {
+            if (!user) return;
+            const listaRemovidos = JSON.parse(
+                localStorage.getItem("notificacoes_removidas") || "[]",
+            ) as string[];
+            const todos = [...listaRemovidos, ...args];
+            setNotificacoes((v) => v.filter((v) => !todos.includes(v.alunoId)));
+            localStorage.setItem(
+                "notificacoes_removidas",
+                JSON.stringify(todos),
+            );
+        },
+        [user],
+    );
 
+    const fetchNotificacoes = useCallback(async () => {
+        if (!user) return;
+        const hoje = new Date();
+        const ultimaPesquisa = JSON.parse(
+            localStorage.getItem("ultima_pesquisa_notificacoes") || "{}",
+        );
+        if (
+            hoje.toLocaleDateString("pt-BR") === ultimaPesquisa.data &&
+            ultimaPesquisa.dados?.length
+        ) {
+            const notificacoes = ultimaPesquisa.dados as ListaNotificacao[];
+            setNotificacoes(notificacoes);
+            return;
+        }
+
+        const alunosDoc = doc(db, "cache_alunos", user.igrejaId!);
+        const alunoSnap = await getDoc(alunosDoc);
+        const alunosData = alunoSnap.data() as CacheAlunoInteface;
+        const listaAlunos = Object.values(alunosData.lista);
+        const notificacoesRemovidas = JSON.parse(
+            localStorage.getItem("notificacoes_removidas") || "[]",
+        ) as string[];
+
+        hoje.setHours(0, 0, 0, 0);
+        const alvo = new Date(hoje);
+        alvo.setDate(alvo.getDate() + 1);
+        hoje.setDate(hoje.getDate() - 1);
+
+        const listaAniversariantes = listaAlunos.filter((v) => {
+            const dataNascimento = v.data_nascimento.toDate();
+            dataNascimento.setFullYear(hoje.getFullYear());
+            dataNascimento.setHours(0, 0, 0, 0);
+            const isData = dataNascimento >= hoje && dataNascimento <= alvo;
+            return isData;
+        });
+
+        const listaNotificacoesAtualizada = notificacoesRemovidas.filter((v) =>
+            listaAniversariantes.find((a) => a.id === v),
+        );
+
+        const listaNotificacoes: ListaNotificacao[] = listaAniversariantes
+            .filter((v) => !listaNotificacoesAtualizada.includes(v.id))
+            .map((v) => ({
+                alunoId: v.id,
+                alunoNome: v.nome_completo,
+                data_encerramento: v.data_nascimento,
+                data_nascimento: v.data_nascimento,
+                igrejaId: v.igrejaId,
+                ministerioId: v.ministerioId,
+            }))
+            .sort((a, b) => {
+                const ano = hoje.getFullYear();
+                const dataA = a.data_nascimento.toDate();
+                dataA.setFullYear(ano);
+                const dataB = b.data_nascimento.toDate();
+                dataB.setFullYear(ano);
+                return dataB.getTime() - dataA.getTime();
+            });
+
+        localStorage.setItem(
+            "notificacoes_removidas",
+            JSON.stringify(listaNotificacoesAtualizada),
+        );
+        localStorage.setItem(
+            "ultima_pesquisa_notificacoes",
+            JSON.stringify({
+                data: new Date().toLocaleDateString("pt-BR"),
+                dados: listaNotificacoes,
+            }),
+        );
+
+        setNotificacoes(listaNotificacoes);
+    }, [user]);
     const fetchData = useCallback(async () => {
         if (!user) return;
         try {
             if (isSuperAdmin.current) {
-                const i = await getPastorPresidente("igrejas");
-
+                const [igrejas, classes] = await Promise.all([
+                    getPastorPresidente("igrejas"),
+                    getPastorPresidente("cache_classes"),
+                ]);
                 setIgrejas(
-                    i.docs.map(
-                        (ig) => ({ id: ig.id, ...ig.data() } as IgrejaInterface)
-                    )
+                    igrejas.docs.map(
+                        (ig) =>
+                            ({ id: ig.id, ...ig.data() }) as IgrejaInterface,
+                    ),
                 );
 
-                const c = await getPastorPresidente("classes");
-                setClasses(
-                    c.docs.map(
-                        (cl) =>
-                            ({
-                                id: cl.id,
-                                ...cl.data(),
-                            } as ClasseInterface)
-                    )
+                const c = classes.docs.flatMap((v) =>
+                    Object.values(v.data()?.lista),
                 );
+                setClasses(c as ClasseInterface[]);
             } else if (isAdmin.current) {
-                const c = await getPastor("classes");
+                const classesDoc = doc(db, "cache_classes", user.igrejaId!);
+                const classesSnap = await getDoc(classesDoc);
+                const classes = Object.values(classesSnap.data()?.lista);
+
                 setIgrejas([
                     {
                         id: user.igrejaId!,
@@ -83,15 +170,7 @@ function DataContext({ children }: { children: ReactNode }) {
                     },
                 ]);
 
-                setClasses(
-                    c.docs.map(
-                        (cl) =>
-                            ({
-                                id: cl.id,
-                                ...cl.data(),
-                            } as ClasseInterface)
-                    )
-                );
+                setClasses(classes as ClasseInterface[]);
             } else {
                 const c = await getClasseSecretario("classes");
 
@@ -117,6 +196,9 @@ function DataContext({ children }: { children: ReactNode }) {
     }, [user]);
 
     useEffect(() => {
+        fetchNotificacoes();
+    }, [fetchNotificacoes]);
+    useEffect(() => {
         fetchData();
     }, [fetchData]);
     return (
@@ -128,6 +210,9 @@ function DataContext({ children }: { children: ReactNode }) {
                 setClasses,
                 isLoadingData,
                 refetchData: fetchData,
+                notificacoes,
+                removerNotificacoes,
+                fetchNotificacoes,
             }}
         >
             {children}

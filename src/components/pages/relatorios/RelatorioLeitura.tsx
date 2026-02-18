@@ -440,7 +440,8 @@ function RelatorioLeitura({ fila, dados, domingo }: RelatorioLeituraProps) {
                                             <li key={aluno.id}>
                                                 <p>
                                                     <b>
-                                                        {aluno.nome_completo}:
+                                                        {aluno.nome_completo} (
+                                                        {aluno.idade}):
                                                     </b>
                                                 </p>
                                                 <p>

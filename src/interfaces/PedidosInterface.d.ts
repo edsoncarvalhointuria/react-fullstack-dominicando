@@ -43,7 +43,7 @@ interface PedidosRespostas {
     ministerioId: string;
     igrejaId: string;
     estrutura: { [idKey: string]: TextType | RevistaType };
-    total_ofertas;
+    total_ofertas: number;
     data_resposta: Timestamp;
     modeloId: string;
     envido_por: {

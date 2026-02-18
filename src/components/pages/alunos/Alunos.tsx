@@ -15,14 +15,11 @@ import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import "./alunos.scss";
-import type { AlunoInterface } from "../../../interfaces/AlunoInterface";
-import {
-    collection,
-    getDocs,
-    query,
-    Timestamp,
-    where,
-} from "firebase/firestore";
+import type {
+    AlunoInterface,
+    CacheAlunoInteface,
+} from "../../../interfaces/AlunoInterface";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import { useNavigate } from "react-router-dom";
 import SearchInput from "../../ui/SearchInput";
@@ -87,7 +84,7 @@ function Alunos() {
             nome: "Membro?",
             id: "isMembro",
             icon: faAddressCard,
-            isFilter: false,
+            isFilter: true,
             placeholder: "",
             isBoolean: true,
         },
@@ -103,7 +100,7 @@ function Alunos() {
     const [addAluno, setAddAluno] = useState(false);
     const [importCSV, setImportCSV] = useState(false);
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
+        null,
     );
     const [alunos, setAlunos] = useState<
         (AlunoInterface & { idade: string })[]
@@ -116,7 +113,7 @@ function Alunos() {
         })
     >("nome_completo");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const [mensagem, setMensagem] = useState<{
         titulo: string;
@@ -167,32 +164,24 @@ function Alunos() {
                     .toDate()
                     .toLocaleDateString("pt-BR")
                     .includes(pesquisa) ||
-                v.idade === pesquisa
+                v.idade === pesquisa,
         );
         a = a.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
         return a;
     }, [alunos, pesquisa, ordem, ordemColuna]);
     useEffect(() => {
         const getAlunos = async (igrejaId: string) => {
-            const alunosCll = collection(db, "alunos");
-            const q = query(
-                alunosCll,
-                where("igrejaId", "==", igrejaId),
-                where("ministerioId", "==", user?.ministerioId)
-            );
-            const alunosSnap = await getDocs(q);
+            const alunosDoc = doc(db, "cache_alunos", igrejaId);
+            const alunosSnap = await getDoc(alunosDoc);
 
-            if (alunosSnap.empty) return [];
+            if (!alunosSnap.exists()) return [];
 
-            const alunos = alunosSnap.docs.map((v) => ({
-                id: v.id,
-                ...v.data(),
-                idade: `${getIdade(
-                    v.data().data_nascimento as Timestamp
-                )} anos`,
-            })) as (AlunoInterface & { idade: string })[];
+            const alunos = alunosSnap.data() as CacheAlunoInteface;
 
-            return alunos;
+            return Object.values(alunos.lista).map((v) => ({
+                ...v,
+                idade: `${getIdade(v.data_nascimento)} anos`,
+            }));
         };
         if (currentIgreja)
             getAlunos(currentIgreja.id)
@@ -279,7 +268,7 @@ function Alunos() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             onSelect={(v) => setOrdemColuna(v.id as any)}
@@ -305,7 +294,7 @@ function Alunos() {
                                     setOrdem((v) =>
                                         v === "crescente"
                                             ? "decrescente"
-                                            : "crescente"
+                                            : "crescente",
                                     );
                                 }}
                                 onEdit={(v) => setEditAluno(v.id)}
@@ -372,7 +361,7 @@ function Alunos() {
                             const alunoComIdade = {
                                 ...value,
                                 idade: `${getIdade(
-                                    value.data_nascimento
+                                    value.data_nascimento,
                                 )} anos`,
                             };
                             if (!editAluno)

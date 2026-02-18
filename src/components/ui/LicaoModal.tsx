@@ -15,12 +15,18 @@ import {
     faChartSimple,
     faCaretLeft,
 } from "@fortawesome/free-solid-svg-icons";
-import { collection, getDocs, Timestamp } from "firebase/firestore";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    Timestamp,
+} from "firebase/firestore";
 import { db } from "../../utils/firebase";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PanoramaLicao from "./PanoramaLicao";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import type { CacheLicaoInterface } from "../../interfaces/CacheLicaoInterface";
 
 interface AulaDocument {
     id: string;
@@ -42,8 +48,34 @@ const variantsMenu: Variants = {
     exit: { opacity: 0, y: 10 },
 };
 
-const functions = getFunctions();
-const getResumoDaLicao = httpsCallable(functions, "getResumoDaLicao");
+const Configuracoes = ({
+    onEditLicao,
+    onGetPanorama,
+}: {
+    onEditLicao: () => void;
+    onGetPanorama: () => void;
+}) => {
+    return (
+        <motion.div
+            className="licao-modal__header-options"
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0, x: 50, y: -30 }}
+        >
+            <div className="licao-modal__header-option" onClick={onEditLicao}>
+                <FontAwesomeIcon icon={faSquarePen} />
+                <p>Editar Revista</p>
+            </div>
+            <motion.div
+                className="licao-modal__header-option"
+                onTap={onGetPanorama}
+            >
+                <FontAwesomeIcon icon={faChartSimple} />
+                <p>Panorama Lição</p>
+            </motion.div>
+        </motion.div>
+    );
+};
 
 function LicaoModal({
     licao,
@@ -54,29 +86,47 @@ function LicaoModal({
     closeModal: React.Dispatch<React.SetStateAction<LicaoInterface | null>>;
     editLicao: React.Dispatch<React.SetStateAction<LicaoInterface | null>>;
 }) {
-    const [aulasRegistradas, setAulasRegistradas] = useState<AulaDocument[]>(
-        [],
+    const [aulasMap, setAulasMap] = useState<Map<number, AulaDocument>>(
+        new Map(),
     );
     const [isLoading, setIsLoading] = useState(true);
     const [openConfig, setOpenConfig] = useState(false);
     const [isPanorama, setIsPanorama] = useState(false);
-    const [panoramaDados, setPanoramaDados] = useState<any | null>(null);
+    const [panoramaDados, setPanoramaDados] =
+        useState<CacheLicaoInterface | null>(null);
     const [loadingPanorama, setLoadingPanorama] = useState(false);
     const navigate = useNavigate();
-
-    const aulasMap = useMemo(() => {
-        const map = new Map<number, AulaDocument>();
-        aulasRegistradas.forEach((aula) => {
-            map.set(aula.numero_aula, aula);
-        });
-        return map;
-    }, [aulasRegistradas]);
 
     const getDomingo = () => {
         const hoje = new Date();
         const diff = hoje.getDay() === 0 ? 0 : 7 - hoje.getDay();
         hoje.setDate(hoje.getDate() + diff);
         return hoje;
+    };
+    const getPanorama = async () => {
+        setLoadingPanorama(true);
+        setIsPanorama(true);
+        if (!panoramaDados) {
+            const cacheDoc = doc(
+                db,
+                "cache_licao",
+                `${licao.igrejaId}_${licao.id}`,
+            );
+
+            try {
+                const cacheSnap = await getDoc(cacheDoc);
+                setPanoramaDados(cacheSnap.data() as CacheLicaoInterface);
+                setLoadingPanorama(false);
+            } catch (error: any) {
+                console.log(error.message);
+                setIsPanorama(false);
+            }
+        }
+    };
+    const goToAula = (aula: string | number) => {
+        navigate(
+            `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${aula}`,
+        );
     };
 
     const aulasDoTrimestre = useMemo(() => {
@@ -99,7 +149,7 @@ function LicaoModal({
         return listaAulas;
     }, [licao, aulasMap]);
 
-    const domingoAtual = useMemo(() => {
+    const proximaAula = useMemo(() => {
         const domingo = getDomingo().toLocaleDateString("pt-BR");
         const aula = aulasDoTrimestre.find(
             (v) => v.data.toLocaleDateString("pt-BR") === domingo,
@@ -123,7 +173,7 @@ function LicaoModal({
                     id: doc.id,
                     ...(doc.data() as Omit<AulaDocument, "id">),
                 }));
-                setAulasRegistradas(aulas);
+                setAulasMap(new Map(aulas.map((v) => [v.numero_aula, v])));
             } catch (error) {
                 console.error("Erro ao buscar aulas da lição:", error);
             } finally {
@@ -131,14 +181,13 @@ function LicaoModal({
             }
         };
         getAulas();
-    }, [licao.id]);
+    }, [licao]);
     return (
         <motion.div className="licao-modal" layoutId={licao.id}>
             <motion.div
-                layout
                 className={`licao-modal__header ${
                     isPanorama ? "licao-modal__header--panorama" : ""
-                } ${!domingoAtual ? "licao-modal__header--sem-domingo" : ""}`}
+                } ${!proximaAula ? "licao-modal__header--sem-domingo" : ""}`}
             >
                 <div className="licao-modal__header-config">
                     <div
@@ -151,20 +200,7 @@ function LicaoModal({
                         <>
                             <motion.div
                                 className="licao-modal__header--config"
-                                onTap={() => {
-                                    setIsPanorama(true);
-                                    if (!panoramaDados) {
-                                        setLoadingPanorama(true);
-                                        getResumoDaLicao({
-                                            licaoId: licao.id,
-                                        })
-                                            .then(({ data }) => {
-                                                setPanoramaDados(data);
-                                                setLoadingPanorama(false);
-                                            })
-                                            .catch((err) => console.log(err));
-                                    }
-                                }}
+                                onTap={getPanorama}
                             >
                                 <FontAwesomeIcon icon={faChartSimple} />
                             </motion.div>
@@ -178,64 +214,13 @@ function LicaoModal({
                                 </div>
                                 <AnimatePresence>
                                     {openConfig && (
-                                        <motion.div
-                                            className="licao-modal__header-options"
-                                            initial={{ opacity: 0, scale: 0 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{
-                                                opacity: 0,
-                                                scale: 0,
-                                                x: 50,
-                                                y: -30,
+                                        <Configuracoes
+                                            onEditLicao={() => {
+                                                closeModal(null);
+                                                editLicao(licao);
                                             }}
-                                        >
-                                            <div
-                                                className="licao-modal__header-option"
-                                                onClick={() => {
-                                                    closeModal(null);
-                                                    editLicao(licao);
-                                                }}
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faSquarePen}
-                                                />
-                                                <p>Editar Revista</p>
-                                            </div>
-                                            <motion.div
-                                                className="licao-modal__header-option"
-                                                onTap={() => {
-                                                    setIsPanorama(true);
-                                                    if (!panoramaDados) {
-                                                        setLoadingPanorama(
-                                                            true,
-                                                        );
-                                                        getResumoDaLicao({
-                                                            licaoId: licao.id,
-                                                        })
-                                                            .then(
-                                                                ({ data }) => {
-                                                                    setPanoramaDados(
-                                                                        data,
-                                                                    );
-                                                                    setLoadingPanorama(
-                                                                        false,
-                                                                    );
-                                                                },
-                                                            )
-                                                            .catch((err) =>
-                                                                console.log(
-                                                                    err,
-                                                                ),
-                                                            );
-                                                    }
-                                                }}
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faChartSimple}
-                                                />
-                                                <p>Panorama Lição</p>
-                                            </motion.div>
-                                        </motion.div>
+                                            onGetPanorama={getPanorama}
+                                        />
                                     )}
                                 </AnimatePresence>
                             </div>
@@ -252,78 +237,75 @@ function LicaoModal({
                         isPanorama && "licao-modal__header-infos--panorama"
                     }`}
                 >
-                    <AnimatePresence>
-                        {isPanorama ? (
-                            <motion.span
-                                className="licao-modal__header--voltar"
-                                initial={{
-                                    opacity: 0,
-                                }}
-                                animate={{
-                                    opacity: 1,
-                                    transition: { delay: 0.5 },
-                                }}
-                                key={"voltar-licao-modal"}
-                                onClick={() => setIsPanorama(false)}
+                    {isPanorama ? (
+                        <motion.span
+                            className="licao-modal__header--voltar"
+                            initial={{
+                                opacity: 0,
+                            }}
+                            animate={{
+                                opacity: 1,
+                                transition: { delay: 0.5 },
+                            }}
+                            key={"voltar-licao-modal"}
+                            onClick={() => setIsPanorama(false)}
+                        >
+                            <FontAwesomeIcon icon={faCaretLeft} />
+                        </motion.span>
+                    ) : (
+                        <>
+                            <div
+                                key={"licao-modal-titulo"}
+                                className="licao-modal__header--title"
                             >
-                                <FontAwesomeIcon icon={faCaretLeft} />
-                            </motion.span>
-                        ) : (
-                            <>
+                                <FontAwesomeIcon icon={faBookmark} />
+                                <h3>{licao.titulo}</h3>
+                            </div>
+
+                            {proximaAula && (
                                 <motion.div
                                     variants={variantsMenu}
-                                    key={"licao-modal-titulo"}
-                                    className="licao-modal__header--title"
-                                    exit={{ y: 10, opacity: 0 }}
+                                    exit={{
+                                        opacity: 0,
+                                        overflow: "hidden",
+                                        transition: { duration: 0 },
+                                    }}
+                                    key={"licao-modal-iniciar-chamada"}
+                                    className="licao-modal__header--nova-chamada"
                                 >
-                                    <FontAwesomeIcon icon={faBookmark} />
-                                    <h3>{licao.titulo}</h3>
-                                </motion.div>
-
-                                {domingoAtual && (
-                                    <motion.div
-                                        variants={variantsMenu}
-                                        exit={{ y: 10, opacity: 0 }}
-                                        key={"licao-modal-iniciar-chamada"}
-                                        className="licao-modal__header--nova-chamada"
+                                    <motion.button
+                                        whileHover={{
+                                            y: -2,
+                                            boxShadow:
+                                                "0 5px 20px rgba(59, 130, 246, 0.3)",
+                                        }}
+                                        whileTap={{ scale: 0.9 }}
+                                        onTap={() =>
+                                            goToAula(proximaAula?.numero)
+                                        }
                                     >
-                                        <motion.button
-                                            whileHover={{
-                                                y: -2,
-                                                boxShadow:
-                                                    "0 5px 20px rgba(59, 130, 246, 0.3)",
-                                            }}
-                                            whileTap={{ scale: 0.8 }}
-                                            onTap={() =>
-                                                navigate(
-                                                    `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${domingoAtual?.numero}`,
-                                                )
-                                            }
-                                            transition={{ duration: 0.2 }}
-                                        >
-                                            <span>
-                                                <FontAwesomeIcon
-                                                    icon={faTimeline}
-                                                />
-                                            </span>
-                                            <span>
-                                                Iniciar chamada de{" "}
-                                                {domingoAtual?.data.toLocaleDateString(
-                                                    "pt-BR",
-                                                    {
-                                                        weekday: "long",
-                                                        day: "2-digit",
-                                                        month: "long",
-                                                        year: "numeric",
-                                                    },
-                                                )}
-                                            </span>
-                                        </motion.button>
-                                    </motion.div>
-                                )}
-                            </>
-                        )}
-                    </AnimatePresence>
+                                        <span>
+                                            <FontAwesomeIcon
+                                                icon={faTimeline}
+                                            />
+                                        </span>
+                                        <span>
+                                            Iniciar chamada de{" "}
+                                            {proximaAula?.data.toLocaleDateString(
+                                                "pt-BR",
+                                                {
+                                                    weekday: "long",
+                                                    day: "2-digit",
+                                                    month: "long",
+                                                    year: "numeric",
+                                                },
+                                            )}
+                                        </span>
+                                    </motion.button>
+                                </motion.div>
+                            )}
+                        </>
+                    )}
                 </motion.div>
             </motion.div>
 
@@ -332,9 +314,8 @@ function LicaoModal({
                     <PanoramaLicao
                         dados={panoramaDados}
                         isLoading={loadingPanorama}
-                        igrejaNome={licao.igrejaNome}
-                        classeNome={licao.classeNome}
-                        licaoNome={licao.titulo}
+                        licao={licao}
+                        listaAulas={aulasDoTrimestre}
                     />
                 ) : (
                     <ul className="licao-modal__registros">
@@ -342,20 +323,10 @@ function LicaoModal({
                             <p>Carregando aulas...</p>
                         ) : (
                             <>
-                                {/* <div className="licao-modal__registros--button">
-                                    <button>
-                                        <FontAwesomeIcon icon={faChartSimple} />
-                                        Visão Geral da Lição
-                                    </button>
-                                </div> */}
                                 {aulasDoTrimestre.map((aula) => (
                                     <li
                                         key={aula.numero}
-                                        onClick={() =>
-                                            navigate(
-                                                `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${aula.numero}`,
-                                            )
-                                        }
+                                        onClick={() => goToAula(aula.numero)}
                                         className={
                                             aula.aulaRegistrada?.realizada
                                                 ? "preenchida"
@@ -424,4 +395,4 @@ function LicaoModal({
     );
 }
 
-export default LicaoModal;
+export default React.memo(LicaoModal);

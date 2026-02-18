@@ -1038,7 +1038,7 @@ $cor-missoes: #0ea5e9;
                 box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
             }
             &:disabled {
-                background-color: v.$cor-secundaria-texto; // Cinza
+                background-color: v.$cor-secundaria-texto;
                 cursor: not-allowed;
                 box-shadow: none;
                 transform: none;

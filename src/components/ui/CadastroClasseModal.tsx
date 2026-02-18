@@ -57,8 +57,6 @@ function CadastroClasseModal({
     const [isEnviando, setIsEnviando] = useState(false);
     const [isLoadingRotulos, setIsLoadingRotulos] = useState(true);
     const [rotulos, setRotulos] = useState<RotulosClassesInterface[]>([]);
-    const [currentRotulo, setCurrentRotulo] =
-        useState<RotulosClassesInterface | null>(null);
     const [mensagemErro, setMensagemErro] = useState("");
 
     const { user } = useAuthContext();
@@ -222,7 +220,14 @@ function CadastroClasseModal({
                                                     field.onChange(
                                                         response?.id || null,
                                                     );
-                                                    setCurrentRotulo(response);
+                                                    setValue(
+                                                        "idade_minima",
+                                                        response?.idade_minima,
+                                                    );
+                                                    setValue(
+                                                        "idade_maxima",
+                                                        response?.idade_maxima,
+                                                    );
                                                 }}
                                             />
                                         )}
@@ -317,12 +322,6 @@ function CadastroClasseModal({
                                             }
                                             id="idade-minima-classe"
                                             type="number"
-                                            defaultValue={
-                                                typeof currentRotulo?.idade_minima ===
-                                                "number"
-                                                    ? currentRotulo.idade_minima
-                                                    : undefined
-                                            }
                                             {...register("idade_minima", {
                                                 min: {
                                                     value: 0,
@@ -352,12 +351,6 @@ function CadastroClasseModal({
                                                 "input-error"
                                             }
                                             id="idade-maxima-classe"
-                                            defaultValue={
-                                                typeof currentRotulo?.idade_maxima ===
-                                                "number"
-                                                    ? currentRotulo.idade_maxima
-                                                    : undefined
-                                            }
                                             type="number"
                                             {...register("idade_maxima", {
                                                 min: {

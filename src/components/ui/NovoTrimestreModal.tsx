@@ -13,8 +13,21 @@ import {
     faUsersRectangle,
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import React, {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type ReactNode,
+} from "react";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    where,
+} from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { db } from "../../utils/firebase";
 import { useNavigate } from "react-router-dom";
@@ -25,14 +38,20 @@ import {
     useFieldArray,
     useForm,
     type FieldError,
+    type UseFieldArrayAppend,
+    type UseFieldArrayRemove,
+    type UseFormRegister,
 } from "react-hook-form";
 import AlertModal from "./AlertModal";
 import SearchInput from "./SearchInput";
 import CadastroAlunoModal from "./CadastroAlunoModal";
-import type { MatriculasInterface } from "../../interfaces/MatriculasInterface";
+import type { CacheMatriculasInterface } from "../../interfaces/MatriculasInterface";
 import LoadingModal from "../layout/loading/LoadingModal";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import type { AlunoInterface } from "../../interfaces/AlunoInterface";
+import type {
+    AlunoInterface,
+    CacheAlunoInteface,
+} from "../../interfaces/AlunoInterface";
 import { getIdade } from "../../utils/getIdade";
 import { useAuthContext } from "../../context/AuthContext";
 import { reduzirImagem } from "../../utils/reduzirImagem";
@@ -41,6 +60,8 @@ import { useDataContext } from "../../context/DataContext";
 interface AlunoSelecionado {
     alunoId: string;
     possui_revista: boolean;
+    idade: number;
+    nome: string;
 }
 interface NovaLicaoForm {
     titulo: string;
@@ -55,6 +76,154 @@ interface NovaLicaoForm {
 const functions = getFunctions();
 const salvarNovoTrimestre = httpsCallable(functions, "salvarNovoTrimestre");
 const deletarLicao = httpsCallable(functions, "deletarLicao");
+
+const ListaAulas = React.memo(({ dataAulas }: { dataAulas: string[][] }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <AnimatePresence>
+            {dataAulas.length && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0 }}
+                    onTap={() => setIsOpen((v) => !v)}
+                    className={`novo-trimestre__previsao-aulas ${isOpen ? "is-open" : ""}`}
+                    key={"previsao-aulas"}
+                >
+                    <h3>
+                        Lista de aulas{" "}
+                        <span>
+                            <FontAwesomeIcon icon={faChevronDown} />
+                        </span>
+                    </h3>
+                    <AnimatePresence>
+                        {isOpen && (
+                            <motion.div
+                                key={"previsao-aulas-container"}
+                                initial={{ y: -10, height: 0 }}
+                                animate={{ y: 0, height: "auto" }}
+                                exit={{ y: -10, height: 0 }}
+                            >
+                                <motion.ul className="novo-trimestre__previsao-aulas--lista">
+                                    {dataAulas.map(([aula, data]) => (
+                                        <motion.li key={aula + data}>
+                                            <p>{aula}</p>
+                                            <data value={data}>{data}</data>
+                                        </motion.li>
+                                    ))}
+                                </motion.ul>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+});
+const AlunosDisponiveis = ({
+    listaAlunos,
+    append,
+}: {
+    listaAlunos: (AlunoInterface & { nome: string; idade: number })[];
+    append: UseFieldArrayAppend<any>;
+}) => {
+    return (
+        <ul className="matriculas--lista">
+            {listaAlunos.map((v) => (
+                <motion.li
+                    className="matriculas--item"
+                    key={v.id}
+                    onTap={() => {
+                        append({
+                            alunoId: v.id,
+                            possui_revista: true,
+                            nome: v.nome,
+                            idade: v.idade,
+                        });
+                    }}
+                >
+                    <motion.p layoutId={v.id}>
+                        {v.nome}{" "}
+                        <span className="matriculas--lista-idade">
+                            ({v.idade}) anos
+                        </span>
+                    </motion.p>
+                </motion.li>
+            ))}
+        </ul>
+    );
+};
+const AlunosMatriculados = ({
+    listaAlunosSelecionados,
+    alunosForaDaFaixa,
+    remove,
+    fieldIndex,
+    register,
+}: {
+    listaAlunosSelecionados: any[];
+    alunosForaDaFaixa: Map<any, any>;
+    remove: UseFieldArrayRemove;
+    fieldIndex: (v: any) => number;
+    register: UseFormRegister<any>;
+}) => {
+    return (
+        <ul className="matriculas--lista">
+            <AnimatePresence>
+                {listaAlunosSelecionados.map((v, i) => (
+                    <motion.li
+                        key={v.id}
+                        layoutId={v.alunoId}
+                        className={
+                            alunosForaDaFaixa.has(v.alunoId)
+                                ? "matriculas--fora-da-faixa"
+                                : ""
+                        }
+                    >
+                        <motion.div
+                            className="matriculas-item__nome"
+                            onTap={() => remove(fieldIndex(v))}
+                        >
+                            <span>{v?.nome}</span>{" "}
+                            <span className="matriculas--lista-idade">
+                                ({v?.idade} anos)
+                            </span>
+                        </motion.div>
+
+                        <div className="matriculas-item__licao">
+                            <label htmlFor={"matriculados-revista" + i}>
+                                Revista?
+                            </label>
+                            <input
+                                type="checkbox"
+                                id={"matriculados-revista" + i}
+                                {...register(
+                                    `alunosSelecionados.${fieldIndex(
+                                        v,
+                                    )}.possui_revista`,
+                                )}
+                            />
+                        </div>
+                    </motion.li>
+                ))}
+            </AnimatePresence>
+        </ul>
+    );
+};
+
+const ErroComponent = ({ field }: { field: FieldError | undefined }) => {
+    return (
+        <AnimatePresence>
+            {field && (
+                <motion.span
+                    key={field.message}
+                    className="novo-trimestre__input--erro"
+                >
+                    {field.message}
+                </motion.span>
+            )}
+        </AnimatePresence>
+    );
+};
 
 function NovoTrimestreModal({
     classeId,
@@ -72,11 +241,10 @@ function NovoTrimestreModal({
     const [isLoading, setIsLoading] = useState(true);
     const [classe, setClasse] = useState<ClasseInterface | null>(null);
     const [licao, setLicao] = useState<LicaoInterface | null>(null);
-    const [alunos, setAlunos] = useState<
-        (AlunoInterface & { nome: string; idade: number })[]
-    >([]);
+    const [alunosMap, setAlunosMap] = useState<
+        Map<string, AlunoInterface & { nome: string; idade: number }>
+    >(new Map());
     const [pesquisa, setPesquisa] = useState("");
-    const [isOpen, setIsOpen] = useState(false);
     const [showCadastroAluno, setShowCadastroAluno] = useState<boolean>(false);
     const [dataAulas, setDataAulas] = useState<string[][]>([]);
     const [isEnviando, setIsEnviando] = useState(false);
@@ -95,7 +263,6 @@ function NovoTrimestreModal({
     const trimestreAnterior = useRef<AlunoSelecionado[]>([]);
     const messageForaDaIdade = useRef<boolean>(false);
     const alunosForaDaIdadeRef = useRef<any>(null);
-    const licaoRef = useRef<LicaoInterface>(licao);
     const dadosFinaisRef = useRef<any>(null);
 
     const methods = useForm<NovaLicaoForm>({
@@ -121,12 +288,77 @@ function NovoTrimestreModal({
         name: "alunosSelecionados",
     });
 
-    const { isSuperAdmin, user } = useAuthContext();
+    const { isSuperAdmin, user, isSecretario } = useAuthContext();
     const { classes } = useDataContext();
 
     const imagem = watch("img");
     const dataInicio = watch("data_inicio");
     const numeroAulas = watch("numero_aulas");
+
+    const normalizeDate = (data: any) => {
+        const d = new Date(data);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+    const apagarLicao = async (licaoId: string) => {
+        try {
+            setIsLoading(true);
+            setMensagem(null);
+            await deletarLicao({ licaoId });
+            window.location.reload();
+        } catch (error: any) {
+            console.log("deu esse erro", error);
+            setMensagem({
+                title: "Erro ao deletar lição",
+                message: error.message,
+                onClose: () => setMensagem(null),
+                onConfirm: () => setMensagem(null),
+                onCancel: () => setMensagem(null),
+                cancelText: "Cancelar",
+                confirmText: "Ok",
+                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    const importarAlunos = () => {
+        const ids = fields.map((v) => v.alunoId);
+        const filtro = trimestreAnterior.current.filter(
+            (v) => !ids.includes(v.alunoId),
+        );
+
+        setValue("alunosSelecionados", [...fields, ...filtro]);
+    };
+    const deletarRevista = () => {
+        setMensagem({
+            title: "Deletar lição",
+            message: (
+                <>
+                    <span>
+                        Tem certeza que deseja deletar a lição:{" "}
+                        <strong>{licaoReference?.titulo}</strong>?
+                    </span>
+                    <span>
+                        Isso irá apagar <strong>TODOS</strong> os dados
+                        associados a ela.
+                    </span>
+                </>
+            ),
+            onClose: () => {
+                setMensagem(null);
+                onClose();
+            },
+            onConfirm: () => apagarLicao(licaoReference!.id),
+            onCancel: () => {
+                setMensagem(null);
+                onClose();
+            },
+            cancelText: "Cancelar",
+            confirmText: "Sim, deletar lição",
+            icon: <FontAwesomeIcon icon={faTrash} />,
+        });
+    };
 
     const save = async () => {
         setMensagem(null);
@@ -142,7 +374,7 @@ function NovoTrimestreModal({
                     const arquivo = await reduzirImagem(
                         arquivoOriginal,
                         800,
-                        800
+                        800,
                     );
                     const storage = getStorage();
                     const caminho = `capas-licoes/${Date.now()}-${
@@ -186,53 +418,21 @@ function NovoTrimestreModal({
             setIsEnviando(false);
         }
     };
-
-    const normalizeDate = (data: any) => {
-        const d = new Date(data);
-        d.setHours(0, 0, 0, 0);
-        return d;
-    };
-
-    const apagarLicao = async (licaoId: string) => {
-        try {
-            setIsLoading(true);
-            setMensagem(null);
-            await deletarLicao({ licaoId });
-            window.location.reload();
-        } catch (error: any) {
-            console.log("deu esse erro", error);
-            setMensagem({
-                title: "Erro ao deletar lição",
-                message: error.message,
-                onClose: () => setMensagem(null),
-                onConfirm: () => setMensagem(null),
-                onCancel: () => setMensagem(null),
-                cancelText: "Cancelar",
-                confirmText: "Ok",
-                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const onSubmit = async (dados: NovaLicaoForm) => {
         dadosFinaisRef.current = dados;
 
-        if (licaoRef.current) {
+        if (licao) {
             const dataUsuario = normalizeDate(dados.data_inicio + "T00:00:00");
-            const dataInicio = normalizeDate(
-                licaoRef.current.data_inicio.toDate()
-            );
-            const dataFim = normalizeDate(licaoRef.current.data_fim.toDate());
+            const dataInicio = normalizeDate(licao.data_inicio.toDate());
+            const dataFim = normalizeDate(licao.data_fim.toDate());
 
             if (dataUsuario >= dataInicio && dataUsuario < dataFim) {
                 return setMensagem({
                     title: "Datas conflitantes",
                     message: (
                         <span>
-                            A lição <strong>{licao!.titulo}</strong> está com
-                            data de finalização prevista para o dia:{" "}
+                            A lição anterior <strong>{licao!.titulo}</strong>{" "}
+                            está com data de finalização prevista para o dia:{" "}
                             <strong>
                                 {licao!.data_fim
                                     .toDate()
@@ -278,30 +478,14 @@ function NovoTrimestreModal({
 
         save();
     };
-    const ErroComponent = (field: FieldError | undefined) => {
-        return (
-            <AnimatePresence>
-                {field && (
-                    <motion.span
-                        key={field.message}
-                        className="novo-trimestre__input--erro"
-                    >
-                        {field.message}
-                    </motion.span>
-                )}
-            </AnimatePresence>
-        );
-    };
-
-    const alunosMap = useMemo(
-        () => new Map(alunos.map((v) => [v.id, v])),
-        [alunos]
-    );
 
     const listaAlunosMemo = useMemo(() => {
         const as = fields.map((v) => v.alunoId);
-        const lista = alunos.filter(
-            (v) => !as.includes(v.id) && v.nome.toLowerCase().includes(pesquisa)
+        const lista = Array.from(alunosMap?.values() || []).filter(
+            (v) =>
+                !as.includes(v.id) &&
+                (v.nome.toLowerCase().includes(pesquisa) ||
+                    v.idade.toString().includes(pesquisa)),
         );
 
         return lista;
@@ -329,19 +513,28 @@ function NovoTrimestreModal({
         }
 
         return alunosForaMap;
-    }, [fields, alunos]);
+    }, [fields, alunosMap]);
 
     const listaAlunosSelecionadosMemo = useMemo(() => {
         return fields
-            .filter((v) =>
-                alunosMap.get(v.alunoId)?.nome.toLowerCase().includes(pesquisa)
-            )
-            .sort(
-                (a, b) =>
+            .filter((v) => {
+                const aluno = alunosMap.get(v.alunoId);
+
+                return (
+                    aluno?.nome.toLowerCase().includes(pesquisa) ||
+                    aluno?.idade.toString().includes(pesquisa)
+                );
+            })
+            .sort((a, b) => {
+                if (alunosForaDaIdadeMemo.get(a.alunoId)) return -1;
+                if (alunosForaDaIdadeMemo.get(b.alunoId)) return 1;
+
+                return (
                     alunosMap.get(a.alunoId)!.idade -
                     alunosMap.get(b.alunoId)!.idade
-            );
-    }, [alunosMap, pesquisa, fields]);
+                );
+            });
+    }, [alunosMap, pesquisa, fields, alunosForaDaIdadeMemo]);
 
     const fieldIndex = (field: any) =>
         fields.findIndex((f) => f.id === field.id);
@@ -431,60 +624,6 @@ function NovoTrimestreModal({
         }
     }, [dataInicio, numeroAulas]);
     useEffect(() => {
-        licaoRef.current = licao;
-        const getTrimestreAnterior = async (licaoId: string) => {
-            const matriculasCollection = collection(db, "matriculas");
-            const q = query(
-                matriculasCollection,
-                where("licaoId", "==", licaoId),
-                !isSuperAdmin.current
-                    ? where("igrejaId", "==", user!.igrejaId)
-                    : where("ministerioId", "==", user!.ministerioId)
-            );
-            const matriculasSnap = await getDocs(q);
-
-            if (matriculasSnap.empty) return [];
-
-            return matriculasSnap.docs.map((v) => ({
-                id: v.id,
-                ...v.data(),
-            })) as MatriculasInterface[];
-        };
-
-        if (licaoReference) {
-            getTrimestreAnterior(licaoReference.id)
-                .then((a) => {
-                    const result = a?.map((v) => ({
-                        alunoId: v.alunoId,
-                        possui_revista: v.possui_revista,
-                    }));
-                    trimestreAnterior.current = result;
-                    reset({
-                        alunosSelecionados: result,
-                        data_inicio: licaoReference.data_inicio
-                            .toDate()
-                            .toISOString()
-                            .split("T")[0],
-                        numero_aulas: licaoReference.numero_aulas,
-                        trimestre: licaoReference?.numero_trimestre || 1,
-                        titulo: licaoReference.titulo,
-                        img: undefined,
-                        isInativa: licaoReference.ativo,
-                    });
-                })
-                .catch((err) => console.log("deu esse erro", err));
-        } else if (licao)
-            getTrimestreAnterior(licao.id)
-                .then(
-                    (a) =>
-                        (trimestreAnterior.current = a.map((v) => ({
-                            alunoId: v.alunoId,
-                            possui_revista: true,
-                        })))
-                )
-                .catch((err) => console.log("deu esse erro", err));
-    }, [licao]);
-    useEffect(() => {
         const getLicao = async () => {
             if (!licaoReference) {
                 const licoesCollection = collection(db, "licoes");
@@ -494,7 +633,7 @@ function NovoTrimestreModal({
                     where("ativo", "==", true),
                     isSuperAdmin.current
                         ? where("ministerioId", "==", user!.ministerioId)
-                        : where("igrejaId", "==", user!.igrejaId)
+                        : where("igrejaId", "==", user!.igrejaId),
                 );
                 const licoesSnap = await getDocs(q);
 
@@ -512,7 +651,7 @@ function NovoTrimestreModal({
                     "trimestre",
                     (licoes?.numero_trimestre || 0) + 1 === 5
                         ? 1
-                        : (licoes?.numero_trimestre || 0) + 1
+                        : (licoes?.numero_trimestre || 0) + 1,
                 );
                 setValue("data_inicio", dataFim.toISOString().split("T")[0]);
 
@@ -523,56 +662,116 @@ function NovoTrimestreModal({
             }
         };
         const getAlunos = async () => {
-            const alunosCollection = collection(db, "alunos");
-            const q = query(
-                alunosCollection,
-                where("igrejaId", "==", igrejaId),
-                where("ministerioId", "==", user?.ministerioId)
-            );
-            const alunosSnap = await getDocs(q);
+            const alunosDoc = doc(db, "cache_alunos", igrejaId);
 
-            if (alunosSnap.empty) return [];
+            const alunosSnap = await getDoc(alunosDoc);
 
-            const alunos = alunosSnap.docs.map(
-                (v) =>
-                    ({
-                        id: v.id,
-                        nome: v.data().nome_completo,
-                        idade: getIdade(v.data().data_nascimento),
-                        ...v.data(),
-                    } as AlunoInterface & { nome: string; idade: number })
-            );
+            if (!alunosSnap.exists()) return [];
+
+            const alunosCache = alunosSnap.data() as CacheAlunoInteface;
+            const alunos = Object.values(alunosCache.lista).map((v) => ({
+                nome: v.nome_completo,
+                idade: getIdade(v.data_nascimento),
+                ...v,
+            }));
 
             return alunos;
         };
+        const getTrimestreAnterior = async (licaoId: string) => {
+            const matriculasCollection = doc(
+                db,
+                "cache_matriculas",
+                `${igrejaId}_${licaoId}`,
+            );
+
+            const matriculasSnap = await getDoc(matriculasCollection);
+
+            if (!matriculasSnap.exists()) return [];
+
+            const matriculas =
+                matriculasSnap.data() as CacheMatriculasInterface;
+
+            return Object.values(matriculas.lista);
+        };
         Promise.all([getLicao(), getAlunos()])
-            .then(([l, a]) => {
-                const c = classes.find((v) => v.id === classeId);
+            .then(([licao, aluno]) => {
+                const classe = classes.find((v) => v.id === classeId);
+                const alunosOrdenados = aluno.sort((a, b) => {
+                    const aEstaNaFaixa =
+                        a.idade >=
+                        (typeof classe?.idade_minima === "number"
+                            ? classe!.idade_minima
+                            : 0);
+                    const bEstaNaFaixa =
+                        b.idade >=
+                        (typeof classe?.idade_minima === "number"
+                            ? classe!.idade_minima
+                            : 0);
 
-                if (!c) navigate("/aulas");
+                    if (aEstaNaFaixa && !bEstaNaFaixa) return -1;
 
-                setClasse(c!);
-                setLicao(l);
-                setAlunos(
-                    a.sort((a, b) => {
-                        const aEstaNaFaixa =
-                            a.idade >=
-                            (typeof c?.idade_minima === "number"
-                                ? c!.idade_minima
-                                : 0);
-                        const bEstaNaFaixa =
-                            b.idade >=
-                            (typeof c?.idade_minima === "number"
-                                ? c!.idade_minima
-                                : 0);
+                    if (!aEstaNaFaixa && bEstaNaFaixa) return 1;
 
-                        if (aEstaNaFaixa && !bEstaNaFaixa) return -1;
+                    return a.idade - b.idade;
+                });
+                const alunoMap = new Map(alunosOrdenados.map((v) => [v.id, v]));
 
-                        if (!aEstaNaFaixa && bEstaNaFaixa) return 1;
+                if (!classe) navigate("/aulas");
 
-                        return a.idade - b.idade;
-                    })
-                );
+                setClasse(classe!);
+                setLicao(licao);
+                setAlunosMap(alunoMap as any);
+
+                if (licaoReference) {
+                    getTrimestreAnterior(licaoReference.id)
+                        .then((matricula) => {
+                            const result = matricula?.map(
+                                (v) =>
+                                    ({
+                                        alunoId: v.alunoId,
+                                        possui_revista: v.possui_revista,
+                                        nome: v.alunoNome,
+                                        idade: getIdade(
+                                            alunoMap.get(v.alunoId)!
+                                                .data_nascimento,
+                                        ),
+                                    }) as any,
+                            );
+                            trimestreAnterior.current = result;
+
+                            reset({
+                                alunosSelecionados: result,
+                                data_inicio: licaoReference.data_inicio
+                                    .toDate()
+                                    .toISOString()
+                                    .split("T")[0],
+                                numero_aulas: licaoReference.numero_aulas,
+                                trimestre:
+                                    licaoReference?.numero_trimestre || 1,
+                                titulo: licaoReference.titulo,
+                                img: undefined,
+                                isInativa: licaoReference.ativo,
+                            });
+                        })
+                        .catch((err) => console.log("deu esse erro", err));
+                } else if (licao) {
+                    getTrimestreAnterior(licao.id)
+                        .then((a) => {
+                            trimestreAnterior.current = a.map(
+                                (v) =>
+                                    ({
+                                        alunoId: v.alunoId,
+                                        possui_revista: true,
+                                        nome: v.alunoNome,
+                                        idade: getIdade(
+                                            alunoMap.get(v.alunoId)!
+                                                .data_nascimento,
+                                        ),
+                                    }) as any,
+                            );
+                        })
+                        .catch((err) => console.log("deu esse erro", err));
+                }
             })
             .catch((err) => {
                 console.log("deu esse erro", err);
@@ -590,10 +789,9 @@ function NovoTrimestreModal({
                 exit={{ opacity: 0, y: 50 }}
             >
                 {isLoading ? (
-                    <img
-                        className="novo-trimestre__loading"
-                        src="/loading.gif"
-                        alt="Carregando..."
+                    <LoadingModal
+                        isEnviando={isLoading}
+                        mensagem="Carregando"
                     />
                 ) : (
                     <>
@@ -677,13 +875,16 @@ function NovoTrimestreModal({
                                     onSubmit={handleSubmit(onSubmit)}
                                     className="novo-trimestre__form"
                                 >
+                                    {/* Imagem */}
                                     <div className="novo-trimestre__input novo-trimestre__input--file">
                                         <label htmlFor="imagem_capa">
                                             <FontAwesomeIcon icon={faImage} />
                                             <span>
                                                 {imagem && imagem.length > 0
                                                     ? imagem[0].name
-                                                    : "Adicionar capa da revista"}
+                                                    : licaoReference?.img
+                                                      ? "Alterar capa revista"
+                                                      : "Adicionar capa da revista"}
                                             </span>
                                         </label>
                                         <input
@@ -693,10 +894,12 @@ function NovoTrimestreModal({
                                             {...register("img")}
                                         />
                                     </div>
+
+                                    {/* Título e Trimestre */}
                                     <div className="novo-trimestre__input-group">
                                         <div className="novo-trimestre__input">
                                             <label htmlFor="titulo">
-                                                Titulo da lição
+                                                Titulo da lição <i>*</i>
                                             </label>
                                             <input
                                                 type="text"
@@ -711,12 +914,16 @@ function NovoTrimestreModal({
                                                         "O título da lição é obrigatório",
                                                 })}
                                             />
-                                            {ErroComponent(errors.titulo)}
+                                            {
+                                                <ErroComponent
+                                                    field={errors.titulo}
+                                                />
+                                            }
                                         </div>
 
                                         <div className="novo-trimestre__input">
                                             <label htmlFor="novo-trimestre-trimestre">
-                                                Nº do Trimestre
+                                                Nº do Trimestre <i>*</i>
                                             </label>
                                             <input
                                                 type="number"
@@ -743,14 +950,19 @@ function NovoTrimestreModal({
                                                     valueAsNumber: true,
                                                 })}
                                             />
-                                            {ErroComponent(errors.trimestre)}
+                                            {
+                                                <ErroComponent
+                                                    field={errors.trimestre}
+                                                />
+                                            }
                                         </div>
                                     </div>
 
+                                    {/* Data Início e Quantidade de Aulas */}
                                     <div className="novo-trimestre__input-group">
                                         <div className="novo-trimestre__input">
                                             <label htmlFor="data_inicio">
-                                                Data de Início
+                                                Data de Início <i>*</i>
                                             </label>
                                             <input
                                                 type="date"
@@ -766,7 +978,7 @@ function NovoTrimestreModal({
                                                     validate: (value) => {
                                                         if (!value) return true;
                                                         const dia = new Date(
-                                                            value
+                                                            value,
                                                         ).getUTCDay();
                                                         return (
                                                             dia === 0 ||
@@ -775,11 +987,15 @@ function NovoTrimestreModal({
                                                     },
                                                 })}
                                             />
-                                            {ErroComponent(errors.data_inicio)}
+                                            {
+                                                <ErroComponent
+                                                    field={errors.data_inicio}
+                                                />
+                                            }
                                         </div>
                                         <div className="novo-trimestre__input">
                                             <label htmlFor="numero_aulas">
-                                                Quantidade de Aulas
+                                                Quantidade de Aulas <i>*</i>
                                             </label>
                                             <input
                                                 type="number"
@@ -800,96 +1016,20 @@ function NovoTrimestreModal({
                                                     },
                                                 })}
                                             />
-                                            {ErroComponent(errors.numero_aulas)}
+                                            {
+                                                <ErroComponent
+                                                    field={errors.numero_aulas}
+                                                />
+                                            }
                                         </div>
                                     </div>
 
-                                    <AnimatePresence>
-                                        {dataAulas.length && (
-                                            <motion.div
-                                                initial={{
-                                                    opacity: 0,
-                                                    scale: 0,
-                                                }}
-                                                animate={{
-                                                    opacity: 1,
-                                                    scale: 1,
-                                                }}
-                                                exit={{ opacity: 0, scale: 0 }}
-                                                onTap={() =>
-                                                    setIsOpen((v) => !v)
-                                                }
-                                                className={`novo-trimestre__previsao-aulas ${
-                                                    isOpen ? "is-open" : ""
-                                                }`}
-                                                key={"previsao-aulas"}
-                                            >
-                                                <h3>
-                                                    Lista de aulas{" "}
-                                                    <span>
-                                                        <FontAwesomeIcon
-                                                            icon={faChevronDown}
-                                                        />
-                                                    </span>
-                                                </h3>
-                                                <AnimatePresence>
-                                                    {isOpen && (
-                                                        <motion.ul
-                                                            key={
-                                                                "previsao-aulas-container"
-                                                            }
-                                                            initial={{
-                                                                y: -10,
-                                                                height: 0,
-                                                            }}
-                                                            animate={{
-                                                                y: 0,
-                                                                height: "auto",
-                                                            }}
-                                                            exit={{
-                                                                y: -10,
-                                                                height: 0,
-                                                            }}
-                                                            className="novo-trimestre__previsao-aulas--lista"
-                                                        >
-                                                            {dataAulas.map(
-                                                                ([
-                                                                    aula,
-                                                                    data,
-                                                                ]) => (
-                                                                    <motion.li
-                                                                        key={
-                                                                            aula +
-                                                                            data
-                                                                        }
-                                                                    >
-                                                                        <p>
-                                                                            {
-                                                                                aula
-                                                                            }
-                                                                        </p>
-                                                                        <data
-                                                                            value={
-                                                                                data
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                data
-                                                                            }
-                                                                        </data>
-                                                                    </motion.li>
-                                                                )
-                                                            )}
-                                                        </motion.ul>
-                                                    )}
-                                                </AnimatePresence>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                    <ListaAulas dataAulas={dataAulas} />
 
                                     <div className="matriculas">
                                         <div className="matriculas-alunos__search">
                                             <SearchInput
+                                                texto="aluno (nome, idade)"
                                                 onSearch={(v) => setPesquisa(v)}
                                             />
                                         </div>
@@ -907,53 +1047,10 @@ function NovoTrimestreModal({
                                                 />
                                                 Cadastrar novo aluno
                                             </button>
-                                            <motion.ul
-                                                layout
-                                                className="matriculas--lista"
-                                            >
-                                                <AnimatePresence>
-                                                    {listaAlunosMemo.map(
-                                                        (v) => (
-                                                            <motion.li
-                                                                className="matriculas--item"
-                                                                key={v.id}
-                                                                onTap={() => {
-                                                                    append({
-                                                                        alunoId:
-                                                                            v.id,
-                                                                        possui_revista:
-                                                                            true,
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <motion.p
-                                                                    layoutId={
-                                                                        v.id
-                                                                    }
-                                                                >
-                                                                    {v.nome}{" "}
-                                                                    <span className="matriculas--lista-idade">
-                                                                        {alunosMap.has(
-                                                                            v.id
-                                                                        ) && (
-                                                                            <>
-                                                                                (
-                                                                                {
-                                                                                    alunosMap.get(
-                                                                                        v.id
-                                                                                    )
-                                                                                        ?.idade
-                                                                                }{" "}
-                                                                                anos)
-                                                                            </>
-                                                                        )}
-                                                                    </span>
-                                                                </motion.p>
-                                                            </motion.li>
-                                                        )
-                                                    )}
-                                                </AnimatePresence>
-                                            </motion.ul>
+                                            <AlunosDisponiveis
+                                                append={append}
+                                                listaAlunos={listaAlunosMemo}
+                                            />
                                         </div>
 
                                         <div className="matriculas-matriculados">
@@ -963,23 +1060,7 @@ function NovoTrimestreModal({
                                             </h3>
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    const ids = fields.map(
-                                                        (v) => v.alunoId
-                                                    );
-                                                    const filtro =
-                                                        trimestreAnterior.current.filter(
-                                                            (v) =>
-                                                                !ids.includes(
-                                                                    v.alunoId
-                                                                )
-                                                        );
-
-                                                    setValue(
-                                                        "alunosSelecionados",
-                                                        [...fields, ...filtro]
-                                                    );
-                                                }}
+                                                onClick={importarAlunos}
                                                 className="matriculas-importar"
                                             >
                                                 <FontAwesomeIcon
@@ -987,161 +1068,38 @@ function NovoTrimestreModal({
                                                 />
                                                 Importar do trimestre anterior?
                                             </button>
-                                            <motion.ul
-                                                layout
-                                                className="matriculas--lista"
-                                            >
-                                                <AnimatePresence>
-                                                    {listaAlunosSelecionadosMemo.map(
-                                                        (v, i) => (
-                                                            <motion.li
-                                                                key={v.id}
-                                                                layout
-                                                                layoutId={
-                                                                    v.alunoId
-                                                                }
-                                                                className={
-                                                                    alunosForaDaIdadeMemo.has(
-                                                                        v.alunoId
-                                                                    )
-                                                                        ? "matriculas--fora-da-faixa"
-                                                                        : ""
-                                                                }
-                                                            >
-                                                                <motion.div
-                                                                    className="matriculas-item__nome"
-                                                                    onTap={() =>
-                                                                        remove(
-                                                                            fieldIndex(
-                                                                                v
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <span>
-                                                                        {
-                                                                            alunosMap.get(
-                                                                                v.alunoId
-                                                                            )
-                                                                                ?.nome
-                                                                        }
-                                                                    </span>{" "}
-                                                                    <span className="matriculas--lista-idade">
-                                                                        (
-                                                                        {
-                                                                            alunosMap.get(
-                                                                                v.alunoId
-                                                                            )
-                                                                                ?.idade
-                                                                        }{" "}
-                                                                        anos)
-                                                                    </span>
-                                                                </motion.div>
-
-                                                                <div className="matriculas-item__licao">
-                                                                    <label
-                                                                        htmlFor={
-                                                                            "matriculados-revista" +
-                                                                            i
-                                                                        }
-                                                                    >
-                                                                        Revista?
-                                                                    </label>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        id={
-                                                                            "matriculados-revista" +
-                                                                            i
-                                                                        }
-                                                                        {...register(
-                                                                            `alunosSelecionados.${fieldIndex(
-                                                                                v
-                                                                            )}.possui_revista`
-                                                                        )}
-                                                                    />
-                                                                </div>
-                                                            </motion.li>
-                                                        )
-                                                    )}
-                                                </AnimatePresence>
-                                            </motion.ul>
+                                            <AlunosMatriculados
+                                                alunosForaDaFaixa={
+                                                    alunosForaDaIdadeMemo
+                                                }
+                                                fieldIndex={fieldIndex}
+                                                listaAlunosSelecionados={
+                                                    listaAlunosSelecionadosMemo
+                                                }
+                                                register={register}
+                                                remove={remove}
+                                            />
                                         </div>
                                     </div>
 
                                     <div
                                         className={`novo-trimestre__actions ${
-                                            ((licaoReference &&
-                                                isSuperAdmin.current) ||
-                                                (licaoReference &&
-                                                    !licaoReference?.relatorio_enviado &&
-                                                    !isSuperAdmin.current)) &&
-                                            "novo-trimestre__actions--edit"
+                                            licaoReference &&
+                                            !isSecretario.current
+                                                ? "novo-trimestre__actions--edit"
+                                                : ""
                                         }`}
                                     >
-                                        {((licaoReference &&
-                                            isSuperAdmin.current) ||
-                                            (licaoReference &&
-                                                !licaoReference?.relatorio_enviado &&
-                                                !isSuperAdmin.current)) && (
-                                            <button
-                                                type="button"
-                                                className="button-delete"
-                                                onClick={() => {
-                                                    setMensagem({
-                                                        title: "Deletar lição",
-                                                        message: (
-                                                            <>
-                                                                <span>
-                                                                    Tem certeza
-                                                                    que deseja
-                                                                    deletar a
-                                                                    lição:{" "}
-                                                                    <strong>
-                                                                        {
-                                                                            licaoReference?.titulo
-                                                                        }
-                                                                    </strong>
-                                                                    ?
-                                                                </span>
-                                                                <span>
-                                                                    Isso irá
-                                                                    apagar{" "}
-                                                                    <strong>
-                                                                        TODOS
-                                                                    </strong>{" "}
-                                                                    os dados
-                                                                    associados a
-                                                                    ela.
-                                                                </span>
-                                                            </>
-                                                        ),
-                                                        onClose: () => {
-                                                            setMensagem(null);
-                                                            onClose();
-                                                        },
-                                                        onConfirm: () =>
-                                                            apagarLicao(
-                                                                licaoReference!
-                                                                    .id
-                                                            ),
-                                                        onCancel: () => {
-                                                            setMensagem(null);
-                                                            onClose();
-                                                        },
-                                                        cancelText: "Cancelar",
-                                                        confirmText:
-                                                            "Sim, deletar lição",
-                                                        icon: (
-                                                            <FontAwesomeIcon
-                                                                icon={faTrash}
-                                                            />
-                                                        ),
-                                                    });
-                                                }}
-                                            >
-                                                Deletar
-                                            </button>
-                                        )}
+                                        {licaoReference &&
+                                            !isSecretario.current && (
+                                                <button
+                                                    type="button"
+                                                    className="button-delete"
+                                                    onClick={deletarRevista}
+                                                >
+                                                    Deletar
+                                                </button>
+                                            )}
                                         <div className="novo-trimestre__actions-btn">
                                             <button
                                                 type="button"
@@ -1184,17 +1142,33 @@ function NovoTrimestreModal({
                         igrejaId={igrejaId}
                         onCancel={() => setShowCadastroAluno(false)}
                         onSave={(v) => {
-                            setAlunos((a) => [
-                                ...a,
-                                {
-                                    nome: v.nome_completo,
-                                    idade: getIdade(v.data_nascimento),
-                                    ...v,
-                                },
-                            ]);
+                            setAlunosMap(
+                                (a) =>
+                                    new Map([
+                                        ...Array.from(a.values()).map((v) => [
+                                            v.id,
+                                            v,
+                                        ]),
+                                        [
+                                            v.id,
+                                            {
+                                                nome: v.nome_completo,
+                                                idade: getIdade(
+                                                    v.data_nascimento,
+                                                ),
+                                                ...v,
+                                            },
+                                        ],
+                                    ] as any),
+                            );
                             setValue("alunosSelecionados", [
                                 ...fields,
-                                { alunoId: v.id, possui_revista: true },
+                                {
+                                    alunoId: v.id,
+                                    possui_revista: true,
+                                    idade: getIdade(v.data_nascimento),
+                                    nome: v.nome_completo,
+                                },
                             ]);
                             setShowCadastroAluno(false);
                         }}

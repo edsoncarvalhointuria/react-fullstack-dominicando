@@ -3,7 +3,7 @@ import "./cadastro-aluno-modal.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     collection,
     doc,
@@ -21,6 +21,7 @@ import AlertModal from "./AlertModal";
 import type { VisitanteInterface } from "../../interfaces/VisitantesInterface";
 import type { MembroInterface } from "../../interfaces/MembroInterface";
 import Dropdown from "./Dropdown";
+import { useAuthContext } from "../../context/AuthContext";
 
 interface CadastroAluno {
     nome_completo: string;
@@ -65,7 +66,6 @@ function CadastroAlunoModal({
             isMembro: false,
         },
     });
-    const $container = useRef<HTMLDivElement>(null);
     const {
         register,
         reset,
@@ -81,10 +81,11 @@ function CadastroAlunoModal({
         (MembroInterface & { nome: string })[]
     >([]);
     const [currentMembro, setCurrentMembro] = useState<MembroInterface | null>(
-        null
+        null,
     );
     const [isLoadingMembros, setIsLoadingMembros] = useState(false);
 
+    const { user } = useAuthContext();
     const onSubmit = (dados: CadastroAluno) => {
         if (type === "aluno") {
             setIsEnviando(true);
@@ -96,7 +97,7 @@ function CadastroAlunoModal({
                         ...result,
                         data_nascimento: new Timestamp(
                             result.data_nascimento._seconds,
-                            result.data_nascimento._nanoseconds
+                            result.data_nascimento._nanoseconds,
                         ),
                     };
                     onSave(dadosAtualizados);
@@ -116,6 +117,7 @@ function CadastroAlunoModal({
                 data_nascimento: dados.data_nascimento || null,
                 nome_completo: dados.nome_completo,
             };
+
             onSave(dadosSeguros as any);
         }
     };
@@ -180,8 +182,9 @@ function CadastroAlunoModal({
             const membrosCll = collection(db, "membros");
             const q = query(
                 membrosCll,
+                where("ministerioId", "==", user?.ministerioId),
                 where("igrejaId", "==", igrejaId),
-                where("alunoId", "==", null)
+                where("alunoId", "==", null),
             );
             const membroSnap = await getDocs(q);
 
@@ -193,7 +196,7 @@ function CadastroAlunoModal({
                         id: v.id,
                         ...v.data(),
                         nome: v.data()?.nome_completo,
-                    } as MembroInterface & { nome: string })
+                    }) as MembroInterface & { nome: string },
             );
             return m;
         };
@@ -222,15 +225,11 @@ function CadastroAlunoModal({
     return (
         <>
             <motion.div
-                ref={$container}
                 className="cadastro-aluno-overlay"
                 onClick={!isEnviando ? onCancel : undefined}
                 exit={{ scale: 0, transition: { duration: 0.2 } }}
             >
                 <motion.div
-                    drag
-                    dragConstraints={$container}
-                    dragElastic={0.1}
                     variants={variantsForm}
                     initial="initial"
                     animate="animate"
@@ -292,7 +291,9 @@ function CadastroAlunoModal({
                                         className="cadastro-aluno__form-item"
                                     >
                                         <div className="cadastro-aluno__input">
-                                            <label htmlFor="">Membro*</label>
+                                            <label htmlFor="">
+                                                Membro <span>*</span>
+                                            </label>
 
                                             <Controller
                                                 control={control}
@@ -307,7 +308,7 @@ function CadastroAlunoModal({
                                                             membros.find(
                                                                 (v) =>
                                                                     v.id ===
-                                                                    field.value
+                                                                    field.value,
                                                             )?.nome_completo ||
                                                             null
                                                         }
@@ -319,7 +320,7 @@ function CadastroAlunoModal({
                                                         onSelect={(v) => {
                                                             setCurrentMembro(v);
                                                             field.onChange(
-                                                                v?.id
+                                                                v?.id,
                                                             );
                                                         }}
                                                         isLoading={
@@ -357,7 +358,7 @@ function CadastroAlunoModal({
                                 >
                                     <div className="cadastro-aluno__input">
                                         <label htmlFor="cadastro-aluno-nome">
-                                            Nome Completo*
+                                            Nome Completo <span>*</span>
                                         </label>
                                         <input
                                             type="text"
@@ -402,7 +403,7 @@ function CadastroAlunoModal({
                                     >
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="cadastro-aluno-data-nascimento">
-                                                Data Nascimento*
+                                                Data Nascimento <span>*</span>
                                             </label>
                                             <input
                                                 type="date"
@@ -420,7 +421,7 @@ function CadastroAlunoModal({
                                                             type === "aluno"
                                                                 ? "A data é obrigatória"
                                                                 : false,
-                                                    }
+                                                    },
                                                 )}
                                                 className={
                                                     errors.data_nascimento
@@ -475,7 +476,7 @@ function CadastroAlunoModal({
                                                             /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
                                                         return (
                                                             regex.test(
-                                                                value.trim()
+                                                                value.trim(),
                                                             ) ||
                                                             "Número invalido"
                                                         );

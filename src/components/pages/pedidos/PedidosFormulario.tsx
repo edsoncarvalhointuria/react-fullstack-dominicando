@@ -466,6 +466,78 @@ const CardDrag = ({
         </Reorder.Item>
     );
 };
+const InputSalvarModelo = React.memo(
+    ({
+        onClose,
+        control,
+        onSalvarModelo,
+    }: {
+        onClose: () => void;
+        control: any;
+        onSalvarModelo: () => void;
+    }) => {
+        const nomeModelo = useController({
+            control,
+            name: "nomeModelo",
+            rules: { required: "O nome do modelo é obrigatório" },
+        });
+        return (
+            <motion.div
+                className="pedidos-formulario__salvar-modelo__overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+            >
+                <div className="pedidos-formulario__salvar-modelo">
+                    <div className="pedidos-formulario__salvar-modelo__header">
+                        <h2>
+                            <span>
+                                <FontAwesomeIcon icon={faFloppyDisk} />
+                            </span>
+                            <span>Salvar como Modelo?</span>
+                        </h2>
+
+                        <button
+                            className="pedidos-formulario__salvar-modelo__close"
+                            title="fechar"
+                            type="button"
+                            onClick={onClose}
+                        >
+                            <FontAwesomeIcon icon={faXmark} />
+                        </button>
+                    </div>
+
+                    <div className="pedidos-formulario__salvar-modelo__body">
+                        <div className="pedidos-formulario__salvar-modelo__input">
+                            <label htmlFor="titulo-modelo">
+                                Nome do Modelo
+                            </label>
+                            <input
+                                type="text"
+                                id="titulo-modelo"
+                                {...nomeModelo.field}
+                            />
+
+                            <ErrorForm field={nomeModelo.fieldState.error} />
+                        </div>
+
+                        <div className="pedidos-formulario__salvar-modelo__enviar">
+                            <button type="button" onClick={onClose}>
+                                Cancelar
+                            </button>
+                            <motion.button
+                                type="submit"
+                                disabled={!nomeModelo.field.value}
+                                onTap={onSalvarModelo}
+                            >
+                                Salvar Modelo
+                            </motion.button>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        );
+    },
+);
 const SecaoCampos = React.memo(
     ({
         rotulos,
@@ -703,7 +775,6 @@ function PedidosFormulario() {
 
     const methods = useForm<Form>({ defaultValues: { tipo: "formulario" } });
     const { handleSubmit, register, control, reset, setValue } = methods;
-    const nomeModelo = useController({ control, name: "nomeModelo" });
     const { append, fields, swap, remove } = useFieldArray({
         control,
         name: "estrutura",
@@ -724,6 +795,11 @@ function PedidosFormulario() {
     const addCurrentSecao = useCallback((i: number) => {
         setCurrentSecaoSelect(i);
     }, []);
+    const onCloseSalvarModelo = useCallback(() => {
+        setValue("tipo", "formulario");
+        setSalvarModelo(false);
+    }, []);
+    const onSalvarModelo = useCallback(() => setSalvarModelo(false), []);
 
     const { user, isSuperAdmin } = useAuthContext();
 
@@ -735,7 +811,9 @@ function PedidosFormulario() {
                 modeloId,
                 dados: v,
             });
-            navigate(`/pedidos/formulario/${(data as any).id}`);
+            const resp = data as any;
+            if (resp?.tipo === "modelo") location.reload();
+            else navigate(`/pedidos/formulario/${resp.id}?share=true`);
         } catch (error: any) {
             setMensagem({
                 title: "Erro ao salvar",
@@ -854,6 +932,7 @@ function PedidosFormulario() {
                 estrutura,
                 data_inicio: `${dataInicio[2]}-${dataInicio[1]}-${dataInicio[0]}`,
                 data_fim: `${dataFim[2]}-${dataFim[1]}-${dataFim[0]}`,
+                tipo: "formulario",
             });
         };
 
@@ -896,90 +975,12 @@ function PedidosFormulario() {
 
                         {salvarModelo && (
                             <AnimatePresence>
-                                <motion.div
-                                    className="pedidos-formulario__salvar-modelo__overlay"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                >
-                                    <div className="pedidos-formulario__salvar-modelo">
-                                        <div className="pedidos-formulario__salvar-modelo__header">
-                                            <h2>
-                                                <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faFloppyDisk}
-                                                    />
-                                                </span>
-                                                <span>Salvar como Modelo?</span>
-                                            </h2>
-
-                                            <button
-                                                className="pedidos-formulario__salvar-modelo__close"
-                                                title="fechar"
-                                                type="button"
-                                                onClick={() => {
-                                                    setValue(
-                                                        "tipo",
-                                                        "formulario",
-                                                    );
-                                                    setSalvarModelo(false);
-                                                }}
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faXmark}
-                                                />
-                                            </button>
-                                        </div>
-
-                                        <div className="pedidos-formulario__salvar-modelo__body">
-                                            <div className="pedidos-formulario__salvar-modelo__input">
-                                                <label htmlFor="titulo-modelo">
-                                                    Nome do Modelo
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    id="titulo-modelo"
-                                                    {...register("nomeModelo", {
-                                                        required:
-                                                            "O nome do modelo é obrigatório",
-                                                    })}
-                                                />
-
-                                                <ErrorForm
-                                                    field={
-                                                        nomeModelo.fieldState
-                                                            .error
-                                                    }
-                                                />
-                                            </div>
-
-                                            <div className="pedidos-formulario__salvar-modelo__enviar">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setValue(
-                                                            "tipo",
-                                                            "formulario",
-                                                        );
-                                                        setSalvarModelo(false);
-                                                    }}
-                                                >
-                                                    Cancelar
-                                                </button>
-                                                <motion.button
-                                                    type="submit"
-                                                    disabled={
-                                                        !nomeModelo.field.value
-                                                    }
-                                                    onTap={() =>
-                                                        setSalvarModelo(false)
-                                                    }
-                                                >
-                                                    Salvar Modelo
-                                                </motion.button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </motion.div>
+                                <InputSalvarModelo
+                                    control={control}
+                                    onClose={onCloseSalvarModelo}
+                                    onSalvarModelo={onSalvarModelo}
+                                    key={"salvar-modelo-modal"}
+                                />
                             </AnimatePresence>
                         )}
 

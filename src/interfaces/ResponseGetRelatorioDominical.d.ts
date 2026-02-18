@@ -4,5 +4,5 @@ interface ResponseGetRelatorioDominical {
     totais_gerais: { [key: string]: MatriculasInterface };
     totais_classes: MatriculasInterface;
     classes_relatorio: ClasseInterface[];
-    aniversariantes: AlunoInterface[];
+    aniversariantes: (AlunoInterface & { idade: number })[];
 }

@@ -1,4 +1,4 @@
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -27,12 +27,12 @@ function DadosGeraisChamada({
     pixMissoes: File[];
 }) {
     const [showErro, setShowErro] = useState(false);
-    const { register, setValue, watch } = useFormContext();
-    const totalVisitas = watch("visitas");
-    const { imgsPixOfertas, imgsPixMissoes, chamada, totalLicoes } = watch();
+    const { register, setValue, getValues, control } = useFormContext();
+    const imgsPixOfertas = useWatch({ name: "imgsPixOfertas", control });
+    const imgsPixMissoes = useWatch({ name: "imgsPixMissoes", control });
 
-    const presentes = Object.values(chamada || {}).filter(
-        (v) => v === "Presente" || v === "Atrasado"
+    const presentes = Object.values(getValues("chamada") || {}).filter(
+        (v) => v === "Presente" || v === "Atrasado",
     ).length;
 
     const editarNumero = (evt: any, campo: string) => {
@@ -52,7 +52,8 @@ function DadosGeraisChamada({
         setValue("visitasLista", visitas);
     }, [visitas]);
     useEffect(() => {
-        if (totalLicoes > presentes) setValue("totalLicoes", presentes);
+        if (getValues("totalLicoes") > presentes)
+            setValue("totalLicoes", presentes);
     }, []);
     return (
         <motion.div
@@ -122,12 +123,12 @@ function DadosGeraisChamada({
                                                     ...visita.filter(
                                                         (vis) =>
                                                             vis.nome_completo !==
-                                                            v.nome_completo
+                                                            v.nome_completo,
                                                     ),
                                                 ]);
                                                 setValue(
                                                     "visitas",
-                                                    totalVisitas - 1
+                                                    getValues("visitas") - 1,
                                                 );
                                             }}
                                         >
@@ -202,6 +203,7 @@ function DadosGeraisChamada({
                 <input
                     type="number"
                     id="ofertaDinheiro"
+                    inputMode="decimal"
                     {...register("ofertaDinheiro", {
                         onBlur: (evt) => editarNumero(evt, "ofertaDinheiro"),
                     })}
@@ -215,6 +217,7 @@ function DadosGeraisChamada({
                     <input
                         type="number"
                         id="ofertaPix"
+                        inputMode="decimal"
                         {...register("ofertaPix", {
                             onBlur: (evt) => editarNumero(evt, "ofertaPix"),
                         })}
@@ -235,8 +238,8 @@ function DadosGeraisChamada({
                                 if (files)
                                     Promise.all(
                                         Array.from(files).map((v) =>
-                                            reduzirImagem(v, 1000, 1000, 0.85)
-                                        )
+                                            reduzirImagem(v, 1000, 1000, 0.85),
+                                        ),
                                     ).then((v) => setPixOfertas(v));
                             }}
                         />
@@ -267,8 +270,8 @@ function DadosGeraisChamada({
                                             onTap={() =>
                                                 setPixOfertas((v) =>
                                                     v.filter(
-                                                        (_, ind) => ind !== i
-                                                    )
+                                                        (_, ind) => ind !== i,
+                                                    ),
                                                 )
                                             }
                                         >
@@ -280,10 +283,10 @@ function DadosGeraisChamada({
                                 {imgsPixOfertas?.map((v: any, i: any) => {
                                     const url = new URL(v);
                                     const path = decodeURIComponent(
-                                        url.pathname
+                                        url.pathname,
                                     );
                                     const nome = path.substring(
-                                        path.lastIndexOf("/") + 1
+                                        path.lastIndexOf("/") + 1,
                                     );
 
                                     return (
@@ -302,9 +305,9 @@ function DadosGeraisChamada({
                                                         imgsPixOfertas.filter(
                                                             (
                                                                 _: any,
-                                                                ind: any
-                                                            ) => ind !== i
-                                                        )
+                                                                ind: any,
+                                                            ) => ind !== i,
+                                                        ),
                                                     )
                                                 }
                                             >
@@ -327,6 +330,7 @@ function DadosGeraisChamada({
                 <input
                     type="number"
                     id="missoesDinheiro"
+                    inputMode="decimal"
                     {...register("missoesDinheiro", {
                         onBlur: (evt) => editarNumero(evt, "missoesDinheiro"),
                     })}
@@ -341,6 +345,7 @@ function DadosGeraisChamada({
                     <input
                         type="number"
                         id="missoesPix"
+                        inputMode="decimal"
                         {...register("missoesPix", {
                             onBlur: (evt) => editarNumero(evt, "missoesPix"),
                         })}
@@ -360,8 +365,8 @@ function DadosGeraisChamada({
                                 if (files)
                                     Promise.all(
                                         Array.from(files).map((v) =>
-                                            reduzirImagem(v, 1000, 1000, 0.85)
-                                        )
+                                            reduzirImagem(v, 1000, 1000, 0.85),
+                                        ),
                                     ).then((v) => setPixMissoes(v));
                             }}
                         />
@@ -392,8 +397,8 @@ function DadosGeraisChamada({
                                             onTap={() =>
                                                 setPixMissoes((v) =>
                                                     v.filter(
-                                                        (_, ind) => ind !== i
-                                                    )
+                                                        (_, ind) => ind !== i,
+                                                    ),
                                                 )
                                             }
                                         >
@@ -404,10 +409,10 @@ function DadosGeraisChamada({
                                 {imgsPixMissoes?.map((v: any, i: any) => {
                                     const url = new URL(v);
                                     const path = decodeURIComponent(
-                                        url.pathname
+                                        url.pathname,
                                     );
                                     const nome = path.substring(
-                                        path.lastIndexOf("/") + 1
+                                        path.lastIndexOf("/") + 1,
                                     );
                                     return (
                                         <li key={i}>
@@ -425,9 +430,9 @@ function DadosGeraisChamada({
                                                         imgsPixMissoes.filter(
                                                             (
                                                                 _: any,
-                                                                ind: any
-                                                            ) => ind !== i
-                                                        )
+                                                                ind: any,
+                                                            ) => ind !== i,
+                                                        ),
                                                     )
                                                 }
                                             >

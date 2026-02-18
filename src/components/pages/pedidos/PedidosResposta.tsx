@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import type {
     PedidosEstrutura,
     PedidosInterface,
@@ -7,7 +13,12 @@ import type {
     TextType,
 } from "../../../interfaces/PedidosInterface";
 import { useAuthContext } from "../../../context/AuthContext";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import {
+    Navigate,
+    useNavigate,
+    useParams,
+    useSearchParams,
+} from "react-router-dom";
 import { FormProvider, useForm, useWatch, type Control } from "react-hook-form";
 import {
     collection,
@@ -27,8 +38,11 @@ import {
     faBasketShopping,
     faBookBookmark,
     faCalendar,
+    faChalkboardUser,
     faCheckDouble,
+    faCircleCheck,
     faCircleChevronUp,
+    faClipboard,
     faCoins,
     faCopy,
     faEquals,
@@ -39,12 +53,21 @@ import {
     faMoneyBills,
     faPenToSquare,
     faPercent,
+    faRankingStar,
     faShareNodes,
+    faSquarePollHorizontal,
+    faUsers,
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import RevistaView from "./RevistaView";
 import TextView from "./TextView";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+    animate,
+    AnimatePresence,
+    motion,
+    useMotionValue,
+    useTransform,
+} from "framer-motion";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import "./pedidos-respostas.scss";
 import { useDataContext } from "../../../context/DataContext";
@@ -52,23 +75,33 @@ import SearchInput from "../../ui/SearchInput";
 import Dropdown from "../../ui/Dropdown";
 import AlertModal from "../../ui/AlertModal";
 import LoadingModal from "../../layout/loading/LoadingModal";
+import type { CacheLicaoInterface } from "../../../interfaces/CacheLicaoInterface";
+import type { CacheUsuarioInteface } from "../../../interfaces/UsuarioInterface";
 
 const functions = getFunctions();
-const getSugestaoPedidosRevistas = httpsCallable(
-    functions,
-    "getSugestaoPedidosRevistas",
-);
 const salvarRespostaPedido = httpsCallable(functions, "salvarRespostaPedido");
 
 interface SugestaoInterface {
-    total_ofertas: number;
+    totalOfertas: number;
     sugestoes: {
         [rotuloId: string]: {
-            total_matriculados: number;
-            total_professores: number;
-            total_sugerido: number;
+            totalMatriculados: number;
+            picoPresenca: number;
+            mediaPresenca: number;
+            totalProfessores: number;
         };
     };
+}
+interface ClassesReferencia {
+    rotuloId: string;
+    classeId: string;
+    classeNome: string;
+    licaoAtual: string;
+    totalProfessores: number;
+    totalArrecadado: number;
+    totalMatriculados: number;
+    mediaPresenca: number;
+    picoPresenca: number;
 }
 
 const PedidosRespostaValoresItem = React.memo(
@@ -152,11 +185,13 @@ const PedidosRespostaValores = React.memo(
         pedido,
         totalArrecadado,
         rotulos,
+        isActive,
     }: {
         control: Control<any>;
         pedido: (PedidosInterface & PedidosEstrutura) | null;
         totalArrecadado: number;
         rotulos: RotulosClassesInterface[];
+        isActive: boolean;
     }) => {
         const [isOpen, setIsOpen] = useState(false);
         const pedidos = useWatch<{ respostas: { [key: string]: number } }>({
@@ -303,6 +338,7 @@ const PedidosRespostaValores = React.memo(
                                 onClick={() => {
                                     setTimeout(() => setIsOpen(false), 100);
                                 }}
+                                disabled={!isActive}
                             >
                                 Enviar Relatório
                             </button>
@@ -501,6 +537,7 @@ const PedidosRespostaCard = React.memo(
         type,
         porcento,
         icon,
+        isCurrency,
     }: {
         isProgresso?: boolean;
         titulo: string;
@@ -508,7 +545,25 @@ const PedidosRespostaCard = React.memo(
         type: "enviados" | "revistas" | "total";
         porcento?: number;
         icon: any;
+        isCurrency?: boolean;
     }) => {
+        const value = useMotionValue(0);
+        const desc = useTransform(value, (v) =>
+            isCurrency
+                ? v.toLocaleString("pt-BR", {
+                      currency: "BRL",
+                      style: "currency",
+                  })
+                : Math.round(v).toString(),
+        );
+        useEffect(() => {
+            const animation = animate(value, descricao as number, {
+                duration: 0.8,
+                delay: 0.2,
+            });
+
+            return () => animation.stop();
+        }, [descricao]);
         return (
             <div className={`pedidos-resumo__card ${type}`}>
                 <h2>
@@ -531,8 +586,135 @@ const PedidosRespostaCard = React.memo(
                 )}
 
                 <div className="pedidos-resumo__card--infos">
-                    <p>{descricao}</p>
+                    <p>
+                        {isProgresso ? (
+                            descricao
+                        ) : (
+                            <motion.span>{desc}</motion.span>
+                        )}
+                    </p>
                 </div>
+            </div>
+        );
+    },
+);
+const PedidosRespostaShareModal = ({
+    onClose,
+    modeloId,
+    link,
+}: {
+    onClose: () => void;
+    modeloId?: string;
+    link?: string;
+}) => {
+    const [copy, setCopy] = useState(false);
+    return (
+        <motion.div
+            className="compartilhar-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+        >
+            <div className="compartilhar-modal__header">
+                <div className="compartilhar-modal__title">
+                    <span>
+                        <FontAwesomeIcon icon={faShareNodes} />
+                    </span>
+                    <p>Compartilhar Formulário</p>
+                </div>
+                <button className="compartilhar-modal__close" onClick={onClose}>
+                    <FontAwesomeIcon icon={faXmark} />
+                </button>
+            </div>
+
+            <div
+                className="compartilhar-modal__body"
+                onClick={() => {
+                    setCopy(true);
+                    navigator.clipboard.writeText(
+                        link
+                            ? link
+                            : `${window.location.origin}/pedidos/criar/${modeloId}`,
+                    );
+                }}
+            >
+                {link ? (
+                    <p>{link}</p>
+                ) : (
+                    <p>
+                        {window.location.origin}/pedidos/criar/
+                        {modeloId}
+                    </p>
+                )}
+
+                {!copy ? (
+                    <span>
+                        <FontAwesomeIcon icon={faCopy} />
+                    </span>
+                ) : (
+                    <span>
+                        <FontAwesomeIcon icon={faCheckDouble} />
+                    </span>
+                )}
+            </div>
+        </motion.div>
+    );
+};
+const BotaoRespostaSugestao = React.memo(
+    ({ onSelect }: { onSelect: (opcao: string) => void }) => {
+        const OPCOES = [
+            {
+                nome: "Maior Presença",
+                icon: faRankingStar,
+                key: "picoPresenca",
+            },
+            {
+                nome: "Total Matriculados",
+                icon: faUsers,
+                key: "totalMatriculados",
+            },
+            { nome: "Média Presença", icon: faPercent, key: "mediaPresenca" },
+        ];
+        const [isOpen, setIsOpen] = useState(false);
+        return (
+            <div className="pedidos-sugestao-button">
+                <button
+                    type="button"
+                    title="Sugestão"
+                    onClick={() => setIsOpen((v) => !v)}
+                >
+                    <i>
+                        <FontAwesomeIcon icon={faClipboard} />
+                    </i>
+                    <span>Sugerir Dados</span>
+                </button>
+                <AnimatePresence>
+                    {isOpen && (
+                        <motion.div
+                            key={"btn-sugestao"}
+                            className="pedidos-sugestao-button__opcoes"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                        >
+                            {OPCOES.map((v) => (
+                                <div
+                                    className="pedidos-sugestao-button__opcao"
+                                    key={v.nome}
+                                    onClick={() => {
+                                        onSelect(v.key);
+                                        setIsOpen(false);
+                                    }}
+                                >
+                                    <i>
+                                        <FontAwesomeIcon icon={v.icon} />
+                                    </i>
+                                    <p>{v.nome}</p>
+                                </div>
+                            ))}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         );
     },
@@ -784,16 +966,15 @@ const PedidosRespostasResumo = ({
                     icon={faBookBookmark}
                 />
                 <PedidosRespostaCard
-                    descricao={Array.from(totais?.values() || [])
-                        .reduce((prev, current) => current.total + prev, 0)
-                        .toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                        })}
+                    descricao={Array.from(totais?.values() || []).reduce(
+                        (prev, current) => current.total + prev,
+                        0,
+                    )}
                     titulo="Valor Previsto"
                     type="total"
                     isProgresso={false}
                     icon={faMoneyBills}
+                    isCurrency
                 />
             </div>
             <LoadingModal isEnviando={isLoading} mensagem="Carregando" />
@@ -889,11 +1070,192 @@ const PedidosRespostasResumo = ({
         </div>
     );
 };
+const PedidosRespostaReferencia = ({
+    referencia,
+    rotulos,
+}: {
+    referencia: ClassesReferencia[];
+    rotulos: RotulosClassesInterface[];
+}) => {
+    return (
+        <div className="pedidos-referencia">
+            <div className="pedidos-referencia__header">
+                <div className="pedidos-referencia__title">
+                    <h2>
+                        <i>
+                            <FontAwesomeIcon icon={faSquarePollHorizontal} />
+                        </i>
+                        <span>Referência Classes</span>
+                    </h2>
+                </div>
+
+                <div className="pedidos-referencia__descricao">
+                    <p>Visão geral das classes neste trimestre</p>
+                </div>
+            </div>
+
+            <div className="pedidos-referencia__body">
+                <div className="pedidos-referencia__title-body">
+                    <h3>Classes com registro no trimestre atual:</h3>
+                </div>
+
+                {referencia.length > 0 ? (
+                    referencia.map((v) => (
+                        <div
+                            className="pedidos-referencia__classe"
+                            key={v.classeId}
+                        >
+                            <div className="pedidos-referencia__classe-header">
+                                <h4>{v.classeNome}</h4>
+                                <div className="pedidos-referencia__classe-container">
+                                    <p>
+                                        {
+                                            rotulos.find(
+                                                (r) => r.id === v.rotuloId,
+                                            )?.nome
+                                        }
+                                    </p>
+                                    <p>{v.licaoAtual}</p>
+                                </div>
+                            </div>
+                            <div className="pedidos-referencia__classe-body">
+                                <div className="pedidos-referencia__classe-infos">
+                                    <div className="pedidos-referencia__classe-profs">
+                                        <h5>
+                                            <i>
+                                                <FontAwesomeIcon
+                                                    icon={faChalkboardUser}
+                                                />
+                                            </i>
+                                            <span>Total Professores</span>
+                                        </h5>
+                                        <p>{v.totalProfessores}</p>
+                                    </div>
+                                    <div className="pedidos-referencia__classe-matriculados">
+                                        <h5>
+                                            <i>
+                                                <FontAwesomeIcon
+                                                    icon={faUsers}
+                                                />
+                                            </i>
+                                            <span>Total Matriculados</span>
+                                        </h5>
+                                        <p>{v.totalMatriculados}</p>
+                                    </div>
+                                    <div className="pedidos-referencia__classe-media">
+                                        <h5>
+                                            <i>
+                                                <FontAwesomeIcon
+                                                    icon={faPercent}
+                                                />
+                                            </i>
+                                            <span>Média Presença</span>
+                                        </h5>
+                                        <p>{v.mediaPresenca}</p>
+                                    </div>
+                                    <div className="pedidos-referencia__classe-pico">
+                                        <h5>
+                                            <i>
+                                                <FontAwesomeIcon
+                                                    icon={faRankingStar}
+                                                />
+                                            </i>
+                                            <span>
+                                                Domingo com maior presença
+                                            </span>
+                                        </h5>
+                                        <p>{v.picoPresenca}</p>
+                                    </div>
+                                </div>
+                                <div className="pedidos-referencia__classe-arrecadado">
+                                    <h5>
+                                        <i>
+                                            <FontAwesomeIcon icon={faCoins} />
+                                        </i>
+                                        <span>Ofertas Total</span>
+                                    </h5>
+                                    <p>
+                                        {v.totalArrecadado.toLocaleString(
+                                            "pt-BR",
+                                            {
+                                                currency: "BRL",
+                                                style: "currency",
+                                            },
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="pedidos-referencia__vazio">
+                        <p>Nenhum registro encontrado.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const RevistaRender = ({
+    value,
+    resposta,
+    sugestao,
+    opcaoSugestao,
+    isActive,
+    rotulos,
+    control,
+    setFocus,
+    setValue,
+}: {
+    resposta?: RevistaType;
+    value: RevistaType;
+    sugestao?: SugestaoInterface;
+    opcaoSugestao: string;
+    isActive: boolean;
+    rotulos: RotulosClassesInterface[];
+    control: any;
+    setValue: any;
+    setFocus: any;
+}) => {
+    const PADRAO_REVISTAS = 2;
+    const rotulo = rotulos.find((r) => value.rotuloId === r.id)!;
+    const sugestaoObj = sugestao?.sugestoes?.[value.rotuloId];
+
+    let sugestaoTotal = 0;
+    if (opcaoSugestao && rotulo?.name !== "OUTRO") {
+        const tipoRevista = value.tipoRevista.toLocaleLowerCase();
+        if (tipoRevista.includes("professor"))
+            sugestaoTotal = sugestaoObj?.totalProfessores || PADRAO_REVISTAS;
+        if (tipoRevista.includes("aluno"))
+            sugestaoTotal =
+                (sugestaoObj as any)?.[opcaoSugestao] || PADRAO_REVISTAS;
+    }
+    return (
+        <RevistaView
+            preco={
+                resposta && !isActive
+                    ? resposta?.preco_unitario || 0
+                    : value.preco_unitario
+            }
+            rotulo={rotulo}
+            tipoRevista={value.tipoRevista}
+            key={value.idKey}
+            form={{
+                control,
+                setValue,
+                setFocus,
+                required: value.obrigatorio,
+                path: `respostas.${value.idKey}`,
+                defaultValue: (resposta?.resposta as number) || sugestaoTotal,
+            }}
+        />
+    );
+};
 
 function PedidosResposta() {
     const [isLoading, setIsLoading] = useState(true);
     const [isActive, setIsActive] = useState(true);
-    const [copy, setCopy] = useState(false);
     const [share, setShare] = useState(false);
     const [rotulos, setRotulos] = useState<RotulosClassesInterface[]>([]);
     const [pedido, setPedido] = useState<
@@ -911,11 +1273,17 @@ function PedidosResposta() {
         icon?: any;
     } | null>(null);
     const [sugestao, setSugestao] = useState<SugestaoInterface | null>(null);
+    const [referencia, setRerencia] = useState<ClassesReferencia[]>([]);
+    const [opcaoSugestao, setOpcaoSugestao] = useState("");
 
     const { user, isSuperAdmin, isSecretario } = useAuthContext();
+    const { classes } = useDataContext();
 
     const { modeloId, type } = useParams();
+    const [params, _] = useSearchParams();
     const navigate = useNavigate();
+
+    const addSugestao = useCallback((v: string) => setOpcaoSugestao(v), []);
 
     const methods = useForm();
     const { handleSubmit, control, setFocus, setValue } = methods;
@@ -927,7 +1295,7 @@ function PedidosResposta() {
             await salvarRespostaPedido({
                 ...v,
                 modeloId,
-                total_ofertas: sugestao?.total_ofertas || 0,
+                total_ofertas: sugestao?.totalOfertas || 0,
             });
 
             navigate("/pedidos");
@@ -944,35 +1312,6 @@ function PedidosResposta() {
         }
     };
 
-    useEffect(() => {
-        const getSugestoes = async () => {
-            setIsLoading(true);
-            const rtls = new Set();
-            pedido?.estrutura.forEach((v) => {
-                v.campos.forEach((v) => {
-                    if (v.tipo === "revista") rtls.add(v.rotuloId);
-                });
-            });
-            const outroId = rotulos.find((v) => v.nome === "OUTRO")?.id;
-            const r = [...rtls.values()].filter((v) => v !== outroId);
-
-            const { data } = await getSugestaoPedidosRevistas({
-                modeloId,
-                rotulos: r,
-            });
-
-            setSugestao(data as SugestaoInterface);
-        };
-
-        if (
-            !resposta &&
-            pedido &&
-            pedido.estrutura.find((v) =>
-                v.campos.find((v) => v.tipo === "revista"),
-            )
-        )
-            getSugestoes().finally(() => setIsLoading(false));
-    }, [pedido]);
     useEffect(() => {
         const getRotulos = async () => {
             const rotulosCll = collection(db, "rotulos_classes");
@@ -1030,6 +1369,7 @@ function PedidosResposta() {
                 id: pedidoDocs.docs[0].id,
                 ...(pedidoDocs.docs[0].data() as PedidosInterface),
             };
+            if (p.tipo === "modelo") return navigate("/pedidos");
             const estruturaCll = doc(
                 db,
                 "pedidos",
@@ -1038,7 +1378,6 @@ function PedidosResposta() {
                 "dados",
             );
             const estruturaDoc = await getDoc(estruturaCll);
-
             if (!estruturaDoc.exists()) return navigate("/pedidos");
 
             const { estrutura } = estruturaDoc.data() as PedidosEstrutura;
@@ -1048,15 +1387,108 @@ function PedidosResposta() {
             const dataFim = p.data_fim.toDate();
 
             setIsActive(dataAtual < dataFim);
-
             setPedido({ estrutura, ...p });
         };
+        const getCache = async () => {
+            const cacheLicoesCll = collection(db, "cache_licao");
+            const q = query(
+                cacheLicoesCll,
+                where("igrejaId", "==", user?.igrejaId!),
+                where("data_inicio", "<=", new Date()),
+                where("data_fim", ">=", new Date()),
+            );
 
-        getRotulos().catch((v) => console.log("deu esse erro", v));
-        getPedido()
-            .catch((v) => console.log("deu esse erro", v))
-            .finally(() => setIsLoading(false));
-    }, []);
+            const usuariosD = doc(db, "cache_usuarios", user?.igrejaId!);
+
+            const [cacheLicoesDocs, usuariosDocs] = await Promise.all([
+                getDocs(q),
+                getDoc(usuariosD),
+            ]);
+
+            const classesMap = new Map(classes.map((v) => [v.id, v]));
+            const classesReferenciaMap = new Map<string, ClassesReferencia>();
+            const sugestaoMap = new Map();
+            let totalOfertas = 0;
+            cacheLicoesDocs.docs.forEach((v) => {
+                const data = v.data() as CacheLicaoInterface;
+                const { total_matriculados, pico_presenca } = data;
+
+                const rotuloId = classesMap.get(data.classeId)?.rotuloId!;
+                const classeId = data.classeId;
+                const classeNome = data.classeNome;
+                const licaoAtual = data.licaoNome;
+                const totalArrecadado = data.total_ofertas;
+                const totalMatriculados = total_matriculados;
+                const picoPresenca = pico_presenca;
+                const listaPresenca = Object.values(data.detalhes_aulas);
+                const mediaPresenca = Math.ceil(
+                    listaPresenca.reduce(
+                        (prev, current) => current.total_presenca + prev,
+                        0,
+                    ) / listaPresenca.length || 1,
+                );
+
+                classesReferenciaMap.set(classeId, {
+                    rotuloId,
+                    classeId,
+                    classeNome,
+                    licaoAtual,
+                    totalProfessores: 0,
+                    totalArrecadado,
+                    totalMatriculados,
+                    picoPresenca,
+                    mediaPresenca,
+                });
+                const sugestaoObj = sugestaoMap.get(rotuloId) || {
+                    totalMatriculados: 0,
+                    picoPresenca: 0,
+                    mediaPresenca: 0,
+                    totalProfessores: 0,
+                };
+
+                sugestaoObj.totalMatriculados += totalMatriculados;
+                sugestaoObj.picoPresenca += picoPresenca;
+                sugestaoObj.mediaPresenca += mediaPresenca;
+
+                sugestaoMap.set(rotuloId, sugestaoObj);
+
+                totalOfertas += data.total_ofertas || 0;
+                return data;
+            });
+
+            const usuariosData = usuariosDocs.data() as CacheUsuarioInteface;
+            Object.values(usuariosData.lista).forEach((v) => {
+                const id = v.classeId;
+                if (sugestaoMap.has(id)) {
+                    console.log("entrei aqui");
+
+                    const ref = classesReferenciaMap.get(id);
+                    const sug = sugestaoMap.get(ref?.rotuloId);
+                    sugestaoMap.set(ref?.rotuloId, {
+                        ...sug,
+                        totalProfessores: sug.totalProfessores + 1,
+                    });
+                    classesReferenciaMap.set(id, {
+                        ...ref,
+                        totalProfessores: ref?.totalProfessores || 0 + 1,
+                    } as any);
+                }
+            });
+
+            setSugestao({
+                totalOfertas,
+                sugestoes: Object.fromEntries(sugestaoMap),
+            } as any);
+            setRerencia(Array.from(classesReferenciaMap.values()));
+        };
+
+        if (classes.length) {
+            Promise.all([getRotulos(), getPedido(), getCache()])
+                .catch((v) => console.log("deu esse erro", v))
+                .finally(() => setIsLoading(false));
+        }
+        setShare(params.get("share") === "true");
+    }, [classes]);
     if (isLoading) return <Loading />;
     if (isSecretario.current) return <Navigate to={"/dashboard"} />;
     return (
@@ -1106,7 +1538,17 @@ function PedidosResposta() {
 
                     <div className="pedidos-resposta__header-abas">
                         <div
-                            className={`pedidos-resposta__header-aba ${type !== "resposta" ? "active" : ""}`}
+                            className={`pedidos-resposta__header-aba ${type === "referencia" ? "active" : ""}`}
+                            onClick={() =>
+                                navigate(
+                                    `/pedidos/formulario/${modeloId}/referencia`,
+                                )
+                            }
+                        >
+                            <p>Referência</p>
+                        </div>
+                        <div
+                            className={`pedidos-resposta__header-aba ${type !== "resposta" && type !== "referencia" ? "active" : ""}`}
                             onClick={() =>
                                 navigate(`/pedidos/formulario/${modeloId}`)
                             }
@@ -1134,12 +1576,39 @@ function PedidosResposta() {
                         pedido={pedido!}
                         rotulos={rotulos}
                     />
+                ) : type === "referencia" ? (
+                    <PedidosRespostaReferencia
+                        referencia={referencia}
+                        rotulos={rotulos}
+                    />
                 ) : (
                     <FormProvider {...methods}>
                         <form
                             className="pedidos-resposta__form"
                             onSubmit={handleSubmit(onSubmit)}
                         >
+                            {resposta ? (
+                                <div className="pedidos-resposta__form-ja-enviado">
+                                    <span>
+                                        <FontAwesomeIcon icon={faCircleCheck} />
+                                    </span>
+                                    <p>
+                                        Formulário enviado dia{" "}
+                                        <span>
+                                            {resposta.data_resposta
+                                                .toDate()
+                                                .toLocaleDateString("pt-BR")}
+                                        </span>
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="pedidos-resposta__form-sugestao">
+                                    <BotaoRespostaSugestao
+                                        onSelect={addSugestao}
+                                    />
+                                </div>
+                            )}
+
                             <div className="pedidos-resposta__form-title">
                                 <h2>{pedido?.titulo}</h2>
 
@@ -1210,72 +1679,20 @@ function PedidosResposta() {
                                                       ] as any)
                                                     : undefined;
                                                 if (v.tipo === "revista") {
-                                                    const sugestaoObj =
-                                                        sugestao?.sugestoes?.[
-                                                            v.rotuloId
-                                                        ];
-
-                                                    let sugestaoTotal = 0;
-                                                    if (sugestaoObj) {
-                                                        const {
-                                                            total_matriculados,
-                                                            total_professores,
-                                                            total_sugerido,
-                                                        } = sugestaoObj;
-
-                                                        if (
-                                                            v.tipoRevista
-                                                                .toLocaleLowerCase()
-                                                                .includes(
-                                                                    "professor",
-                                                                )
-                                                        )
-                                                            sugestaoTotal =
-                                                                total_professores;
-                                                        if (
-                                                            v.tipoRevista
-                                                                .toLocaleLowerCase()
-                                                                .includes(
-                                                                    "aluno",
-                                                                )
-                                                        )
-                                                            sugestaoTotal =
-                                                                total_sugerido >
-                                                                total_matriculados
-                                                                    ? total_sugerido
-                                                                    : total_matriculados +
-                                                                      2;
-                                                    }
                                                     return (
-                                                        <RevistaView
-                                                            preco={
-                                                                resp &&
-                                                                !isActive
-                                                                    ? resp.preco_unitario
-                                                                    : v.preco_unitario
+                                                        <RevistaRender
+                                                            control={control}
+                                                            setFocus={setFocus}
+                                                            setValue={setValue}
+                                                            isActive={isActive}
+                                                            opcaoSugestao={
+                                                                opcaoSugestao
                                                             }
-                                                            rotulo={
-                                                                rotulos.find(
-                                                                    (r) =>
-                                                                        v.rotuloId ===
-                                                                        r.id,
-                                                                )!
-                                                            }
-                                                            tipoRevista={
-                                                                v.tipoRevista
-                                                            }
+                                                            rotulos={rotulos}
+                                                            value={v}
                                                             key={v.idKey}
-                                                            form={{
-                                                                control,
-                                                                setValue,
-                                                                setFocus,
-                                                                required:
-                                                                    v.obrigatorio,
-                                                                path: `respostas.${v.idKey}`,
-                                                                defaultValue:
-                                                                    resp?.resposta ||
-                                                                    sugestaoTotal,
-                                                            }}
+                                                            resposta={resp}
+                                                            sugestao={sugestao!}
                                                         />
                                                     );
                                                 } else
@@ -1304,8 +1721,9 @@ function PedidosResposta() {
                             <PedidosRespostaValores
                                 control={control}
                                 pedido={pedido}
-                                totalArrecadado={sugestao?.total_ofertas || 0}
+                                totalArrecadado={sugestao?.totalOfertas || 0}
                                 rotulos={rotulos}
+                                isActive={isActive}
                             />
                         </form>
                     </FormProvider>
@@ -1313,55 +1731,10 @@ function PedidosResposta() {
             </div>
             <AnimatePresence>
                 {share && (
-                    <motion.div
-                        className="compartilhar-modal"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                    >
-                        <div className="compartilhar-modal__header">
-                            <div className="compartilhar-modal__title">
-                                <span>
-                                    <FontAwesomeIcon icon={faShareNodes} />
-                                </span>
-                                <p>Compartilhar Formulário</p>
-                            </div>
-                            <button
-                                className="compartilhar-modal__close"
-                                onClick={() => {
-                                    setCopy(false);
-                                    setShare(false);
-                                }}
-                            >
-                                <FontAwesomeIcon icon={faXmark} />
-                            </button>
-                        </div>
-
-                        <div
-                            className="compartilhar-modal__body"
-                            onClick={() => {
-                                setCopy(true);
-                                navigator.clipboard.writeText(
-                                    `${window.location.origin}/pedidos/criar/${modeloId}`,
-                                );
-                            }}
-                        >
-                            <p>
-                                {window.location.origin}/pedidos/criar/
-                                {modeloId}
-                            </p>
-
-                            {!copy ? (
-                                <span>
-                                    <FontAwesomeIcon icon={faCopy} />
-                                </span>
-                            ) : (
-                                <span>
-                                    <FontAwesomeIcon icon={faCheckDouble} />
-                                </span>
-                            )}
-                        </div>
-                    </motion.div>
+                    <PedidosRespostaShareModal
+                        modeloId={modeloId || ""}
+                        onClose={() => setShare(false)}
+                    />
                 )}
             </AnimatePresence>
             <AlertModal isOpen={!!mensagem} {...mensagem!} />
@@ -1369,4 +1742,5 @@ function PedidosResposta() {
     );
 }
 
+export { PedidosRespostaShareModal };
 export default PedidosResposta;

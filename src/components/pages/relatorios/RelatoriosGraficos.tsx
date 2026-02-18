@@ -67,7 +67,7 @@ interface Form {
 }
 
 const functions = getFunctions();
-const gerarRelatorio = httpsCallable(functions, "gerarRelatorio");
+const gerarRelatorioGrafico = httpsCallable(functions, "gerarRelatorioGrafico");
 
 const ErroComponent = ({ erro }: { erro: FieldError }) => {
     return (
@@ -108,7 +108,7 @@ function RelatoriosGraficos() {
     const onSave = (v: Form) => {
         setIsLoading(true);
         setParams(v as {});
-        gerarRelatorio(v)
+        gerarRelatorioGrafico(v)
             .then(({ data }) => {
                 setDados(data as any);
                 setTitle(METRICAS.find((v) => v.id === metrica)?.nome || "");
@@ -132,7 +132,7 @@ function RelatoriosGraficos() {
         if (metrica === "frequencia_alunos")
             ag = ag.filter(
                 (v) =>
-                    v.id === "classe" || v.id === "igreja" || v.id === "aluno"
+                    v.id === "classe" || v.id === "igreja" || v.id === "aluno",
             );
 
         return ag;
@@ -188,17 +188,17 @@ function RelatoriosGraficos() {
                                                         METRICAS.find(
                                                             (v) =>
                                                                 v.id ===
-                                                                field.value
+                                                                field.value,
                                                         )?.nome || null
                                                     }
                                                     lista={METRICAS}
                                                     onSelect={(v) => {
                                                         field.onChange(
-                                                            v?.id || null
+                                                            v?.id || null,
                                                         );
                                                         setValue(
                                                             "agrupamento",
-                                                            ""
+                                                            "",
                                                         );
                                                     }}
                                                     isAll={false}
@@ -230,14 +230,14 @@ function RelatoriosGraficos() {
                                                         agrupamentosMemo.find(
                                                             (v) =>
                                                                 v.id ===
-                                                                field.value
+                                                                field.value,
                                                         )?.nome || null
                                                     }
                                                     lista={agrupamentosMemo}
                                                     isAll={false}
                                                     onSelect={(v) =>
                                                         field.onChange(
-                                                            v?.id || null
+                                                            v?.id || null,
                                                         )
                                                     }
                                                     isErro={
@@ -305,7 +305,7 @@ function RelatoriosGraficos() {
                                                     return (
                                                         new Date(v) >=
                                                             new Date(
-                                                                dataInicio
+                                                                dataInicio,
                                                             ) ||
                                                         "A data final deve ser igual ou posterior à data inicial."
                                                     );
@@ -340,10 +340,10 @@ function RelatoriosGraficos() {
                                                             onChange={(v) => {
                                                                 setValue(
                                                                     "classes",
-                                                                    undefined
+                                                                    undefined,
                                                                 );
                                                                 field.onChange(
-                                                                    v
+                                                                    v,
                                                                 );
                                                             }}
                                                             texto="Todas as igrejas"
@@ -369,7 +369,7 @@ function RelatoriosGraficos() {
                                                             }
                                                             onChange={(v) =>
                                                                 field.onChange(
-                                                                    v
+                                                                    v,
                                                                 )
                                                             }
                                                             texto="Todas as classes"

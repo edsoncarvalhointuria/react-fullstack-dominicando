@@ -1,3 +1,5 @@
+import type { ListaNotificacao } from "./NotificacaoInterface";
+
 interface DataContextInterface {
     igrejas: IgrejaInterface[];
     setIgrejas: React.Dispatch<
@@ -19,4 +21,7 @@ interface DataContextInterface {
     >;
     isLoadingData: boolean;
     refetchData: () => void;
+    notificacoes: ListaNotificacao[];
+    removerNotificacoes: (...args: string[]) => void;
+    fetchNotificacoes: () => void;
 }

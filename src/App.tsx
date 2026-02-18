@@ -37,6 +37,7 @@ import RotulosClasses from "./components/pages/rotulos_classes/RotulosClasses";
 import Pedidos from "./components/pages/pedidos/Pedidos";
 import PedidosFormulario from "./components/pages/pedidos/PedidosFormulario";
 import PedidosResposta from "./components/pages/pedidos/PedidosResposta";
+import Ranking from "./components/ranking/Ranking";
 // import { app } from "./utils/firebase";
 
 function App() {
@@ -165,6 +166,11 @@ function App() {
             <AnimatePresence>
                 <Routes>
                     <Route path="/" key={location.key} element={<Login />} />
+                    <Route
+                        path="/ranking-alunos/:igrejaId/:licaoId"
+                        key={location.key}
+                        element={<Ranking />}
+                    />
 
                     <Route path="/cadastrar">
                         <Route

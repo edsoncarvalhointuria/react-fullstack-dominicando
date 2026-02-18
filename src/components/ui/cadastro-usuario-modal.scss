@@ -55,7 +55,9 @@
         font-size: 2rem;
         color: v.$cor-secundaria-texto;
         cursor: pointer;
-        transition: color 0.2s, transform 0.2s;
+        transition:
+            color 0.2s,
+            transform 0.2s;
 
         &:hover {
             color: v.$cor-primaria-texto;
@@ -91,6 +93,10 @@
             font-weight: 500;
             color: v.$cor-primaria-texto;
             margin: 0;
+
+            span {
+                color: v.$cor-erro;
+            }
         }
 
         input {

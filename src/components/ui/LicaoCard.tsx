@@ -7,6 +7,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import type { LicaoInterface } from "../../interfaces/LicaoInterface";
 import "./licao-card.scss";
+import React from "react";
 
 interface LicaoCardProps {
     licao: LicaoInterface;
@@ -18,7 +19,7 @@ function LicaoCard({ licao, openModal }: LicaoCardProps) {
         <motion.div
             className="licao-card"
             whileHover={{ y: -5, boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)" }}
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.97 }}
             onTap={() => {
                 openModal(licao);
                 window.history.pushState({ modal: true }, "");
@@ -85,4 +86,4 @@ function LicaoCard({ licao, openModal }: LicaoCardProps) {
     );
 }
 
-export default LicaoCard;
+export default React.memo(LicaoCard);

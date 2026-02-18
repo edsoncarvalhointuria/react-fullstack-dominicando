@@ -89,7 +89,7 @@ function AuthContext({ children }: { children: ReactNode }) {
             const currentUser = getAuth().currentUser;
             const credencial = EmailAuthProvider.credential(
                 user.email!,
-                senhaAntiga
+                senhaAntiga,
             );
             try {
                 await reauthenticateWithCredential(currentUser!, credencial);
@@ -100,7 +100,7 @@ function AuthContext({ children }: { children: ReactNode }) {
                 throw new Error("Houve um erro ao alterar a senha.");
             }
         },
-        [user]
+        [user],
     );
 
     const mudarPermissaoNotificacao = async () => {
@@ -167,10 +167,10 @@ function AuthContext({ children }: { children: ReactNode }) {
                     (error) => {
                         console.error(
                             "Erro no listener do perfil do usuário:",
-                            error
+                            error,
                         );
                         signOut(auth);
-                    }
+                    },
                 );
                 return () => unsubscribeOnSnapshot();
             }

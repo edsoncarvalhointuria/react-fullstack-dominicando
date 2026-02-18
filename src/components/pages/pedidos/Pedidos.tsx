@@ -173,19 +173,25 @@ function Pedidos() {
     const [params, _] = useSearchParams();
 
     const pedidosMemo = useMemo(() => {
-        if (!pesquisa) return pedidos;
-        return pedidos.filter(
-            (v) =>
-                v.titulo.toLowerCase().includes(pesquisa) ||
-                v.data_inicio
-                    .toDate()
-                    .toLocaleDateString("pt-BR")
-                    .includes(pesquisa) ||
-                v.data_fim
-                    .toDate()
-                    .toLocaleDateString("pt-BR")
-                    .includes(pesquisa),
-        );
+        if (!pedidos) return [];
+        return pedidos
+            .filter(
+                (v) =>
+                    v.titulo.toLowerCase().includes(pesquisa) ||
+                    v.data_inicio
+                        .toDate()
+                        .toLocaleDateString("pt-BR")
+                        .includes(pesquisa) ||
+                    v.data_fim
+                        .toDate()
+                        .toLocaleDateString("pt-BR")
+                        .includes(pesquisa),
+            )
+            .sort(
+                (a, b) =>
+                    b.data_fim.toDate().getTime() -
+                    a.data_fim.toDate().getTime(),
+            );
     }, [pesquisa, pedidos]);
 
     const { isSecretario, isSuperAdmin, user, isAdmin } = useAuthContext();
@@ -224,7 +230,6 @@ function Pedidos() {
 
             if (pedidoDoc.empty) {
                 getModelos().finally(() => setIsLoading(false));
-                console.log("aaaa");
             } else {
                 const pedido = pedidoDoc.docs[0].id;
                 navigate(`/pedidos/formulario/${pedido}`);
@@ -266,17 +271,16 @@ function Pedidos() {
                 </div>
 
                 <div className="pedidos__body">
+                    <div className="pedidos__pesquisa">
+                        <SearchInput
+                            onSearch={(v) => setPesquisa(v)}
+                            texto="formulários"
+                        />
+                    </div>
                     {pedidosMemo.length ? (
                         <>
-                            <div className="pedidos__pesquisa">
-                                <SearchInput
-                                    onSearch={(v) => setPesquisa(v)}
-                                    texto="formulários"
-                                />
-                            </div>
-
                             <div className="pedidos__grid">
-                                {pedidos.map((v) => (
+                                {pedidosMemo.map((v) => (
                                     <FormularioCard
                                         key={v.id}
                                         dataFim={v.data_fim

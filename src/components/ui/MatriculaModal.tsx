@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import "./matricula-modal.scss";
-import type { AlunoInterface } from "../../interfaces/AlunoInterface";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import type {
+    AlunoInterface,
+    CacheAlunoInteface,
+} from "../../interfaces/AlunoInterface";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../utils/firebase";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -14,7 +17,7 @@ import { AnimatePresence } from "framer-motion";
 import CadastroAlunoModal from "./CadastroAlunoModal";
 import type { LicaoInterface } from "../../interfaces/LicaoInterface";
 import MatriculaAlunoModal from "./MatriculaAlunoModal";
-import { useAuthContext } from "../../context/AuthContext";
+import type { CacheMatriculasInterface } from "../../interfaces/MatriculasInterface";
 
 function MatriculaModal({
     onClose,
@@ -33,7 +36,6 @@ function MatriculaModal({
     const [aluno, setAluno] = useState<AlunoInterface | null>(null);
     const [showCadastrarAluno, setShowCadastradarAluno] = useState(false);
     const [pesquisa, setPesquisa] = useState("");
-    const { isSuperAdmin, user } = useAuthContext();
 
     const alunosMemo = useMemo(() => {
         let a = alunos.filter(
@@ -43,41 +45,37 @@ function MatriculaModal({
                 v.data_nascimento
                     .toDate()
                     .toLocaleDateString("pt-BR")
-                    .includes(pesquisa)
+                    .includes(pesquisa),
         );
         return a;
     }, [alunos, pesquisa]);
     useEffect(() => {
         const getAlunos = async (igrejaId: string) => {
-            const alunosColl = collection(db, "alunos");
-            const q = query(alunosColl, where("igrejaId", "==", igrejaId));
-            const alunosSnap = await getDocs(q);
+            const alunosColl = doc(db, "cache_alunos", igrejaId);
+            const alunosSnap = await getDoc(alunosColl);
 
-            if (alunosSnap.empty) return [];
+            if (!alunosSnap.exists()) return [];
 
-            const a = alunosSnap.docs.map(
-                (v) => ({ id: v.id, ...v.data() } as AlunoInterface)
+            const a = alunosSnap.data() as CacheAlunoInteface;
+
+            return Object.values(a.lista);
+        };
+        const getMatriculados = async (igrejaId: string, licaoId: string) => {
+            const matriculasColl = doc(
+                db,
+                "cache_matriculas",
+                `${igrejaId}_${licaoId}`,
+            );
+            const matriculasSnap = await getDoc(matriculasColl);
+            if (!matriculasSnap.exists()) return [];
+            const matriculas = Object.values(
+                (matriculasSnap.data() as CacheMatriculasInterface).lista,
             );
 
-            return a;
-        };
-        const getMatriculados = async (licaoId: string) => {
-            const matriculasColl = collection(db, "matriculas");
-            const q = query(
-                matriculasColl,
-                where("licaoId", "==", licaoId),
-                isSuperAdmin.current
-                    ? where("ministerioId", "==", user!.ministerioId)
-                    : where("igrejaId", "==", user!.igrejaId)
-            );
-            const matriculasSnap = await getDocs(q);
-            if (matriculasSnap.empty) return [];
-            const matriculas = matriculasSnap.docs.map((v) => v.data().alunoId);
-
-            return matriculas;
+            return matriculas.map((v) => v.alunoId);
         };
 
-        Promise.all([getAlunos(igrejaId), getMatriculados(licaoId)])
+        Promise.all([getAlunos(igrejaId), getMatriculados(igrejaId, licaoId)])
             .then(([a, m]) => {
                 setAlunos(a.filter((v) => !m.includes(v.id)));
             })
@@ -170,7 +168,7 @@ function MatriculaModal({
                                                                 {v.data_nascimento
                                                                     .toDate()
                                                                     .toLocaleDateString(
-                                                                        "pt-BR"
+                                                                        "pt-BR",
                                                                     )}
                                                             </p>
                                                         </td>

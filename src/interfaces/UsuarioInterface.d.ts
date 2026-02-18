@@ -12,3 +12,9 @@ interface UsuarioInterface {
     uid: string;
     id: string;
 }
+
+interface CacheUsuarioInteface {
+    igrejaId: string;
+    ministerioId: string;
+    lista: { [usuarioId: string]: UsuarioInterface };
+}

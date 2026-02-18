@@ -18,6 +18,7 @@ const variantsIcon: Variants = {
     initial: { scale: 1, color: "#6b7280", x: 0 },
     animate: {
         scale: 1.3,
+        rotate: 10,
         color: "#3b82f6",
         transition: { duration: 0.3 },
     },
