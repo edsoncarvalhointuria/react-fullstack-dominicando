@@ -1442,7 +1442,7 @@ const PanoramaFinanceiro = React.memo(
             }),
         );
 
-        const datasPie = [
+        const datasPieDinheiroPix = [
             {
                 name: "Total Pix",
                 value: dados.total_missoes_pix + dados.total_ofertas_pix,
@@ -1451,6 +1451,24 @@ const PanoramaFinanceiro = React.memo(
                 name: "Total Dinheiro",
                 value:
                     dados.total_missoes_dinheiro + dados.total_ofertas_dinheiro,
+            },
+        ];
+        const datasPieOfertasMissoes = [
+            {
+                name: "Missões Pix",
+                value: dados.total_missoes_pix,
+            },
+            {
+                name: "Missões Dinheiro",
+                value: dados.total_missoes_dinheiro,
+            },
+            {
+                name: "Ofertas Pix",
+                value: dados.total_ofertas_pix,
+            },
+            {
+                name: "Ofertas Dinheiro",
+                value: dados.total_ofertas_dinheiro,
             },
         ];
         const keysChart = [
@@ -1520,11 +1538,11 @@ const PanoramaFinanceiro = React.memo(
 
                 <div className="panorama-financeiro__pie">
                     <h3>
-                        Pix <span>vs</span> Dinheiro
+                        Ofertas <span>vs</span> Missões
                     </h3>
 
                     <div className="panorama-financeiro__pie-chart">
-                        <PanoramaPieChart datas={datasPie} />
+                        <PanoramaPieChart datas={datasPieOfertasMissoes} />
                     </div>
                 </div>
 
@@ -1536,6 +1554,16 @@ const PanoramaFinanceiro = React.memo(
                         keys={keysChart}
                         isMobile={isMobile}
                     />
+                </div>
+
+                <div className="panorama-financeiro__pie">
+                    <h3>
+                        Pix <span>vs</span> Dinheiro
+                    </h3>
+
+                    <div className="panorama-financeiro__pie-chart">
+                        <PanoramaPieChart datas={datasPieDinheiroPix} />
+                    </div>
                 </div>
             </div>
         );

@@ -164,6 +164,7 @@ function Usuarios() {
                     v.id.toLowerCase() === p,
             );
         }
+
         return u.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
     }, [currentIgreja, pesquisa, usuarios, ordemColuna, ordem]);
     useEffect(() => {

@@ -812,7 +812,7 @@ function PedidosFormulario() {
                 dados: v,
             });
             const resp = data as any;
-            if (resp?.tipo === "modelo") location.reload();
+            if (resp?.tipo === "modelo") navigate("/pedidos");
             else navigate(`/pedidos/formulario/${resp.id}?share=true`);
         } catch (error: any) {
             setMensagem({

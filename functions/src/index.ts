@@ -2084,6 +2084,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     if (classeId) {
         const classeRef = db.collection(Cll.CLASSES).doc(classeId);
         const classeSnap = await classeRef.get();
+        const classeData = classeSnap.data();
 
         if (!classeSnap.exists) {
             throw new functions.https.HttpsError(
@@ -2092,6 +2093,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
             );
         }
 
+        const igrejaMudou = classeData?.igrejaId !== igrejaId;
         await Promise.all([
             classeRef.update(dadosAtualizados),
             db
@@ -2099,11 +2101,19 @@ export const salvarClasse = functions.https.onCall(async (request) => {
                 .doc(igrejaId)
                 .update({
                     [`lista.${classeId}`]: {
-                        ...classeSnap.data(),
+                        ...classeData,
                         ...dadosAtualizados,
                         id: classeId,
                     },
                 }),
+            igrejaMudou
+                ? db
+                      .collection(Cll.CACHE_CLASSES)
+                      .doc(classeData?.igrejaId)
+                      .update({
+                          [`lista.${classeId}`]: FieldValue.delete(),
+                      })
+                : undefined,
         ]);
 
         enviarLog(
@@ -3001,6 +3011,7 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
     if (usuarioId) {
         const usuarioRef = db.collection("usuarios").doc(usuarioId);
         const usuarioSnap = await usuarioRef.get();
+        const usuarioData = usuarioSnap.data() as Usuario;
 
         if (!usuarioSnap.exists) {
             throw new functions.https.HttpsError(
@@ -3022,6 +3033,7 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
             admin.auth().updateUser(usuarioSnap.id, { email: dados.email });
 
         if (isSecretario) delete dadosAtualizados.email;
+        const igrejaMudou = dadosAtualizados.igrejaId !== usuarioData?.igrejaId;
 
         await Promise.all([
             usuarioRef.update(dadosAtualizados),
@@ -3030,11 +3042,20 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
                 .doc(igreja.id)
                 .update({
                     [`lista.${usuarioId}`]: {
-                        ...usuarioSnap.data(),
+                        ...usuarioData,
+                        ...(igrejaMudou
+                            ? { classeId: null, classeNome: null }
+                            : undefined),
                         ...dadosAtualizados,
                         id: usuarioId,
                     },
                 }),
+            igrejaMudou
+                ? db
+                      .collection(Cll.CACHE_USUARIOS)
+                      .doc(usuarioData?.igrejaId)
+                      .update({ [`lista.${usuarioId}`]: FieldValue.delete() })
+                : undefined,
         ]);
 
         enviarLog(

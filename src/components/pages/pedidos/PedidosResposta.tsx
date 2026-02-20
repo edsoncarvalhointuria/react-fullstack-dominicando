@@ -77,6 +77,7 @@ import AlertModal from "../../ui/AlertModal";
 import LoadingModal from "../../layout/loading/LoadingModal";
 import type { CacheLicaoInterface } from "../../../interfaces/CacheLicaoInterface";
 import type { CacheUsuarioInteface } from "../../../interfaces/UsuarioInterface";
+import { ROLES } from "../../../roles/Roles";
 
 const functions = getFunctions();
 const salvarRespostaPedido = httpsCallable(functions, "salvarRespostaPedido");
@@ -1077,6 +1078,22 @@ const PedidosRespostaReferencia = ({
     referencia: ClassesReferencia[];
     rotulos: RotulosClassesInterface[];
 }) => {
+    const refernciaMemo = useMemo(() => {
+        return referencia
+            .map((v) => ({
+                ...v,
+                rotulo: rotulos.find((r) => r.id === v.rotuloId),
+            }))
+            .sort((a, b) => {
+                if (a.rotulo?.nome === "OUTRO") return 1;
+                if (b.rotulo?.nome === "OUTRO") return -1;
+
+                return (
+                    (a.rotulo?.idade_minima || 0) -
+                    (b.rotulo?.idade_minima || 0)
+                );
+            });
+    }, [referencia]);
     return (
         <div className="pedidos-referencia">
             <div className="pedidos-referencia__header">
@@ -1099,8 +1116,8 @@ const PedidosRespostaReferencia = ({
                     <h3>Classes com registro no trimestre atual:</h3>
                 </div>
 
-                {referencia.length > 0 ? (
-                    referencia.map((v) => (
+                {refernciaMemo.length > 0 ? (
+                    refernciaMemo.map((v) => (
                         <div
                             className="pedidos-referencia__classe"
                             key={v.classeId}
@@ -1108,13 +1125,7 @@ const PedidosRespostaReferencia = ({
                             <div className="pedidos-referencia__classe-header">
                                 <h4>{v.classeNome}</h4>
                                 <div className="pedidos-referencia__classe-container">
-                                    <p>
-                                        {
-                                            rotulos.find(
-                                                (r) => r.id === v.rotuloId,
-                                            )?.nome
-                                        }
-                                    </p>
+                                    <p>{v.rotulo?.nome}</p>
                                     <p>{v.licaoAtual}</p>
                                 </div>
                             </div>
@@ -1218,7 +1229,7 @@ const RevistaRender = ({
     setValue: any;
     setFocus: any;
 }) => {
-    const PADRAO_REVISTAS = 2;
+    const PADRAO_REVISTAS = 0;
     const rotulo = rotulos.find((r) => value.rotuloId === r.id)!;
     const sugestaoObj = sugestao?.sugestoes?.[value.rotuloId];
 
@@ -1404,7 +1415,6 @@ function PedidosResposta() {
                 getDocs(q),
                 getDoc(usuariosD),
             ]);
-
             const classesMap = new Map(classes.map((v) => [v.id, v]));
             const classesReferenciaMap = new Map<string, ClassesReferencia>();
             const sugestaoMap = new Map();
@@ -1459,9 +1469,10 @@ function PedidosResposta() {
             const usuariosData = usuariosDocs.data() as CacheUsuarioInteface;
             Object.values(usuariosData.lista).forEach((v) => {
                 const id = v.classeId;
-                if (sugestaoMap.has(id)) {
-                    console.log("entrei aqui");
-
+                if (
+                    classesReferenciaMap.has(id) &&
+                    v.role === ROLES.PROFESSOR
+                ) {
                     const ref = classesReferenciaMap.get(id);
                     const sug = sugestaoMap.get(ref?.rotuloId);
                     sugestaoMap.set(ref?.rotuloId, {
@@ -1470,7 +1481,7 @@ function PedidosResposta() {
                     });
                     classesReferenciaMap.set(id, {
                         ...ref,
-                        totalProfessores: ref?.totalProfessores || 0 + 1,
+                        totalProfessores: (ref?.totalProfessores || 0) + 1,
                     } as any);
                 }
             });
@@ -1484,7 +1495,10 @@ function PedidosResposta() {
 
         if (classes.length) {
             Promise.all([getRotulos(), getPedido(), getCache()])
-                .catch((v) => console.log("deu esse erro", v))
+                .catch((v) => {
+                    console.log("deu esse erro", v);
+                    navigate("/pedidos");
+                })
                 .finally(() => setIsLoading(false));
         }
         setShare(params.get("share") === "true");
