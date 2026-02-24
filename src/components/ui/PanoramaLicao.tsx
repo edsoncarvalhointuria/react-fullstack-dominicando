@@ -537,27 +537,39 @@ const Detalhes = ({
                                 <div className="detalhes-aluno__lista--linha"></div>
                                 {v.aulaRegistrada?.realizada ? (
                                     <p className="detalhes-aluno__lista--status">
-                                        {escolha === "status"
-                                            ? diasMap.get(
-                                                  v.data.toLocaleDateString(
-                                                      "pt-BR",
-                                                  ),
-                                              )?.chamada?.[aluno.id || ""]?.[
-                                                  escolha
-                                              ] || (
-                                                  <span className="sem-registro">
-                                                      Sem registro
-                                                  </span>
-                                              )
-                                            : diasMap.get(
-                                                    v.data.toLocaleDateString(
-                                                        "pt-BR",
-                                                    ),
-                                                )?.chamada?.[aluno.id || ""][
-                                                    escolha
-                                                ] === true
-                                              ? `Trouxe ${opcao}`
-                                              : `Não Trouxe ${opcao}`}
+                                        {escolha === "status" ? (
+                                            diasMap.get(
+                                                v.data.toLocaleDateString(
+                                                    "pt-BR",
+                                                ),
+                                            )?.chamada?.[aluno.id || ""]?.[
+                                                escolha
+                                            ] || (
+                                                <span className="sem-registro">
+                                                    Sem registro
+                                                </span>
+                                            )
+                                        ) : diasMap.get(
+                                              v.data.toLocaleDateString(
+                                                  "pt-BR",
+                                              ),
+                                          )?.chamada?.[aluno.id || ""]?.[
+                                              escolha
+                                          ] === undefined ? (
+                                            <span className="sem-registro">
+                                                Sem registro
+                                            </span>
+                                        ) : diasMap.get(
+                                              v.data.toLocaleDateString(
+                                                  "pt-BR",
+                                              ),
+                                          )?.chamada?.[aluno.id || ""]?.[
+                                              escolha
+                                          ] === true ? (
+                                            `Trouxe ${opcao}`
+                                        ) : (
+                                            `Não Trouxe ${opcao}`
+                                        )}
                                     </p>
                                 ) : (
                                     <p className="detalhes-aluno__lista--nao-realizada">
@@ -666,6 +678,7 @@ const ResumoAula = ({
 
         return alunos;
     }, [dados]);
+
     return (
         <motion.div
             className="resumo-aula__overlay"
@@ -688,7 +701,10 @@ const ResumoAula = ({
                             <InfoLinha
                                 icon={faUsersRectangle}
                                 label="Matriculados"
-                                value={dados.total_matriculados}
+                                value={
+                                    detalhes?.total_matriculados ||
+                                    dados.total_matriculados
+                                }
                             />
                             <AcordeaoItem
                                 titulo="Presentes"
@@ -1301,6 +1317,11 @@ const PanoramaRanking = React.memo(
                             ).toFixed(1)}
                         />
                     </CardProgresso>
+                    <CardProgresso
+                        titulo="Total Matriculados"
+                        icone={faUsers}
+                        valor={dados.total_matriculados}
+                    />
                 </div>
 
                 <div className="panorama-licao__lista-alunos">
@@ -1586,6 +1607,7 @@ const PanoramaGrafico = React.memo(
     }) => {
         const optionsPresenca = [
             { key: "Presentes", color: "#10B981", stackyId: "presenca" },
+            { key: "Atrasados", color: "#F59E0B", stackyId: "presenca" },
             { key: "Visitas", color: "#3B82F6", stackyId: "presenca" },
             { key: "Ausentes", color: "#EF4444" },
         ];
@@ -1614,9 +1636,16 @@ const PanoramaGrafico = React.memo(
             const dia = diasMap.get(key);
 
             const Presentes = dia?.presentes_chamada || 0;
+            const Atrasados = dia?.atrasados || 0;
             const Visitas = dia?.visitas || 0;
             const Ausentes = dia?.ausentes || 0;
-            datasPresenca.push({ name, Presentes, Visitas, Ausentes });
+            datasPresenca.push({
+                name,
+                Presentes,
+                Atrasados,
+                Visitas,
+                Ausentes,
+            });
 
             const biblias = dia?.biblias || 0;
             const Revistas = dia?.licoes || 0;
@@ -1624,7 +1653,7 @@ const PanoramaGrafico = React.memo(
                 name,
                 ["Bíblias"]: biblias,
                 Revistas,
-                Presentes,
+                Presentes: Presentes + Atrasados,
             });
 
             const pixMissao = dia?.missoes_pix || 0;

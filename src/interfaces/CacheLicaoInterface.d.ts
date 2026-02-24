@@ -22,6 +22,7 @@ interface DetalhesAulaCacheLicao {
     missoes: number;
     missoes_dinheiro: number;
     missoes_pix: number;
+    total_matriculados: number;
 
     chamada: {
         [alunoId: string]: ChamadaChacheLicao;

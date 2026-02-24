@@ -11,7 +11,13 @@ import {
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import "./visitas.scss";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
@@ -41,61 +47,61 @@ const variantsContainer: Variants = {
 const functions = getFunctions();
 const deletarVisita = httpsCallable(functions, "deletarVisita");
 const salvarVisita = httpsCallable(functions, "salvarVisita");
+const OPTIONS = [
+    {
+        nome: "Nome",
+        id: "nome_completo",
+        icon: faFeather,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Data Nasc.",
+        id: "data_nascimento",
+        icon: faCalendar,
+        isFilter: true,
+        placeholder: "sem data",
+        dataObject: {},
+    },
+    {
+        nome: "Contato",
+        id: "contato",
+        icon: faPhone,
+        isFilter: false,
+        placeholder: "sem contato",
+    },
+    {
+        nome: "Primeira Visita",
+        id: "primeira_visita",
+        icon: faCalendarWeek,
+        isFilter: true,
+        placeholder: "",
+        dataObject: {},
+    },
+    {
+        nome: "Última Visita",
+        id: "ultima_visita",
+        icon: faCalendarWeek,
+        isFilter: true,
+        placeholder: "",
+        dataObject: {},
+    },
+];
 
 function Visitas() {
-    const OPTIONS = [
-        {
-            nome: "Nome",
-            id: "nome_completo",
-            icon: faFeather,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Data Nasc.",
-            id: "data_nascimento",
-            icon: faCalendar,
-            isFilter: true,
-            placeholder: "sem data",
-            dataObject: {},
-        },
-        {
-            nome: "Contato",
-            id: "contato",
-            icon: faPhone,
-            isFilter: false,
-            placeholder: "sem contato",
-        },
-        {
-            nome: "Primeira Visita",
-            id: "primeira_visita",
-            icon: faCalendarWeek,
-            isFilter: true,
-            placeholder: "",
-            dataObject: {},
-        },
-        {
-            nome: "Última Visita",
-            id: "ultima_visita",
-            icon: faCalendarWeek,
-            isFilter: true,
-            placeholder: "",
-            dataObject: {},
-        },
-    ];
     const [isLoading, setIsLoading] = useState(false);
     const [editVisita, setEditVisita] = useState("");
     const [pesquisa, setPesquisa] = useState("");
     const [addVisita, setAddVisita] = useState(false);
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
+        null,
     );
     const [visitas, setVisitas] = useState<VisitanteInterface[]>([]);
     const [update, setUpdate] = useState(false);
     const [ordemColuna, setOrdemColuna] =
         useState<keyof VisitanteInterface>("nome_completo");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const [mensagem, setMensagem] = useState<{
         titulo: string;
@@ -135,6 +141,28 @@ function Visitas() {
             setPesquisa("");
         }
     };
+    const onDeleteItem = useCallback(
+        (v: any) =>
+            setMensagem({
+                titulo: "Deletar Visitante?",
+                confirmText: "Sim, deletar visitante",
+                mensagem: (
+                    <>
+                        <span>
+                            Tem certeza que deseja deletar o visitante:{" "}
+                            <strong>{v.nome_completo}</strong>?
+                        </span>
+                    </>
+                ),
+                onConfirm: () => apagarVisita(v.id),
+            }),
+        [],
+    );
+    const onEditItem = useCallback((v: any) => setEditVisita(v.id), []);
+    const onSelectOrder = useCallback((v: any) => {
+        setOrdemColuna(v.id as any);
+        setOrdem((o) => (o === "crescente" ? "decrescente" : "crescente"));
+    }, []);
 
     const visitasMemo = useMemo(() => {
         let v = visitas;
@@ -153,7 +181,7 @@ function Visitas() {
                 v.ultima_visita
                     ?.toDate()
                     ?.toLocaleDateString("pt-BR")
-                    ?.includes(pesquisa)
+                    ?.includes(pesquisa),
         );
         v = v.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
 
@@ -165,7 +193,7 @@ function Visitas() {
             const q = query(
                 visitasCll,
                 where("igrejaId", "==", igrejaId),
-                where("ministerioId", "==", user?.ministerioId)
+                where("ministerioId", "==", user?.ministerioId),
             );
             const visitasSnap = await getDocs(q);
 
@@ -177,7 +205,7 @@ function Visitas() {
             })) as VisitanteInterface[];
 
             return visitas.sort((a, b) =>
-                a.nome_completo.localeCompare(b.nome_completo)
+                a.nome_completo.localeCompare(b.nome_completo),
             );
         };
         if (currentIgreja)
@@ -252,7 +280,7 @@ function Visitas() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             isCrescente={ordem === "crescente"}
@@ -273,34 +301,9 @@ function Visitas() {
                                 options={OPTIONS}
                                 currentOrder={ordemColuna}
                                 ordem={ordem}
-                                onSelectOrder={(v) => {
-                                    setOrdemColuna(v.id as any);
-                                    setOrdem((o) =>
-                                        o === "crescente"
-                                            ? "decrescente"
-                                            : "crescente"
-                                    );
-                                }}
-                                onEdit={(v) => setEditVisita(v.id)}
-                                onDelete={(v) =>
-                                    setMensagem({
-                                        titulo: "Deletar Visitante?",
-                                        confirmText: "Sim, deletar visitante",
-                                        mensagem: (
-                                            <>
-                                                <span>
-                                                    Tem certeza que deseja
-                                                    deletar o visitante:{" "}
-                                                    <strong>
-                                                        {v.nome_completo}
-                                                    </strong>
-                                                    ?
-                                                </span>
-                                            </>
-                                        ),
-                                        onConfirm: () => apagarVisita(v.id),
-                                    })
-                                }
+                                onSelectOrder={onSelectOrder}
+                                onEdit={onEditItem}
+                                onDelete={onDeleteItem}
                             />
                         ) : (
                             <motion.div
@@ -352,7 +355,7 @@ function Visitas() {
                                           igrejaId:
                                               currentIgreja?.id ||
                                               user?.igrejaId,
-                                      }
+                                      },
                             )
                                 .then(() => setUpdate((v) => !v))
                                 .catch((error) => {

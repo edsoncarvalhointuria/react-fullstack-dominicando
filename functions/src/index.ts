@@ -1426,6 +1426,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
     if (alunoId) {
         const alunoRef = db.collection(Cll.ALUNOS).doc(alunoId);
         const alunoDoc = await alunoRef.get();
+        const alunoData = alunoDoc.data();
 
         if (!alunoDoc.exists) {
             throw new functions.https.HttpsError(
@@ -1434,35 +1435,36 @@ export const salvarAluno = functions.https.onCall(async (request) => {
             );
         }
 
+        const batch = db.batch();
+
         if (dados.membroId) {
-            await Promise.all([
-                db
-                    .collection(Cll.MEMBROS)
-                    .doc(dados.membroId)
-                    .update({ alunoId: alunoDoc.id }),
-                db
-                    .collection(Cll.CACHE_MEMBROS)
-                    .doc(igrejaId)
-                    .update({
-                        [`lista.${dados.membroId}.alunoId`]: alunoDoc.id,
-                    }),
-            ]);
+            batch.update(db.collection(Cll.MEMBROS).doc(dados.membroId), {
+                alunoId: alunoDoc.id,
+            });
+            batch.update(db.collection(Cll.CACHE_MEMBROS).doc(igrejaId), {
+                [`lista.${dados.membroId}.alunoId`]: alunoDoc.id,
+            });
         }
 
-        await Promise.all([
-            alunoRef.update(dadosAtualizados),
-            db
-                .collection(Cll.CACHE_ALUNOS)
-                .doc(igrejaId)
-                .update({
-                    [`lista.${alunoId}`]: {
-                        ...alunoDoc.data(),
-                        ...dadosAtualizados,
-                        id: alunoId,
-                    },
-                }),
-        ]);
+        if (alunoData?.membroId && alunoData.membroId !== dados.membroId) {
+            batch.update(db.collection(Cll.MEMBROS).doc(alunoData.membroId), {
+                alunoId: null,
+            });
+            batch.update(db.collection(Cll.CACHE_MEMBROS).doc(igrejaId), {
+                [`lista.${alunoData.membroId}.alunoId`]: null,
+            });
+        }
 
+        batch.update(alunoRef, dadosAtualizados);
+        batch.update(db.collection(Cll.CACHE_ALUNOS).doc(igrejaId), {
+            [`lista.${alunoId}`]: {
+                ...alunoDoc.data(),
+                ...dadosAtualizados,
+                id: alunoId,
+            },
+        });
+
+        await batch.commit();
         enviarLog(
             user,
             request,
@@ -3446,9 +3448,12 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                     }
 
                     const detalhes = cache.detalhes_aluno;
-                    if (detalhes[aluno.alunoId])
+                    if (detalhes[aluno.alunoId]) {
+                        detalhes[aluno.alunoId].nome = alunosMap.get(
+                            aluno.alunoId,
+                        )?.nome_completo;
                         detalhes[aluno.alunoId].matriculado = true;
-                    else
+                    } else
                         detalhes[aluno.alunoId] = {
                             nome: alunosMap.get(aluno.alunoId)?.nome_completo,
                             presente: 0,
@@ -4179,6 +4184,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             missoes: dadosParaSalvar.missoes_total,
             missoes_dinheiro: dadosParaSalvar.missoes.dinheiro,
             missoes_pix: dadosParaSalvar.missoes.pix,
+            total_matriculados: dadosParaSalvar.total_matriculados,
         };
         const dadosAlunos: any = {};
         const dadosGeraisCache = {
@@ -4293,7 +4299,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
                             },
                         );
 
-                    const trouxeRevista = chamada[id].trouxe_revista;
+                    const trouxeRevista = chamada[id].trouxe_licao;
                     const trouxeBiblia = chamada[id].trouxe_biblia;
 
                     obj[stts]++;
@@ -4317,13 +4323,13 @@ export const salvarChamada = functions.https.onCall(async (request) => {
 
                 const porcentagem = ((totalPontos || 0) / totalAulas) * 100;
                 const porcentagemRevista =
-                    (a[id].trouxe_licao / totalAulas) * 100;
+                    (a[id].trouxe_revista / totalAulas) * 100;
                 const porcentagemBiblia =
                     (a[id].trouxe_biblia / totalAulas) * 100;
 
                 a[id].porcentagem = porcentagem;
                 a[id].porcentagem_biblia = porcentagemBiblia;
-                a[id].trouxe_revista = porcentagemRevista;
+                a[id].porcentagem_revista = porcentagemRevista;
             }
 
             batch.update(cacheRef, {

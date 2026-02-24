@@ -17,6 +17,23 @@ import { faUpRightAndDownLeftFromCenter } from "@fortawesome/free-solid-svg-icon
 import React, { useState } from "react";
 import DashboardCardModal from "./DashboardCardModal";
 
+const CORES_GRAFICO = [
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#14B8A6",
+    "#FACC15",
+    "#EC4899",
+    "#22C55E",
+    "#6366F1",
+    "#F43F5E",
+    "#0EA5E9",
+    "#D946EF",
+    "#84CC16",
+    "#A855F7",
+];
+
 function DashboardCard({
     title,
     value,
@@ -32,22 +49,6 @@ function DashboardCard({
     chartType: "bar" | "area" | "pie";
     withIndex?: boolean;
 }) {
-    const CORES_GRAFICO = [
-        "#3B82F6",
-        "#10B981",
-        "#F59E0B",
-        "#EF4444",
-        "#14B8A6",
-        "#FACC15",
-        "#EC4899",
-        "#22C55E",
-        "#6366F1",
-        "#F43F5E",
-        "#0EA5E9",
-        "#D946EF",
-        "#84CC16",
-        "#A855F7",
-    ];
     const [expandirCard, setExpandirCard] = useState(false);
     const dataKeys = Object.keys(datas[0] || {}).filter((v) => v !== "name");
     const condition =

@@ -209,7 +209,6 @@ const AlunoChamada = React.memo(
             name: `chamada.${aluno.alunoId}`,
             defaultValue: "Presente",
         });
-        console.log("aaa");
 
         const updateLicao = (id: string, remove: boolean) => {
             const licoes = getValues("licoesTrazidas");

@@ -14,7 +14,13 @@ import {
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import { useNavigate } from "react-router-dom";
@@ -48,72 +54,72 @@ const variantsContainer: Variants = {
 const functions = getFunctions();
 const deletarMembro = httpsCallable(functions, "deletarMembro");
 const salvarMembroCSV = httpsCallable(functions, "salvarMembroCSV");
+const OPTIONS = [
+    {
+        nome: "Nome",
+        id: "nome_completo",
+        icon: faFeather,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Data Nasc.",
+        id: "data_nascimento",
+        icon: faCalendar,
+        isFilter: true,
+        placeholder: "",
+        dataObject: {},
+    },
+    {
+        nome: "Idade",
+        id: "idade",
+        icon: faCakeCandles,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Contato",
+        id: "contato",
+        icon: faPhone,
+        isFilter: false,
+        placeholder: "sem contato",
+    },
+    {
+        nome: "Validade",
+        id: "validade",
+        icon: faCalendarCheck,
+        isFilter: true,
+        placeholder: "-",
+        dataObject: {
+            month: "2-digit",
+            year: "numeric",
+        },
+    },
+    {
+        nome: "Registro",
+        id: "registro",
+        icon: faAddressCard,
+        isFilter: false,
+        placeholder: "-",
+    },
+    {
+        nome: "Matriculado?",
+        id: "isMatriculado",
+        icon: faAddressCard,
+        isFilter: true,
+        placeholder: "",
+        isBoolean: true,
+    },
+];
+const COLUNAS = [
+    "nome_completo",
+    "data_nascimento",
+    "contato(opcional)",
+    "validade(opcional ou DD/MM/AAAA)",
+    "registro(opcional)",
+];
 
 function Membros() {
-    const OPTIONS = [
-        {
-            nome: "Nome",
-            id: "nome_completo",
-            icon: faFeather,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Data Nasc.",
-            id: "data_nascimento",
-            icon: faCalendar,
-            isFilter: true,
-            placeholder: "",
-            dataObject: {},
-        },
-        {
-            nome: "Idade",
-            id: "idade",
-            icon: faCakeCandles,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Contato",
-            id: "contato",
-            icon: faPhone,
-            isFilter: false,
-            placeholder: "sem contato",
-        },
-        {
-            nome: "Validade",
-            id: "validade",
-            icon: faCalendarCheck,
-            isFilter: true,
-            placeholder: "-",
-            dataObject: {
-                month: "2-digit",
-                year: "numeric",
-            },
-        },
-        {
-            nome: "Registro",
-            id: "registro",
-            icon: faAddressCard,
-            isFilter: false,
-            placeholder: "-",
-        },
-        {
-            nome: "Matriculado?",
-            id: "isMatriculado",
-            icon: faAddressCard,
-            isFilter: true,
-            placeholder: "",
-            isBoolean: true,
-        },
-    ];
-    const COLUNAS = [
-        "nome_completo",
-        "data_nascimento",
-        "contato(opcional)",
-        "validade(opcional ou DD/MM/AAAA)",
-        "registro(opcional)",
-    ];
     const [isLoading, setIsLoading] = useState(false);
     const [editMembro, setEditMembro] = useState("");
     const [addMembro, setAddMembro] = useState(false);
@@ -176,6 +182,33 @@ function Membros() {
         }
     };
 
+    const onDeleteItem = useCallback((v: any) => {
+        setMensagem({
+            titulo: "Deletar Membro?",
+            confirmText: "Sim, deletar membro",
+            mensagem: (
+                <>
+                    <span>
+                        Tem certeza que deseja deletar o membro:{" "}
+                        <strong>{v.nome_completo}</strong>?
+                    </span>
+                    <span>
+                        Isso irá apagar <strong>TODOS</strong> os dados
+                        associados.
+                    </span>
+                </>
+            ),
+            onConfirm: () => apagarMembro(v.id),
+        });
+    }, []);
+    const onEditItem = useCallback((v: any) => {
+        setEditMembro(v.id);
+    }, []);
+    const onSelectOrder = useCallback((v: any) => {
+        setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"));
+        setOrdemColuna(v.id as any);
+    }, []);
+
     const membrosMemo = useMemo(() => {
         let m = membros;
         m = m.filter(
@@ -200,6 +233,7 @@ function Membros() {
             if (!membrosSnap.exists()) return [];
 
             const membros = membrosSnap.data() as CacheMembroInterface;
+
             const listaMembros = Object.values(membros.lista).map((v) => ({
                 ...v,
                 idade: `${getIdade(v.data_nascimento)} anos`,
@@ -311,41 +345,9 @@ function Membros() {
                                 currentList={membrosMemo as any}
                                 currentOrder={ordemColuna}
                                 ordem={ordem}
-                                onSelectOrder={(v) => {
-                                    setOrdem((v) =>
-                                        v === "crescente"
-                                            ? "decrescente"
-                                            : "crescente",
-                                    );
-                                    setOrdemColuna(v.id as any);
-                                }}
-                                onDelete={(v) => {
-                                    setMensagem({
-                                        titulo: "Deletar Membro?",
-                                        confirmText: "Sim, deletar membro",
-                                        mensagem: (
-                                            <>
-                                                <span>
-                                                    Tem certeza que deseja
-                                                    deletar o membro:{" "}
-                                                    <strong>
-                                                        {v.nome_completo}
-                                                    </strong>
-                                                    ?
-                                                </span>
-                                                <span>
-                                                    Isso irá apagar{" "}
-                                                    <strong>TODOS</strong> os
-                                                    dados associados.
-                                                </span>
-                                            </>
-                                        ),
-                                        onConfirm: () => apagarMembro(v.id),
-                                    });
-                                }}
-                                onEdit={(v) => {
-                                    setEditMembro(v.id);
-                                }}
+                                onSelectOrder={onSelectOrder}
+                                onDelete={onDeleteItem}
+                                onEdit={onEditItem}
                             />
                         ) : (
                             <motion.div

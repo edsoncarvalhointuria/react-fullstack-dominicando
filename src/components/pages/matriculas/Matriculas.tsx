@@ -13,7 +13,13 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Dropdown from "../../ui/Dropdown";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
 import SearchInput from "../../ui/SearchInput";
 import type {
@@ -47,33 +53,33 @@ interface Form {
 
 const functions = getFunctions();
 const deletarMatricula = httpsCallable(functions, "deletarMatricula");
+const OPTIONS = [
+    {
+        nome: "Nome Aluno",
+        id: "alunoNome",
+        icon: faFeather,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Matricula",
+        id: "data_matricula",
+        icon: faAddressCard,
+        isFilter: true,
+        placeholder: "",
+        dataObject: {},
+    },
+    {
+        nome: "Possui Revista?",
+        id: "possui_revista",
+        icon: faBookOpenReader,
+        isFilter: true,
+        placeholder: "",
+        isBoolean: true,
+    },
+];
 
 function Matriculas() {
-    const OPTIONS = [
-        {
-            nome: "Nome Aluno",
-            id: "alunoNome",
-            icon: faFeather,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Matricula",
-            id: "data_matricula",
-            icon: faAddressCard,
-            isFilter: true,
-            placeholder: "",
-            dataObject: {},
-        },
-        {
-            nome: "Possui Revista?",
-            id: "possui_revista",
-            icon: faBookOpenReader,
-            isFilter: true,
-            placeholder: "",
-            isBoolean: true,
-        },
-    ];
     const [licoes, setLicoes] = useState<(LicaoInterface & { nome: string })[]>(
         [],
     );
@@ -191,6 +197,32 @@ function Matriculas() {
             setPesquisa("");
         }
     };
+    const onDeleteItem = useCallback((v: any) => {
+        setMensagem({
+            mensagem: (
+                <span>
+                    Deseja deletar a matricula do aluno:{" "}
+                    <strong>{v.alunoNome}</strong>?
+                </span>
+            ),
+            onConfirm: () => apagarMatricula(v),
+            titulo: "Apagar Matricula?",
+            confirmText: "Sim, apagar matricula",
+        });
+    }, []);
+    const onEditItem = useCallback((v: any) => {
+        const data = v.data_matricula.toDate();
+        data.setHours(12, 0, 0, 0);
+        setEditMatricula({
+            aluno: v.alunoId,
+            possui_revista: v.possui_revista,
+            data_matricula: data.toISOString().split("T")[0],
+        });
+    }, []);
+    const onSelectOrder = useCallback((v: any) => {
+        setOrdemColuna(v.id as any);
+        setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"));
+    }, []);
 
     const classesMemo = useMemo(() => {
         if (igreja) return classes.filter((v) => v.igrejaId == igreja);
@@ -417,38 +449,9 @@ function Matriculas() {
                             ordem={ordem}
                             currentOrder={ordemColuna}
                             options={OPTIONS}
-                            onSelectOrder={(v) => {
-                                setOrdemColuna(v.id as any);
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                );
-                            }}
-                            onEdit={(v) => {
-                                const data = v.data_matricula.toDate();
-                                data.setHours(12, 0, 0, 0);
-                                setEditMatricula({
-                                    aluno: v.alunoId,
-                                    possui_revista: v.possui_revista,
-                                    data_matricula: data
-                                        .toISOString()
-                                        .split("T")[0],
-                                });
-                            }}
-                            onDelete={(v) => {
-                                setMensagem({
-                                    mensagem: (
-                                        <span>
-                                            Deseja deletar a matricula do aluno:{" "}
-                                            <strong>{v.alunoNome}</strong>?
-                                        </span>
-                                    ),
-                                    onConfirm: () => apagarMatricula(v),
-                                    titulo: "Apagar Matricula?",
-                                    confirmText: "Sim, apagar matricula",
-                                });
-                            }}
+                            onSelectOrder={onSelectOrder}
+                            onEdit={onEditItem}
+                            onDelete={onDeleteItem}
                         />
                     ) : (
                         <motion.div className="alunos-page__vazio">

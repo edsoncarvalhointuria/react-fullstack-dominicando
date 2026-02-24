@@ -862,7 +862,8 @@ $cor-missoes: #0ea5e9;
         @media all and (max-width: 30em) {
             margin: 1rem;
             margin-bottom: 0;
-            gap: 1rem;
+            justify-content: center;
+            gap: 0.5rem;
         }
     }
 
@@ -898,6 +899,7 @@ $cor-missoes: #0ea5e9;
 
             @media all and (max-width: 30em) {
                 padding: 0.6rem 1rem;
+                font-size: 1.2rem;
             }
         }
 

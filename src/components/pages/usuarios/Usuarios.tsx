@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import "./usuarios.scss";
@@ -54,45 +60,114 @@ const variantsContainer: Variants = {
 
 const functions = getFunctions();
 const deletarUsuario = httpsCallable(functions, "deletarUsuario");
+const OPTIONS = [
+    {
+        nome: "Nome",
+        id: "nome",
+        icon: faFeather,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "E-mail",
+        id: "email",
+        icon: faAt,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Cargo",
+        id: "role",
+        icon: faStar,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Igreja",
+        id: "igrejaNome",
+        icon: faChurch,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Classe",
+        id: "classeNome",
+        icon: faChalkboardUser,
+        isFilter: true,
+        placeholder: "sem classe",
+    },
+];
+
+const UsuarioItem = React.memo(
+    ({
+        usuario,
+        onEditItem,
+        onDelete,
+        isSecretario = false,
+    }: {
+        usuario: UsuarioInterface;
+        isSecretario?: boolean;
+        onEditItem: (usuario: UsuarioInterface) => void;
+        onDelete: (usuario: UsuarioInterface) => void;
+    }) => {
+        return (
+            <tr>
+                <td data-label="Nome">{usuario.nome}</td>
+                {!isSecretario && <td data-label="Email">{usuario.email}</td>}
+                <td data-label="Cargo">{RolesLabel[usuario.role]}</td>
+                <td data-label="Igreja">{usuario.igrejaNome}</td>
+
+                <td data-label="Classe">{usuario?.classeNome || "-"}</td>
+
+                <td data-label="Ações">
+                    <div className="usuarios-page__table-acoes">
+                        <div
+                            className="usuarios-page__table-acao"
+                            onClick={() => onEditItem(usuario)}
+                        >
+                            <FontAwesomeIcon icon={faUserPen} />
+                        </div>
+                        {!isSecretario && (
+                            <div
+                                className="usuarios-page__table-acao"
+                                onClick={() => onDelete(usuario)}
+                            >
+                                <FontAwesomeIcon icon={faTrash} />
+                            </div>
+                        )}
+                    </div>
+                </td>
+            </tr>
+        );
+    },
+);
+const UsuariosLista = React.memo(
+    ({
+        usuarios,
+        onDelete,
+        onEditItem,
+        isSecretario,
+    }: {
+        usuarios: UsuarioInterface[];
+        isSecretario: boolean;
+        onEditItem: (usuario: UsuarioInterface) => void;
+        onDelete: (usuario: UsuarioInterface) => void;
+    }) => {
+        return usuarios.map((v) => {
+            return (
+                <UsuarioItem
+                    usuario={v}
+                    key={v.id}
+                    isSecretario={isSecretario}
+                    onDelete={onDelete}
+                    onEditItem={onEditItem}
+                />
+            );
+        });
+    },
+);
 
 function Usuarios() {
-    const OPTIONS = [
-        {
-            nome: "Nome",
-            id: "nome",
-            icon: faFeather,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "E-mail",
-            id: "email",
-            icon: faAt,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Cargo",
-            id: "role",
-            icon: faStar,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Igreja",
-            id: "igrejaNome",
-            icon: faChurch,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Classe",
-            id: "classeNome",
-            icon: faChalkboardUser,
-            isFilter: true,
-            placeholder: "sem classe",
-        },
-    ];
     const { isSuperAdmin, isSecretario, user } = useAuthContext();
     const { igrejas, isLoadingData } = useDataContext();
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
@@ -148,6 +223,27 @@ function Usuarios() {
             setPesquisa("");
         }
     };
+    const onDeleteUser = useCallback((v: UsuarioInterface) => {
+        () =>
+            setMensagem({
+                mensagem: (
+                    <>
+                        <span>
+                            Tem certeza que deseja deletar o usuário:{" "}
+                            <strong>{v.nome}</strong>?
+                        </span>
+                    </>
+                ),
+                titulo: "Deletar usuário?",
+                confirmText: "Sim, deletar usuário",
+                onCancel: () => setMensagem(null),
+                onConfirm: () => apagarUsuario(v.id),
+            });
+    }, []);
+    const onEditUser = useCallback(
+        (v: UsuarioInterface) => setEditItem(v.id),
+        [],
+    );
 
     const usuariosMemo = useMemo(() => {
         let u = usuarios;
@@ -393,84 +489,12 @@ function Usuarios() {
                             </thead>
 
                             <tbody>
-                                {usuariosMemo.map((v) => (
-                                    <tr key={v.id}>
-                                        <td data-label="Nome">{v.nome}</td>
-                                        {!isSecretario.current && (
-                                            <td data-label="Email">
-                                                {v.email}
-                                            </td>
-                                        )}
-                                        <td data-label="Cargo">
-                                            {RolesLabel[v.role]}
-                                        </td>
-                                        <td data-label="Igreja">
-                                            {v.igrejaNome}
-                                        </td>
-
-                                        <td data-label="Classe">
-                                            {v?.classeNome || "-"}
-                                        </td>
-
-                                        <td data-label="Ações">
-                                            <div className="usuarios-page__table-acoes">
-                                                <div
-                                                    className="usuarios-page__table-acao"
-                                                    onClick={() =>
-                                                        setEditItem(v.id)
-                                                    }
-                                                >
-                                                    <FontAwesomeIcon
-                                                        icon={faUserPen}
-                                                    />
-                                                </div>
-                                                {!isSecretario.current && (
-                                                    <div
-                                                        className="usuarios-page__table-acao"
-                                                        onClick={() =>
-                                                            setMensagem({
-                                                                mensagem: (
-                                                                    <>
-                                                                        <span>
-                                                                            Tem
-                                                                            certeza
-                                                                            que
-                                                                            deseja
-                                                                            deletar
-                                                                            o
-                                                                            usuário:{" "}
-                                                                            <strong>
-                                                                                {
-                                                                                    v.nome
-                                                                                }
-                                                                            </strong>
-                                                                            ?
-                                                                        </span>
-                                                                    </>
-                                                                ),
-                                                                titulo: "Deletar usuário?",
-                                                                confirmText:
-                                                                    "Sim, deletar usuário",
-                                                                onCancel: () =>
-                                                                    setMensagem(
-                                                                        null,
-                                                                    ),
-                                                                onConfirm: () =>
-                                                                    apagarUsuario(
-                                                                        v.id,
-                                                                    ),
-                                                            })
-                                                        }
-                                                    >
-                                                        <FontAwesomeIcon
-                                                            icon={faTrash}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                <UsuariosLista
+                                    isSecretario={isSecretario.current}
+                                    onDelete={onDeleteUser}
+                                    onEditItem={onEditUser}
+                                    usuarios={usuariosMemo}
+                                />
                             </tbody>
                         </motion.table>
                     ) : (

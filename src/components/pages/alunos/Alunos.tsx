@@ -13,7 +13,13 @@ import {
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import "./alunos.scss";
 import type {
     AlunoInterface,
@@ -48,53 +54,52 @@ const variantsContainer: Variants = {
 const functions = getFunctions();
 const deletarAluno = httpsCallable(functions, "deletarAluno");
 const salvarAlunosCSV = httpsCallable(functions, "salvarAlunosCSV");
+const OPTIONS = [
+    {
+        nome: "Nome",
+        id: "nome_completo",
+        icon: faFeather,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Data Nasc.",
+        id: "data_nascimento",
+        icon: faCalendar,
+        isFilter: true,
+        placeholder: "",
+        dataObject: {},
+    },
+    {
+        nome: "Idade",
+        id: "idade",
+        icon: faCakeCandles,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Contato",
+        id: "contato",
+        icon: faPhone,
+        isFilter: false,
+        placeholder: "sem contato",
+    },
+    {
+        nome: "Membro?",
+        id: "isMembro",
+        icon: faAddressCard,
+        isFilter: true,
+        placeholder: "",
+        isBoolean: true,
+    },
+];
+const COLUNAS = [
+    "nome_completo",
+    "data_nascimento(DD/MM/AAAA)",
+    "contato(opcional)",
+];
 
 function Alunos() {
-    const OPTIONS = [
-        {
-            nome: "Nome",
-            id: "nome_completo",
-            icon: faFeather,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Data Nasc.",
-            id: "data_nascimento",
-            icon: faCalendar,
-            isFilter: true,
-            placeholder: "",
-            dataObject: {},
-        },
-        {
-            nome: "Idade",
-            id: "idade",
-            icon: faCakeCandles,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Contato",
-            id: "contato",
-            icon: faPhone,
-            isFilter: false,
-            placeholder: "sem contato",
-        },
-        {
-            nome: "Membro?",
-            id: "isMembro",
-            icon: faAddressCard,
-            isFilter: true,
-            placeholder: "",
-            isBoolean: true,
-        },
-    ];
-    const COLUNAS = [
-        "nome_completo",
-        "data_nascimento(DD/MM/AAAA)",
-        "contato(opcional)",
-    ];
-
     const [isLoading, setIsLoading] = useState(false);
     const [editAluno, setEditAluno] = useState("");
     const [addAluno, setAddAluno] = useState(false);
@@ -153,6 +158,35 @@ function Alunos() {
             setIsLoading(false);
         }
     };
+
+    const onDeleteItem = useCallback(
+        (v: any) =>
+            setMensagem({
+                titulo: "Deletar Aluno?",
+                confirmText: "Sim, deletar aluno",
+                mensagem: (
+                    <>
+                        <span>
+                            Tem certeza que deseja deletar o aluno:{" "}
+                            <strong>{v.nome_completo}</strong>?
+                        </span>
+                        <span>
+                            Isso irá apagar <strong>TODOS</strong> os dados
+                            associados.
+                        </span>
+                    </>
+                ),
+                onConfirm: () => apagarAluno(v.id),
+            }),
+        [],
+    );
+    const onEditItem = useCallback((v: any) => {
+        setEditAluno(v.id);
+    }, []);
+    const onSelectOrder = useCallback((v: any) => {
+        setOrdemColuna(v.id as any);
+        setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"));
+    }, []);
 
     const alunosMemo = useMemo(() => {
         let a = alunos;
@@ -289,39 +323,9 @@ function Alunos() {
                                 currentOrder={ordemColuna}
                                 ordem={ordem}
                                 options={OPTIONS}
-                                onSelectOrder={(v) => {
-                                    setOrdemColuna(v.id as any);
-                                    setOrdem((v) =>
-                                        v === "crescente"
-                                            ? "decrescente"
-                                            : "crescente",
-                                    );
-                                }}
-                                onEdit={(v) => setEditAluno(v.id)}
-                                onDelete={(v) =>
-                                    setMensagem({
-                                        titulo: "Deletar Aluno?",
-                                        confirmText: "Sim, deletar aluno",
-                                        mensagem: (
-                                            <>
-                                                <span>
-                                                    Tem certeza que deseja
-                                                    deletar o aluno:{" "}
-                                                    <strong>
-                                                        {v.nome_completo}
-                                                    </strong>
-                                                    ?
-                                                </span>
-                                                <span>
-                                                    Isso irá apagar{" "}
-                                                    <strong>TODOS</strong> os
-                                                    dados associados.
-                                                </span>
-                                            </>
-                                        ),
-                                        onConfirm: () => apagarAluno(v.id),
-                                    })
-                                }
+                                onSelectOrder={onSelectOrder}
+                                onEdit={onEditItem}
+                                onDelete={onDeleteItem}
                             />
                         ) : (
                             <motion.div

@@ -2,7 +2,13 @@ import { Navigate } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import {
     faChurch,
     faFeather,
@@ -41,50 +47,46 @@ const variantsContainer: Variants = {
 const functions = getFunctions();
 const deletarClasse = httpsCallable(functions, "deletarClasse");
 const salvarClasseCSV = httpsCallable(functions, "salvarClasseCSV");
+const OPTIONS = [
+    {
+        nome: "Nome",
+        id: "nome",
+        icon: faFeather,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Rótulo",
+        id: "rotuloNome",
+        icon: faTag,
+        isFilter: true,
+        placeholder: "-",
+    },
+    {
+        nome: "Idade mínima",
+        id: "idade_minima",
+        icon: faNetworkWired,
+        isFilter: true,
+        placeholder: "-",
+    },
+    {
+        nome: "Idade máxima",
+        id: "idade_maxima",
+        icon: faNetworkWired,
+        isFilter: true,
+        placeholder: "-",
+    },
+    {
+        nome: "Igreja",
+        id: "igrejaNome",
+        icon: faChurch,
+        isFilter: true,
+        placeholder: "",
+    },
+];
+const COLUNAS = ["nome", "idade_minima(opcional)", "idade_maxima(opcional)"];
 
 function Classes() {
-    const OPTIONS = [
-        {
-            nome: "Nome",
-            id: "nome",
-            icon: faFeather,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Rótulo",
-            id: "rotuloNome",
-            icon: faTag,
-            isFilter: true,
-            placeholder: "-",
-        },
-        {
-            nome: "Idade mínima",
-            id: "idade_minima",
-            icon: faNetworkWired,
-            isFilter: true,
-            placeholder: "-",
-        },
-        {
-            nome: "Idade máxima",
-            id: "idade_maxima",
-            icon: faNetworkWired,
-            isFilter: true,
-            placeholder: "-",
-        },
-        {
-            nome: "Igreja",
-            id: "igrejaNome",
-            icon: faChurch,
-            isFilter: true,
-            placeholder: "",
-        },
-    ];
-    const COLUNAS = [
-        "nome",
-        "idade_minima(opcional)",
-        "idade_maxima(opcional)",
-    ];
     const { isSecretario, isSuperAdmin } = useAuthContext();
     const { isLoadingData, igrejas, classes, refetchData } = useDataContext();
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
@@ -155,6 +157,37 @@ function Classes() {
             setPesquisa("");
         }
     };
+
+    const onDeleteItem = useCallback(
+        (v: any) =>
+            setMensagem({
+                message: (
+                    <>
+                        <span>
+                            Tem certeza que deseja deletar a classe: {v?.nome}?
+                        </span>
+                        <span>
+                            Isso irá deletar <strong>TODOS</strong> os usuários
+                            associados a ela.
+                        </span>
+                    </>
+                ),
+                onCancel: () => setMensagem(null),
+                onClose: () => setMensagem(null),
+                onConfirm: () => apagarClasse(v?.id || ""),
+                title: "Deseja deletar a classe?",
+                cancelText: "Cancelar",
+                confirmText: "Sim, deletar classe",
+            }),
+        [],
+    );
+    const onEditItem = useCallback((v: any) => {
+        setEditClasse(v.id);
+    }, []);
+    const onSelectOrder = useCallback((v: any) => {
+        setOrdemColuna(v.id as any);
+        setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"));
+    }, []);
 
     const classesMemo = useMemo(() => {
         let c = classes;
@@ -262,41 +295,9 @@ function Classes() {
                                 currentOrder={ordemColuna}
                                 options={OPTIONS}
                                 ordem={ordem}
-                                onDelete={(v) =>
-                                    setMensagem({
-                                        message: (
-                                            <>
-                                                <span>
-                                                    Tem certeza que deseja
-                                                    deletar a classe: {v?.nome}?
-                                                </span>
-                                                <span>
-                                                    Isso irá deletar{" "}
-                                                    <strong>TODOS</strong> os
-                                                    usuários associados a ela.
-                                                </span>
-                                            </>
-                                        ),
-                                        onCancel: () => setMensagem(null),
-                                        onClose: () => setMensagem(null),
-                                        onConfirm: () =>
-                                            apagarClasse(v?.id || ""),
-                                        title: "Deseja deletar a classe?",
-                                        cancelText: "Cancelar",
-                                        confirmText: "Sim, deletar classe",
-                                    })
-                                }
-                                onEdit={(v) => {
-                                    setEditClasse(v.id);
-                                }}
-                                onSelectOrder={(v) => {
-                                    setOrdemColuna(v.id as any);
-                                    setOrdem((v) =>
-                                        v === "crescente"
-                                            ? "decrescente"
-                                            : "crescente",
-                                    );
-                                }}
+                                onDelete={onDeleteItem}
+                                onEdit={onEditItem}
+                                onSelectOrder={onSelectOrder}
                             />
                         ) : (
                             <motion.div

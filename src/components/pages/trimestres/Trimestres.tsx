@@ -6,7 +6,13 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import "./visitas.scss";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
@@ -31,47 +37,47 @@ const variantsContainer: Variants = {
     visible: { transition: { delayChildren: stagger(0.1) } },
     exit: {},
 };
+const OPTIONS = [
+    {
+        nome: "Nome",
+        id: "nome",
+        icon: faCalendarDays,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Trimestre",
+        id: "numero_trimestre",
+        icon: faCalendarDays,
+        isFilter: true,
+        placeholder: "",
+    },
+    {
+        nome: "Data Início",
+        id: "data_inicio",
+        icon: faCalendar,
+        isFilter: true,
+        placeholder: "sem data",
+        dataObject: {},
+    },
+    {
+        nome: "Data Final",
+        id: "data_fim",
+        icon: faCalendar,
+        isFilter: true,
+        placeholder: "sem data",
+        dataObject: {},
+    },
+    {
+        nome: "Ano",
+        id: "ano",
+        icon: faCalendarDay,
+        isFilter: true,
+        placeholder: "-",
+    },
+];
 
 function Trimestres() {
-    const OPTIONS = [
-        {
-            nome: "Nome",
-            id: "nome",
-            icon: faCalendarDays,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Trimestre",
-            id: "numero_trimestre",
-            icon: faCalendarDays,
-            isFilter: true,
-            placeholder: "",
-        },
-        {
-            nome: "Data Início",
-            id: "data_inicio",
-            icon: faCalendar,
-            isFilter: true,
-            placeholder: "sem data",
-            dataObject: {},
-        },
-        {
-            nome: "Data Final",
-            id: "data_fim",
-            icon: faCalendar,
-            isFilter: true,
-            placeholder: "sem data",
-            dataObject: {},
-        },
-        {
-            nome: "Ano",
-            id: "ano",
-            icon: faCalendarDay,
-            isFilter: true,
-            placeholder: "-",
-        },
-    ];
     const [isLoading, setIsLoading] = useState(false);
     const [editTrimestre, setEditTrimestre] = useState("");
     const [pesquisa, setPesquisa] = useState("");
@@ -79,7 +85,7 @@ function Trimestres() {
     const [update, setUpdate] = useState(false);
     const [ordemColuna, setOrdemColuna] = useState<any>("");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const [mensagem, setMensagem] = useState<{
         titulo: string;
@@ -91,6 +97,13 @@ function Trimestres() {
     const { isLoadingData } = useDataContext();
     const { user, isSuperAdmin } = useAuthContext();
     const navigate = useNavigate();
+
+    const onDeleteItem = useCallback(() => {}, []);
+    const onEditItem = useCallback((v: any) => setEditTrimestre(v.id), []);
+    const onSelectOrder = useCallback((v: any) => {
+        setOrdemColuna(v.id as any);
+        setOrdem((o) => (o === "crescente" ? "decrescente" : "crescente"));
+    }, []);
 
     const trimestresMemo = useMemo(() => {
         let v = trimestres;
@@ -106,7 +119,7 @@ function Trimestres() {
                     ?.toDate()
                     ?.toLocaleDateString("pt-BR")
                     ?.includes(pesquisa) ||
-                v.numero_trimestre === Number(pesquisa)
+                v.numero_trimestre === Number(pesquisa),
         );
         v = v.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
 
@@ -117,7 +130,7 @@ function Trimestres() {
             const trimestresCll = collection(db, "trimestres");
             const q = query(
                 trimestresCll,
-                where("ministerioId", "==", user?.ministerioId)
+                where("ministerioId", "==", user?.ministerioId),
             );
             const trimestresSnap = await getDocs(q);
 
@@ -131,7 +144,7 @@ function Trimestres() {
             return trimestres.sort(
                 (a, b) =>
                     b.data_fim.toDate().getTime() -
-                    a.data_inicio.toDate().getTime()
+                    a.data_inicio.toDate().getTime(),
             );
         };
         if (user)
@@ -177,7 +190,7 @@ function Trimestres() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             isCrescente={ordem === "crescente"}
@@ -200,17 +213,10 @@ function Trimestres() {
                                 options={OPTIONS}
                                 currentOrder={ordemColuna}
                                 ordem={ordem}
-                                onSelectOrder={(v) => {
-                                    setOrdemColuna(v.id as any);
-                                    setOrdem((o) =>
-                                        o === "crescente"
-                                            ? "decrescente"
-                                            : "crescente"
-                                    );
-                                }}
-                                onEdit={(v) => setEditTrimestre(v.id)}
+                                onSelectOrder={onSelectOrder}
+                                onEdit={onEditItem}
                                 notDelete={true}
-                                onDelete={() => {}}
+                                onDelete={onDeleteItem}
                             />
                         ) : (
                             <motion.div

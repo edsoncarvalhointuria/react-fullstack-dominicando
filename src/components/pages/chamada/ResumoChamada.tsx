@@ -30,6 +30,7 @@ function ResumoChamada({
     const ofertaDinheiro = useWatch({ name: "ofertaDinheiro", control });
     const missoesPix = useWatch({ name: "missoesPix", control });
     const missoesDinheiro = useWatch({ name: "missoesDinheiro", control });
+    const totalMatriculados = useWatch({ name: "totalMatriculados", control });
 
     const dadosProcessados = useMemo(() => {
         const matriculadosMap = new Map(
@@ -108,7 +109,6 @@ function ResumoChamada({
     const totalBiblias = getValues("totalBiblias");
     const totalLicoes = getValues("totalLicoes");
     const descricao = getValues("descricao");
-    const totalMatriculados = getValues("totalMatriculados");
 
     return (
         <motion.div

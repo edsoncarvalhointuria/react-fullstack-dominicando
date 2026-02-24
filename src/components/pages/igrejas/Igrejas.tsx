@@ -10,7 +10,7 @@ import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import CadastroIgrejaModal from "../../ui/CadastroIgrejaModal";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
@@ -36,18 +36,18 @@ const variantsContainer: Variants = {
 const functions = getFunctions();
 const deletarIgreja = httpsCallable(functions, "deletarIgreja");
 const salvarIgrejaCSV = httpsCallable(functions, "salvarIgrejaCSV");
+const OPTIONS = [
+    {
+        nome: "Nome",
+        id: "nome",
+        icon: faFeather,
+        isFilter: true,
+        placeholder: "",
+    },
+];
+const COLUNAS = ["nome"];
 
 function Igrejas() {
-    const OPTIONS = [
-        {
-            nome: "Nome",
-            id: "nome",
-            icon: faFeather,
-            isFilter: true,
-            placeholder: "",
-        },
-    ];
-    const COLUNAS = ["nome"];
     const { isSuperAdmin } = useAuthContext();
     const { igrejas, isLoadingData, refetchData } = useDataContext();
     const [editIgreja, setEditIgreja] = useState("");
@@ -57,7 +57,7 @@ function Igrejas() {
     const [ordemColuna, setOrdemColuna] = useState("");
     const [pesquisa, setPesquisa] = useState("");
     const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente"
+        "crescente",
     );
     const [mensagem, setMensagem] = useState<{
         mensagem: string | ReactNode;
@@ -96,13 +96,40 @@ function Igrejas() {
             setPesquisa("");
         }
     };
+    const onDeleteItem = useCallback(
+        (v: any) =>
+            setMensagem({
+                mensagem: (
+                    <>
+                        <span>
+                            Tem certeza que deseja deletar a igreja:{" "}
+                            <strong>{v.nome}</strong>?
+                        </span>
+                        <span>
+                            Isso irá apagar <strong>TODOS</strong> os dados
+                            relacionados a ela.
+                        </span>
+                    </>
+                ),
+                titulo: "Deletar igreja?",
+                confirmText: "Sim, deletar igreja",
+                onCancel: () => setMensagem(null),
+                onConfirm: () => apagarIgreja(v.id),
+            }),
+        [],
+    );
+    const onEditItem = useCallback((v: any) => setEditIgreja(v.id), []);
+    const onSelectOrder = useCallback((v: any) => {
+        setOrdemColuna(v.id);
+        setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"));
+    }, []);
 
     const igrejasMemo = useMemo(() => {
         let i = igrejas;
         i = i.filter(
             (v) =>
                 v.nome.toLowerCase().includes(pesquisa) ||
-                v.id.toLowerCase() === pesquisa
+                v.id.toLowerCase() === pesquisa,
         );
         i = i.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
 
@@ -160,7 +187,7 @@ function Igrejas() {
                                 setOrdem((v) =>
                                     v === "crescente"
                                         ? "decrescente"
-                                        : "crescente"
+                                        : "crescente",
                                 )
                             }
                             onSelect={(v) => setOrdemColuna(v.id)}
@@ -178,37 +205,9 @@ function Igrejas() {
                             currentOrder={ordemColuna}
                             ordem={ordem}
                             options={OPTIONS}
-                            onSelectOrder={(v) => {
-                                setOrdemColuna(v.id);
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente"
-                                );
-                            }}
-                            onEdit={(v) => setEditIgreja(v.id)}
-                            onDelete={(v) =>
-                                setMensagem({
-                                    mensagem: (
-                                        <>
-                                            <span>
-                                                Tem certeza que deseja deletar a
-                                                igreja:{" "}
-                                                <strong>{v.nome}</strong>?
-                                            </span>
-                                            <span>
-                                                Isso irá apagar{" "}
-                                                <strong>TODOS</strong> os dados
-                                                relacionados a ela.
-                                            </span>
-                                        </>
-                                    ),
-                                    titulo: "Deletar igreja?",
-                                    confirmText: "Sim, deletar igreja",
-                                    onCancel: () => setMensagem(null),
-                                    onConfirm: () => apagarIgreja(v.id),
-                                })
-                            }
+                            onSelectOrder={onSelectOrder}
+                            onEdit={onEditItem}
+                            onDelete={onDeleteItem}
                         />
                     ) : (
                         <motion.div

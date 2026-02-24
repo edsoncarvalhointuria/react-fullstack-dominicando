@@ -72,6 +72,7 @@ function CadastroAlunoModal({
         handleSubmit,
         control,
         watch,
+        setValue,
         formState: { errors },
     } = methods;
     const { isMembro } = watch();
@@ -206,7 +207,10 @@ function CadastroAlunoModal({
                 .then((v) => setMembros(v))
                 .catch((err) => console.log("deu esse erro", err))
                 .finally(() => setIsLoadingMembros(false));
-        } else setCurrentMembro(null);
+        } else {
+            setCurrentMembro(null);
+            setValue("membroId", undefined);
+        }
     }, [isMembro]);
     useEffect(() => {
         if (membros.length && currentMembro)
