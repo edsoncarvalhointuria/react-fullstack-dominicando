@@ -205,6 +205,7 @@ function Ranking() {
             const { data } = await pegarRankingPublico({ igrejaId, licaoId });
             const obj = data as RankingPublico;
             const { detalhes_aluno, detalhes_aulas, lista_aulas } = obj;
+
             setAlunos(Object.values(detalhes_aluno));
             setDiasMap(new Map(Object.entries(detalhes_aulas)));
             setListaAulas(

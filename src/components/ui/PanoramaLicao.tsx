@@ -13,12 +13,16 @@ import {
     faEyeSlash,
     faFileCsv,
     faFilePen,
+    faHeart,
+    faNoteSticky,
     faPiggyBank,
     faPlane,
     faRankingStar,
     faSackDollar,
     faShareNodes,
     faStar,
+    faTriangleExclamation,
+    faTrophy,
     faUserCheck,
     faUserClock,
     faUserPlus,
@@ -32,11 +36,19 @@ import {
     animate,
     AnimatePresence,
     motion,
+    useMotionTemplate,
     useMotionValue,
     useTransform,
 } from "framer-motion";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react";
 import "./panorama-licao.scss";
+import "@/components/pages/chamada/resumo-chamada.scss";
 import SearchInput from "./SearchInput";
 import LoadingModal from "../layout/loading/LoadingModal";
 import type {
@@ -53,6 +65,7 @@ import {
     Brush,
     Cell,
     ComposedChart,
+    LabelList,
     Legend,
     Line,
     LineChart,
@@ -66,6 +79,16 @@ import {
 import useIsMobile from "../../hooks/useIsMobile";
 import { AcordeaoItem, InfoLinha } from "../pages/chamada/ChamadaItens";
 import { PedidosRespostaShareModal } from "../pages/pedidos/PedidosResposta";
+import {
+    FormProvider,
+    useForm,
+    useFormContext,
+    useWatch,
+    type UseFormRegister,
+} from "react-hook-form";
+import { TROFEUS } from "../pages/portal_aluno/PortalAluno";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import AlertModal from "./AlertModal";
 
 interface PanoramaChamada {
     presente: number;
@@ -116,6 +139,9 @@ interface AulaDocument {
     realizada: boolean;
     registroRef: any;
 }
+
+const functions = getFunctions();
+const setTrofeuAlunos = httpsCallable(functions, "setTrofeuAlunos");
 
 const CORES_GRAFICO = [
     "#3B82F6",
@@ -354,124 +380,253 @@ const CardProgresso = ({ titulo, valor, icone, children, isCentro }: any) => (
         </div>
     </motion.div>
 );
-const GraficoRosca = ({
-    porcentagem,
-    cor = "#3b82f6",
-}: {
-    porcentagem: number | string;
-    cor?: string;
-}) => (
-    <div
-        className="grafico-rosca"
-        style={
-            {
-                "--porcentagem": porcentagem,
-                "--cor-frequencia": cor,
-            } as React.CSSProperties
-        }
-    >
-        <span className="grafico-rosca__texto">{porcentagem}%</span>
-    </div>
-);
-const AcordeaoAluno = ({
-    aluno,
-    verDetalhes,
-    opt,
-}: {
-    aluno: DetalhesAlunoCacheLicao;
-    verDetalhes: (aluno: DetalhesAlunoCacheLicao) => void;
-    opt: "chamada" | "revista" | "biblia";
-}) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const { porcentagem, porcentagem_biblia, porcentagem_revista } = aluno;
+export const GraficoRosca = React.memo(
+    ({
+        porcentagem,
+        cor = "#3b82f6",
+    }: {
+        porcentagem: number | string;
+        cor?: string;
+    }) => {
+        const porcento = useMotionValue(0);
+        const porcentoValue = useTransform(porcento, (v) => v.toFixed(0));
+        const background = useMotionTemplate`conic-gradient(${cor} ${porcento}%, #e5e7eb 0)`;
 
-    const escolha =
-        opt === "chamada"
-            ? porcentagem
-            : opt === "biblia"
-              ? porcentagem_biblia
-              : porcentagem_revista;
-    return (
-        <div className="acordeao-aluno">
-            <div
-                className="acordeao-aluno__header"
-                onClick={() => setIsOpen(!isOpen)}
-            >
-                <p className="acordeao-aluno__nome">{aluno.nome}</p>
-                <div className="acordeao-aluno__frequencia">
-                    <GraficoRosca
-                        porcentagem={escolha.toFixed(1)}
-                        cor={getCorDaFrequencia(escolha)}
+        useEffect(() => {
+            const anim = animate(porcento, Number(porcentagem), {
+                duration: 2,
+                ease: "easeOut",
+            });
+
+            return () => anim.stop();
+        }, [porcento, porcentoValue]);
+        return (
+            <motion.div className="grafico-rosca" style={{ background }}>
+                <span className="grafico-rosca__texto">
+                    <motion.span>{porcentoValue}</motion.span>%
+                </span>
+            </motion.div>
+        );
+    },
+);
+const AcordeaoAluno = React.memo(
+    ({
+        aluno,
+        verDetalhes,
+        opt,
+        register,
+    }: {
+        aluno: DetalhesAlunoCacheLicao;
+        verDetalhes: (aluno: DetalhesAlunoCacheLicao) => void;
+        opt: "chamada" | "revista" | "biblia";
+        register?: UseFormRegister<any>;
+    }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        const { porcentagem, porcentagem_biblia, porcentagem_revista } = aluno;
+
+        const escolha =
+            opt === "chamada"
+                ? porcentagem
+                : opt === "biblia"
+                  ? porcentagem_biblia
+                  : porcentagem_revista;
+        return (
+            <div className="acordeao-aluno">
+                {!!register && (
+                    <input
+                        type="checkbox"
+                        id={`trofeu-${aluno.id}`}
+                        value={aluno.id}
+                        {...register("alunos")}
                     />
-                    <motion.span animate={{ rotate: isOpen ? 180 : 0 }}>
-                        <FontAwesomeIcon icon={faChevronDown} />
-                    </motion.span>
+                )}
+                <div className="acordeao-aluno__infos">
+                    <div
+                        className="acordeao-aluno__header"
+                        onClick={() => setIsOpen(!isOpen)}
+                    >
+                        <p className="acordeao-aluno__nome">{aluno.nome}</p>
+                        <div className="acordeao-aluno__frequencia">
+                            <GraficoRosca
+                                porcentagem={escolha}
+                                cor={getCorDaFrequencia(escolha)}
+                                key={escolha}
+                            />
+                            <motion.span animate={{ rotate: isOpen ? 180 : 0 }}>
+                                <FontAwesomeIcon icon={faChevronDown} />
+                            </motion.span>
+                        </div>
+                    </div>
+                    <AnimatePresence>
+                        {isOpen && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                            >
+                                <div className="acordeao-aluno__body">
+                                    <ul>
+                                        {opt === "chamada" ? (
+                                            <>
+                                                <li>
+                                                    <strong>Presente:</strong>
+                                                    <span>
+                                                        {aluno.presente}
+                                                    </span>
+                                                </li>
+                                                <li>
+                                                    <strong>Atrasado:</strong>
+                                                    <span>
+                                                        {aluno.atrasado}
+                                                    </span>
+                                                </li>
+                                                <li>
+                                                    <strong>Faltas:</strong>
+                                                    <span>{aluno.falta}</span>
+                                                </li>
+                                                <li>
+                                                    <strong>
+                                                        Faltas Justificadas:
+                                                    </strong>
+                                                    <span>
+                                                        {
+                                                            aluno.falta_justificada
+                                                        }
+                                                    </span>
+                                                </li>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <li>
+                                                    <strong>Trouxe:</strong>
+                                                    <span>
+                                                        {
+                                                            aluno?.[
+                                                                `trouxe_${opt}`
+                                                            ]
+                                                        }
+                                                    </span>
+                                                </li>
+                                                <li>
+                                                    <strong>Não Trouxe:</strong>
+                                                    <span>
+                                                        {aluno?.[
+                                                            `nao_trouxe_${opt}`
+                                                        ] || 0}
+                                                    </span>
+                                                </li>
+                                            </>
+                                        )}
+                                    </ul>
+
+                                    <motion.button
+                                        onTap={() => verDetalhes(aluno)}
+                                        className="acordeao-aluno__detalhes"
+                                        type="button"
+                                    >
+                                        Ver detalhes
+                                    </motion.button>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                    >
-                        <div className="acordeao-aluno__body">
-                            <ul>
-                                {opt === "chamada" ? (
-                                    <>
-                                        <li>
-                                            <strong>Presente:</strong>
-                                            <span>{aluno.presente}</span>
-                                        </li>
-                                        <li>
-                                            <strong>Atrasado:</strong>
-                                            <span>{aluno.atrasado}</span>
-                                        </li>
-                                        <li>
-                                            <strong>Faltas:</strong>
-                                            <span>{aluno.falta}</span>
-                                        </li>
-                                        <li>
-                                            <strong>
-                                                Faltas Justificadas:
-                                            </strong>
-                                            <span>
-                                                {aluno.falta_justificada}
-                                            </span>
-                                        </li>
-                                    </>
-                                ) : (
-                                    <>
-                                        <li>
-                                            <strong>Trouxe:</strong>
-                                            <span>
-                                                {aluno?.[`trouxe_${opt}`]}
-                                            </span>
-                                        </li>
-                                        <li>
-                                            <strong>Não Trouxe:</strong>
-                                            <span>
-                                                {aluno?.[`nao_trouxe_${opt}`] ||
-                                                    0}
-                                            </span>
-                                        </li>
-                                    </>
-                                )}
-                            </ul>
+        );
+    },
+);
+const EnviarTrofeuModal = React.memo(({ onClose }: { onClose: () => void }) => {
+    const {
+        formState: { errors },
+        register,
+    } = useFormContext();
 
-                            <motion.button
-                                onTap={() => verDetalhes(aluno)}
-                                className="acordeao-aluno__detalhes"
+    return (
+        <div className="trofeu-aluno-modal">
+            <div className="trofeu-aluno-modal__header">
+                <div className="trofeu-aluno-modal__title">
+                    <i>
+                        <FontAwesomeIcon icon={faTrophy} />
+                    </i>
+                    <p>Enviar Troféu</p>
+                </div>
+
+                <button
+                    className="trofeu-aluno-modal__close"
+                    onClick={onClose}
+                    type="button"
+                >
+                    <FontAwesomeIcon icon={faXmark} />
+                </button>
+            </div>
+
+            <div className="trofeu-aluno-modal__body">
+                <div className="trofeu-aluno-modal__inputs">
+                    <div className="trofeu-aluno-modal__input trofeu-aluno-modal__titulo-trofeu">
+                        <label htmlFor="trofeu-modal-titulo">
+                            Titulo Troféu <span>*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="trofeu-modal-titulo"
+                            className={errors?.titulo ? "input-error" : ""}
+                            {...register("titulo")}
+                        />
+                        {errors?.titulo?.message && (
+                            <div className="trofeu-aluno-modal__input-erro">
+                                <p>{errors?.titulo?.message as any}</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="trofeu-aluno-modal__input trofeu-aluno-modal__descricao-trofeu">
+                        <label htmlFor="trofeu-modal-descricao">
+                            Descrição <span>*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="trofeu-modal-descricao"
+                            className={errors?.descricao ? "input-error" : ""}
+                            {...register("descricao")}
+                        />
+                        {errors?.descricao?.message && (
+                            <div className="trofeu-aluno-modal__input-erro">
+                                <p>{errors?.descricao?.message as any}</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="trofeu-aluno-modal__icones">
+                        {Object.entries(TROFEUS).map(([key, value]: any, i) => (
+                            <div
+                                className="trofeu-aluno-modal__icone"
+                                key={key}
                             >
-                                Ver detalhes
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                                <label htmlFor={`trofeu-modal-${key}`}>
+                                    <FontAwesomeIcon icon={value} />
+                                </label>
+                                <input
+                                    type="radio"
+                                    id={`trofeu-modal-${key}`}
+                                    value={key}
+                                    defaultChecked={i === 0}
+                                    {...register("icon")}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="trofeu-aluno-modal__buttons">
+                    <button
+                        className="trofeu-aluno-modal__submit"
+                        type="submit"
+                    >
+                        Enviar Troféu
+                    </button>
+                </div>
+            </div>
         </div>
     );
-};
+});
 const Detalhes = ({
     aluno,
     onClose,
@@ -790,6 +945,12 @@ const ResumoAula = ({
                                     },
                                 )}
                             />
+                            <hr />
+                            <InfoLinha
+                                icon={faNoteSticky}
+                                label="Observações"
+                                value={detalhes?.descricao || "Nenhuma"}
+                            />
                         </div>
                     </div>
                 </div>
@@ -798,11 +959,17 @@ const ResumoAula = ({
     );
 };
 
-const PanoramaPieChart = ({ datas }: { datas: any[] }) => {
+export const PanoramaPieChart = ({
+    datas,
+    formatar = true,
+}: {
+    datas: any[];
+    formatar?: boolean;
+}) => {
     return (
         <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-                <Legend />
+            <PieChart margin={{ top: 30, right: 0, bottom: 0, left: 0 }}>
+                <Legend wrapperStyle={{ paddingTop: 30 }} />
                 <Tooltip
                     content={({ active, payload }) => {
                         if (!active || !payload || !payload.length) return null;
@@ -813,17 +980,22 @@ const PanoramaPieChart = ({ datas }: { datas: any[] }) => {
                         return (
                             <div
                                 className="tooltip-dinheiro"
-                                style={{ minWidth: 180 }}
+                                style={{ minWidth: formatar ? 180 : 90 }}
                             >
                                 <div className="tooltip-dinheiro__item">
                                     <h4 style={{ color: corDaFatia }}>
                                         {fatia.name}
                                     </h4>
                                     <p>
-                                        {fatia.value.toLocaleString("pt-BR", {
-                                            currency: "BRL",
-                                            style: "currency",
-                                        })}
+                                        {formatar
+                                            ? fatia.value.toLocaleString(
+                                                  "pt-BR",
+                                                  {
+                                                      currency: "BRL",
+                                                      style: "currency",
+                                                  },
+                                              )
+                                            : fatia.value}
                                     </p>
                                 </div>
                             </div>
@@ -831,7 +1003,12 @@ const PanoramaPieChart = ({ datas }: { datas: any[] }) => {
                     }}
                 />
 
-                <Pie data={datas} nameKey="name">
+                <Pie
+                    data={datas}
+                    nameKey="name"
+                    label={(v) => v.value?.toLocaleString("pt-BR")}
+                    labelLine={false}
+                >
                     {datas.map((_, i) => (
                         <Cell
                             key={i}
@@ -850,11 +1027,22 @@ const PanoramaBarChart = ({
     ends,
     isMobile,
 }: {
-    datas: any;
+    datas: any[];
     keys: string[];
     ends: number;
     isMobile: boolean;
 }) => {
+    const datasMemo = useMemo(() => {
+        return datas.map((v) => {
+            const totalMissoes = v["Missões Dinheiro"] + v["Missões Pix"];
+            const totalOfertas = v["Ofertas Dinheiro"] + v["Ofertas Pix"];
+            return {
+                ...v,
+                ["Missões Total"]: totalMissoes,
+                ["Ofertas Total"]: totalOfertas,
+            };
+        });
+    }, [datas]);
     return (
         <ResponsiveContainer
             width={"100%"}
@@ -862,8 +1050,9 @@ const PanoramaBarChart = ({
             minHeight={!isMobile ? 300 : 400}
         >
             <BarChart
-                data={datas}
+                data={datasMemo}
                 layout={isMobile ? "vertical" : "horizontal"}
+                margin={isMobile ? { right: 15 } : { top: 15 }}
             >
                 <Tooltip
                     // position={{ y: 20 }}
@@ -897,7 +1086,20 @@ const PanoramaBarChart = ({
                         key={v + i}
                         fill={CORES_GRAFICO[i % CORES_GRAFICO.length]}
                         // radius={[4, 4, 0, 0]}
-                    />
+                    >
+                        {v === `${v.split(" ")[0]} Dinheiro` ? (
+                            <LabelList
+                                dataKey={`${v.split(" ")[0]} Total`}
+                                position={isMobile ? "right" : "top"}
+                                style={{ fontSize: "9px" }}
+                                formatter={(v) =>
+                                    typeof v === "number" && v > 0
+                                        ? v.toLocaleString("pt-BR")
+                                        : undefined
+                                }
+                            />
+                        ) : undefined}
+                    </Bar>
                 ))}
             </BarChart>
         </ResponsiveContainer>
@@ -938,7 +1140,17 @@ const PanoramaLineChart = ({
                         fill={CORES_GRAFICO[i % CORES_GRAFICO.length]}
                         stroke={CORES_GRAFICO[i % CORES_GRAFICO.length]}
                         strokeWidth={3}
-                    />
+                    >
+                        <LabelList
+                            dataKey={v}
+                            style={{ fontSize: "9px" }}
+                            formatter={(v) =>
+                                typeof v === "number" && v > 0
+                                    ? v.toLocaleString("pt-BR")
+                                    : undefined
+                            }
+                        />
+                    </Line>
                 ))}
             </LineChart>
         </ResponsiveContainer>
@@ -1138,7 +1350,20 @@ const PanoramaBarELine = ({
                                         dataKey={v.key}
                                         stackId={v.stackyId}
                                         fill={v.color}
-                                    />
+                                    >
+                                        <LabelList
+                                            dataKey={v.key}
+                                            style={{
+                                                fontSize: "9px",
+                                                fill: "#F9FAFB",
+                                            }}
+                                            formatter={(v) =>
+                                                typeof v === "number" && v > 0
+                                                    ? v
+                                                    : undefined
+                                            }
+                                        />
+                                    </Bar>
                                 ) : (
                                     <Line
                                         key={v.key}
@@ -1146,7 +1371,20 @@ const PanoramaBarELine = ({
                                         stroke={v.color}
                                         strokeWidth={3}
                                         dataKey={v.key}
-                                    />
+                                    >
+                                        <LabelList
+                                            dataKey={v.key}
+                                            style={{
+                                                fontSize: "9px",
+                                                fill: "#F9FAFB",
+                                            }}
+                                            formatter={(v) =>
+                                                typeof v === "number" && v > 0
+                                                    ? v
+                                                    : undefined
+                                            }
+                                        />
+                                    </Line>
                                 );
                         })}
 
@@ -1234,12 +1472,14 @@ const PanoramaRanking = React.memo(
     ({
         aulasRealizadas,
         totalDeAulas,
+        trimestre,
         listaAulas,
         diasMap,
         dados,
     }: {
         aulasRealizadas: number;
         totalDeAulas: number;
+        trimestre: string;
         listaAulas: any;
         diasMap: any;
         dados: CacheLicaoInterface;
@@ -1250,10 +1490,74 @@ const PanoramaRanking = React.memo(
         const [detalhes, setDetalhes] = useState<any>(null);
         const [openCSV, setOPenCSV] = useState(false);
         const [share, setShare] = useState(false);
+        const [showTrophy, setShowTrophy] = useState(false);
+        const [isLoading, setIsLoading] = useState(false);
         const [pesquisa, setPesquisa] = useState("");
+        const [mensagem, setMensagem] = useState<{
+            message: string | ReactNode;
+            title: string;
+            confirmText: string;
+            cancelText: string;
+            onCancel: () => void;
+            onClose: () => void;
+            onConfirm: () => void;
+            icon?: any;
+        } | null>(null);
+
+        const methods = useForm<{
+            alunos: string[];
+            titulo: string;
+            descricao: string;
+            icon: string;
+        }>();
+        const { register, control, handleSubmit, reset } = methods;
+        const alunosSelecionados = useWatch({ control, name: "alunos" });
+        const onSubmit = async (v: any) => {
+            setIsLoading(true);
+            setShowTrophy(false);
+            try {
+                const { data } = await setTrofeuAlunos({
+                    ...v,
+                    trimestre,
+                    licaoId: dados.licaoId,
+                    licaoNome: dados.licaoNome,
+                    classeId: dados.classeId,
+                    classeNome: dados.classeNome,
+                    data: Date.now(),
+                });
+                setMensagem({
+                    title: "Troféu enviado!",
+                    message: (data as any)?.message,
+                    onClose: () => setMensagem(null),
+                    onConfirm: () => setMensagem(null),
+                    onCancel: () => setMensagem(null),
+                    cancelText: "Cancelar",
+                    confirmText: "Ok",
+                    icon: <FontAwesomeIcon icon={faHeart} />,
+                });
+            } catch (error: any) {
+                console.log(error.message);
+                setMensagem({
+                    title: "Dados invalidos",
+                    message: error.message,
+                    onClose: () => setMensagem(null),
+                    onConfirm: () => setMensagem(null),
+                    onCancel: () => setMensagem(null),
+                    cancelText: "Cancelar",
+                    confirmText: "Ok",
+                    icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+                });
+            } finally {
+                setIsLoading(false);
+                reset();
+            }
+        };
 
         const adicionarDetalhes = useCallback((aluno: any) => {
             setDetalhes(aluno);
+        }, []);
+        const fecharModal = useCallback(() => {
+            setShowTrophy(false);
         }, []);
 
         const alunosMemo = useMemo(() => {
@@ -1281,6 +1585,7 @@ const PanoramaRanking = React.memo(
         }, [dados, pesquisa, opt]);
         return (
             <>
+                <LoadingModal isEnviando={isLoading} />
                 <div className="panorama-licao__cards-container">
                     <CardProgresso
                         titulo="Progresso do Trimestre"
@@ -1397,15 +1702,42 @@ const PanoramaRanking = React.memo(
                             <label htmlFor="biblia">Bíblias</label>
                         </div>
                     </div>
+                    <FormProvider {...methods}>
+                        <form
+                            className="panorama-licao__alunos"
+                            onSubmit={handleSubmit(onSubmit)}
+                        >
+                            {alunosMemo.map((aluno) => (
+                                <AcordeaoAluno
+                                    key={aluno.id}
+                                    aluno={aluno}
+                                    verDetalhes={adicionarDetalhes}
+                                    opt={opt}
+                                    register={register}
+                                />
+                            ))}
 
-                    {alunosMemo.map((aluno) => (
-                        <AcordeaoAluno
-                            key={aluno.id}
-                            aluno={aluno}
-                            verDetalhes={adicionarDetalhes}
-                            opt={opt}
-                        />
-                    ))}
+                            {showTrophy && (
+                                <EnviarTrofeuModal onClose={fecharModal} />
+                            )}
+                        </form>
+                    </FormProvider>
+                    <AnimatePresence>
+                        {!!alunosSelecionados?.length && (
+                            <motion.button
+                                className="panorama-licao__dar-trofeu"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0 }}
+                                onClick={() => setShowTrophy(true)}
+                            >
+                                <i>
+                                    <FontAwesomeIcon icon={faTrophy} />
+                                </i>
+                                <span>{alunosSelecionados?.length}</span>
+                            </motion.button>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 <AnimatePresence>
@@ -1427,6 +1759,12 @@ const PanoramaRanking = React.memo(
                             link={`${window.location.origin}/ranking-alunos/${dados.igrejaId}/${dados.licaoId}`}
                         />
                     )}
+
+                    <AlertModal
+                        isOpen={!!mensagem}
+                        {...mensagem!}
+                        key={"alert-modal-panorama"}
+                    />
                 </AnimatePresence>
             </>
         );
@@ -1901,6 +2239,7 @@ function PanoramaLicao({
                                     <PanoramaRanking
                                         aulasRealizadas={detalhesAulas.length}
                                         totalDeAulas={licao.numero_aulas}
+                                        trimestre={`${licao.numero_trimestre}º Trimestre de ${licao.data_inicio.toDate().getFullYear()}`}
                                         diasMap={diasMap}
                                         listaAulas={listaAulas}
                                         dados={dados!}

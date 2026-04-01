@@ -27,6 +27,15 @@ export const getOrdem = (a: any, b: any, ordemColuna: any, ordem: any) => {
     if (!itemA) return 1;
     if (!itemB) return -1;
 
+    if (typeof itemA === "string")
+        return ordem === "crescente"
+            ? itemA.localeCompare(itemB)
+            : itemB.localeCompare(itemA);
+    if (typeof itemB === "string")
+        return ordem === "crescente"
+            ? itemB.localeCompare(itemA)
+            : itemA.localeCompare(itemB);
+
     return ordem === "crescente"
         ? itemA.localeCompare(itemB)
         : itemB.localeCompare(itemA);

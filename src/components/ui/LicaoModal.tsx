@@ -290,7 +290,11 @@ function LicaoModal({
                                             />
                                         </span>
                                         <span>
-                                            Iniciar chamada de{" "}
+                                            Fazer chamada:{" "}
+                                            <strong>
+                                                Aula {proximaAula.numero}
+                                            </strong>
+                                            {" - "}
                                             {proximaAula?.data.toLocaleDateString(
                                                 "pt-BR",
                                                 {

@@ -14,6 +14,7 @@ import {
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import React, {
+    useCallback,
     useEffect,
     useMemo,
     useRef,
@@ -37,6 +38,7 @@ import {
     FormProvider,
     useFieldArray,
     useForm,
+    useWatch,
     type FieldError,
     type UseFieldArrayAppend,
     type UseFieldArrayRemove,
@@ -120,6 +122,53 @@ const ListaAulas = React.memo(({ dataAulas }: { dataAulas: string[][] }) => {
         </AnimatePresence>
     );
 });
+
+const ItemAlunoMatriculado = React.memo(
+    ({
+        aluno,
+        isForaDaFaixa,
+        remove,
+        fieldIndex,
+        register,
+    }: {
+        aluno: any;
+        isForaDaFaixa: boolean;
+        remove: UseFieldArrayRemove;
+        fieldIndex: (v: any) => number;
+        register: UseFormRegister<any>;
+    }) => {
+        return (
+            <motion.li
+                layoutId={aluno.alunoId}
+                className={isForaDaFaixa ? "matriculas--fora-da-faixa" : ""}
+            >
+                <motion.div
+                    className="matriculas-item__nome"
+                    onTap={() => remove(fieldIndex(aluno))}
+                >
+                    <span>{aluno?.nome}</span>{" "}
+                    <span className="matriculas--lista-idade">
+                        ({aluno?.idade} anos)
+                    </span>
+                </motion.div>
+
+                <div className="matriculas-item__licao">
+                    <label htmlFor={"matriculados-revista" + aluno.alunoId}>
+                        Revista?
+                    </label>
+                    <input
+                        type="checkbox"
+                        id={"matriculados-revista" + aluno.alunoId}
+                        {...register(
+                            `alunosSelecionados.${fieldIndex(aluno)}.possui_revista`,
+                        )}
+                    />
+                </div>
+            </motion.li>
+        );
+    },
+);
+
 const AlunosDisponiveis = ({
     listaAlunos,
     append,
@@ -168,44 +217,16 @@ const AlunosMatriculados = ({
 }) => {
     return (
         <ul className="matriculas--lista">
-            <AnimatePresence>
-                {listaAlunosSelecionados.map((v, i) => (
-                    <motion.li
-                        key={v.id}
-                        layoutId={v.alunoId}
-                        className={
-                            alunosForaDaFaixa.has(v.alunoId)
-                                ? "matriculas--fora-da-faixa"
-                                : ""
-                        }
-                    >
-                        <motion.div
-                            className="matriculas-item__nome"
-                            onTap={() => remove(fieldIndex(v))}
-                        >
-                            <span>{v?.nome}</span>{" "}
-                            <span className="matriculas--lista-idade">
-                                ({v?.idade} anos)
-                            </span>
-                        </motion.div>
-
-                        <div className="matriculas-item__licao">
-                            <label htmlFor={"matriculados-revista" + i}>
-                                Revista?
-                            </label>
-                            <input
-                                type="checkbox"
-                                id={"matriculados-revista" + i}
-                                {...register(
-                                    `alunosSelecionados.${fieldIndex(
-                                        v,
-                                    )}.possui_revista`,
-                                )}
-                            />
-                        </div>
-                    </motion.li>
-                ))}
-            </AnimatePresence>
+            {listaAlunosSelecionados.map((v) => (
+                <ItemAlunoMatriculado
+                    aluno={v}
+                    fieldIndex={fieldIndex}
+                    isForaDaFaixa={alunosForaDaFaixa.has(v.alunoId)}
+                    register={register}
+                    remove={remove}
+                    key={v.id}
+                />
+            ))}
         </ul>
     );
 };
@@ -276,7 +297,6 @@ function NovoTrimestreModal({
     });
     const {
         register,
-        watch,
         setValue,
         handleSubmit,
         reset,
@@ -287,13 +307,12 @@ function NovoTrimestreModal({
         control,
         name: "alunosSelecionados",
     });
-
     const { isSuperAdmin, user, isSecretario } = useAuthContext();
     const { classes } = useDataContext();
 
-    const imagem = watch("img");
-    const dataInicio = watch("data_inicio");
-    const numeroAulas = watch("numero_aulas");
+    const imagem = useWatch({ control, name: "img" });
+    const dataInicio = useWatch({ control, name: "data_inicio" });
+    const numeroAulas = useWatch({ control, name: "numero_aulas" });
 
     const normalizeDate = (data: any) => {
         const d = new Date(data);
@@ -305,7 +324,7 @@ function NovoTrimestreModal({
             setIsLoading(true);
             setMensagem(null);
             await deletarLicao({ licaoId });
-            window.location.reload();
+            location.reload();
         } catch (error: any) {
             console.log("deu esse erro", error);
             setMensagem({
@@ -318,8 +337,6 @@ function NovoTrimestreModal({
                 confirmText: "Ok",
                 icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
             });
-        } finally {
-            setIsLoading(false);
         }
     };
     const importarAlunos = () => {
@@ -490,7 +507,6 @@ function NovoTrimestreModal({
 
         return lista;
     }, [alunosMap, pesquisa, fields]);
-
     const alunosForaDaIdadeMemo = useMemo(() => {
         const alunosForaMap = new Map();
 
@@ -514,7 +530,6 @@ function NovoTrimestreModal({
 
         return alunosForaMap;
     }, [fields, alunosMap]);
-
     const listaAlunosSelecionadosMemo = useMemo(() => {
         return fields
             .filter((v) => {
@@ -536,8 +551,10 @@ function NovoTrimestreModal({
             });
     }, [alunosMap, pesquisa, fields, alunosForaDaIdadeMemo]);
 
-    const fieldIndex = (field: any) =>
-        fields.findIndex((f) => f.id === field.id);
+    const fieldIndex = useCallback(
+        (field: any) => fields.findIndex((f) => f.id === field.id),
+        [fields],
+    );
 
     useEffect(() => {
         if (messageForaDaIdade.current) return;
@@ -637,7 +654,12 @@ function NovoTrimestreModal({
                 );
                 const licoesSnap = await getDocs(q);
 
-                if (licoesSnap.empty) return null;
+                if (licoesSnap.empty) {
+                    const hoje = new Date();
+                    const mes = Math.floor(hoje.getMonth() / 3) + 1;
+                    setValue("trimestre", mes);
+                    return null;
+                }
 
                 const licoes = {
                     ...licoesSnap.docs[0].data(),
@@ -779,7 +801,6 @@ function NovoTrimestreModal({
             })
             .finally(() => setIsLoading(false));
     }, []);
-
     return (
         <>
             <motion.div

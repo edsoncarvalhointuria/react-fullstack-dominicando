@@ -59,7 +59,9 @@
         font-size: 2rem;
         color: v.$cor-secundaria-texto;
         cursor: pointer;
-        transition: color 0.2s, transform 0.2s;
+        transition:
+            color 0.2s,
+            transform 0.2s;
 
         &:hover {
             color: v.$cor-primaria-texto;
@@ -73,44 +75,47 @@
         flex-direction: column;
         gap: 2rem;
         overflow-y: hidden;
-        flex-grow: 1;
+        flex: 1;
     }
 
-    &__cadastrar--button {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        padding: 1rem;
-        border: 2px dashed #d1d5db;
-        border-radius: 0.8rem;
-        background-color: v.$cor-primaria-fundo;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: v.$cor-secundaria-texto;
-        cursor: pointer;
-        transition: all 0.2s ease-out;
+    &__cadastrar {
+        flex-shrink: 0;
+        &--button {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 1rem;
+            border: 2px dashed #d1d5db;
+            border-radius: 0.8rem;
+            background-color: v.$cor-primaria-fundo;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: v.$cor-secundaria-texto;
+            cursor: pointer;
+            transition: all 0.2s ease-out;
 
-        &:hover {
-            border-color: v.$cor-primaria-itens;
-            color: v.$cor-primaria-itens;
-            background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
+            &:hover {
+                border-color: v.$cor-primaria-itens;
+                color: v.$cor-primaria-itens;
+                background-color: color.scale(
+                    v.$cor-primaria-itens,
+                    $alpha: -90%
+                );
+            }
         }
     }
 
     &__lista {
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
-        flex-grow: 1;
+        gap: 1rem;
         min-height: 0;
-        margin: 1rem 0;
+        flex: 1;
 
-        @media all and (max-width: 30em) {
-            &-pesquisa {
-                margin: 3rem 0;
-            }
+        &-pesquisa {
+            flex-shrink: 0;
         }
     }
 

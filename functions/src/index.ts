@@ -4,6 +4,7 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import JSZip from "jszip";
+import Hashids from "hashids";
 
 enum Roles {
     PASTOR_PRESIDENTE = "pastor_presidente",
@@ -23,6 +24,7 @@ enum Cll {
     CACHE_MATRICULAS = "cache_matriculas",
     CACHE_MEMBROS = "cache_membros",
     CACHE_USUARIOS = "cache_usuarios",
+    CACHE_PORTAL_ALUNO = "cache_portal_aluno",
     CLASSES = "classes",
     IGREJAS = "igrejas",
     LICOES = "licoes",
@@ -1502,6 +1504,16 @@ export const salvarAluno = functions.https.onCall(async (request) => {
     };
 
     const docRef = db.collection(Cll.ALUNOS).doc();
+    const alunoPortal = {
+        alunoId: docRef.id,
+        conquistas: {},
+        data_nascimento: aluno.data_nascimento,
+        historico: {},
+        igrejaId: aluno.igrejaId,
+        ministerioId: aluno.ministerioId,
+        nome: aluno.nome_completo.split(" ")[0],
+        ultimaLicaoId: null,
+    };
 
     await Promise.all([
         docRef.set(aluno),
@@ -1525,6 +1537,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
                     igrejaId: aluno.igrejaId,
                 },
             }),
+        db.collection(Cll.CACHE_PORTAL_ALUNO).doc(docRef.id).set(alunoPortal),
     ]);
     if (dados.membroId) {
         await Promise.all([
@@ -1613,6 +1626,10 @@ export const onAlunoUpdate = onDocumentUpdated(
                     { [`lista.${alunoId}`]: dadosParaSalvar },
                 );
             }
+
+            batch.update(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId), {
+                data_nascimento: dataNova,
+            });
         }
 
         if (nomeMudou) {
@@ -1638,6 +1655,10 @@ export const onAlunoUpdate = onDocumentUpdated(
                         [`lista.${doc.id}.alunoNome`]: novoNome,
                     },
                 );
+            });
+
+            batch.update(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId), {
+                nome: novoNome.split(" ")[0],
             });
 
             const licoesIds = matriculasSnap.docs
@@ -1828,7 +1849,8 @@ export const deletarAluno = functions.https.onCall(async (request) => {
                 [`lista.${alunoId}`]: FieldValue.delete(),
             },
         );
-        count += 2;
+        batch.delete(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId));
+        count += 3;
 
         for (let ref of refsDel) {
             batch.delete(ref);
@@ -1941,7 +1963,16 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
             nome_completo,
         };
         const alunoRef = db.collection(Cll.ALUNOS).doc();
-
+        const alunoPortal = {
+            alunoId: alunoRef.id,
+            conquistas: {},
+            data_nascimento: dadosParaSalvar.data_nascimento,
+            historico: {},
+            igrejaId: dadosParaSalvar.igrejaId,
+            ministerioId: dadosParaSalvar.ministerioId,
+            nome: dadosParaSalvar.nome_completo.split(" ")[0],
+            ultimaLicaoId: null,
+        };
         batch.set(alunoRef, dadosParaSalvar);
         batch.update(db.collection(Cll.CACHE_ALUNOS).doc(igrejaId), {
             [`lista.${alunoRef.id}`]: {
@@ -1971,7 +2002,11 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
                 },
             },
         );
-        count += 3;
+        batch.set(
+            db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoRef.id),
+            alunoPortal,
+        );
+        count += 4;
         if (count >= 499) {
             batch = db.batch();
             batches.push(batch);
@@ -2980,17 +3015,8 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
     }
 
     let classe;
-    if (
-        dados.role === Roles.SECRETARIO_CLASSE ||
-        dados.role === Roles.PROFESSOR
-    ) {
-        if (!dados.classeId) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Secretários de classe ou professores precisam de uma classe associada",
-            );
-        }
-        classe = await db.collection("classes").doc(dados.classeId).get();
+    if (dados.classeId) {
+        classe = await db.collection(Cll.CLASSES).doc(dados.classeId).get();
         if (!classe.exists) {
             throw new functions.https.HttpsError(
                 "not-found",
@@ -3245,6 +3271,286 @@ interface Licao {
     total_matriculados: number;
 }
 
+function addTrofeusAluno(
+    db: admin.firestore.Firestore,
+    alunoId: string,
+    aluno: {
+        nome: string;
+        presente: number;
+        atrasado: number;
+        falta: number;
+        falta_justificada: number;
+        porcentagem: number;
+        matriculado: boolean;
+        trouxe_biblia: number;
+        nao_trouxe_biblia: number;
+        porcentagem_biblia: number;
+        trouxe_revista: number;
+        nao_trouxe_revista: number;
+        porcentagem_revista: number;
+    },
+    batch: admin.firestore.WriteBatch,
+    licao: Licao,
+    licaoId: string,
+) {
+    const {
+        porcentagem,
+        porcentagem_biblia,
+        porcentagem_revista,
+        presente,
+        atrasado,
+        falta,
+        falta_justificada,
+        trouxe_biblia,
+        trouxe_revista,
+    } = aluno;
+    const alunoPortalRef = db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId);
+    const licaoNome = licao.titulo;
+    const { numero_trimestre, data_inicio, classeId, classeNome } = licao;
+    const trofeuBase = {
+        [`detalhes`]: {
+            [licaoId]: {
+                trimestre: `${numero_trimestre}º Trimestre de ${data_inicio.toDate().getFullYear()}`,
+                classeId,
+                classeNome,
+                licaoNome,
+                licaoId,
+                data: Date.now(),
+            },
+        },
+        tipo: "automatica",
+        multiplicador: FieldValue.increment(1),
+    };
+
+    // Comum
+    if (porcentagem >= 50) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    semente_plantada: {
+                        icon: "faSeedling",
+                        titulo: "Semente Plantada",
+                        descricao:
+                            "Você esteve presente em pelo menos metade das aulas do trimestre!",
+                        raridade: "comum",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (porcentagem_revista >= 50) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    servo_preparado: {
+                        icon: "faBookOpen",
+                        titulo: "Servo Preparado",
+                        descricao:
+                            "Você não veio de mãos vazias. Demonstrou zelo trazendo sua revista para aprender mais da Palavra.",
+                        raridade: "comum",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (porcentagem_biblia >= 50) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    leitor_fiel: {
+                        icon: "faBookOpenReader",
+                        titulo: "Leitor Fiel",
+                        descricao:
+                            "Você não veio de mãos vazias. Levou a bíblia em mais de 50% das aulas em que esteve presente.",
+                        raridade: "comum",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+
+    // Rara
+    if (porcentagem >= 70 && atrasado === 0) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    mordomo_tempo: {
+                        icon: "faStopwatch",
+                        titulo: "Mordomo do Tempo",
+                        descricao:
+                            "Pontual e fiel. Você não se atrasou nenhuma vez e manteve uma ótima frequência.",
+                        raridade: "rara",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (porcentagem >= 80) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    coluna_fiel: {
+                        icon: "faChurch",
+                        titulo: "Coluna Fiel",
+                        descricao:
+                            "Você se manteve firme na casa do Senhor. Sua presença constante revela compromisso e perseverança.",
+                        raridade: "rara",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (falta === 0 && falta_justificada >= 2) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    diplomata: {
+                        icon: "faUserTie",
+                        titulo: "O Diplomata",
+                        descricao:
+                            "A vida foi cheia de imprevistos neste trimestre, mas você foi impecável na comunicação. Você não teve nenhuma falta sem aviso prévio!",
+                        raridade: "rara",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (presente + atrasado === trouxe_biblia && porcentagem >= 70) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    espada_afiada: {
+                        icon: "faBookBible",
+                        titulo: "Espada Afiada",
+                        descricao:
+                            "A Palavra sempre na mão. Você trouxe a Bíblia em todas as aulas que compareceu.",
+                        raridade: "rara",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (presente + atrasado === trouxe_revista && porcentagem >= 70) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    discipulo_dedicado: {
+                        icon: "faBookBookmark",
+                        titulo: "Discípulo Dedicado",
+                        descricao:
+                            "Sempre preparado para aprender. Você trouxe sua revista em todas as aulas que compareceu.",
+                        raridade: "rara",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+
+    // Épica
+    if (falta + falta_justificada === 0) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    firme_rocha: {
+                        icon: "faMountain",
+                        titulo: "Firme na Rocha",
+                        descricao:
+                            "100% de frequência! Você não perdeu um único domingo neste trimestre.",
+                        raridade: "epica",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (falta + falta_justificada === 1) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    quase_perfeito: {
+                        icon: "faBatteryThreeQuarters",
+                        titulo: "Quase Perfeito",
+                        descricao:
+                            "Faltou apenas a um único domingo em todo o trimestre. Quase gabaritou!",
+                        raridade: "epica",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+    if (presente + atrasado === 0) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    modo_jonas: {
+                        icon: "faGhost",
+                        titulo: "Modo Jonas",
+                        descricao:
+                            "Você conseguiu a proeza de não aparecer em nenhum domingo do trimestre. Fugiu para Társis? Um grande peixe te engoliu? Sentimos muito a sua falta!",
+                        raridade: "epica",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+
+    // Lendário
+    if (
+        porcentagem >= 100 &&
+        porcentagem_biblia >= 100 &&
+        porcentagem_revista >= 100
+    ) {
+        batch.set(
+            alunoPortalRef,
+            {
+                ["conquistas"]: {
+                    bereano: {
+                        icon: "faFreeCodeCamp",
+                        titulo: "O Bereano",
+                        descricao:
+                            "Exemplo entre todos! Nenhuma falta, nenhum atraso, e Bíblia e Revista na mão em todos os domingos.",
+                        raridade: "lendaria",
+                        ...trofeuBase,
+                    },
+                },
+            },
+            { merge: true },
+        );
+    }
+}
+
 export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
     const { user, isSuperAdmin, isSecretario, db } =
         await validarUsuario(request);
@@ -3313,6 +3619,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
     };
 
     const batch = db.batch();
+    const batchConquistas = db.batch();
 
     try {
         const alunosIds = dados.alunosSelecionados.map((a) => a.alunoId);
@@ -3469,6 +3776,16 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                             nao_trouxe_revista: 0,
                             porcentagem_revista: 0,
                         };
+
+                    if (licao.data()?.ativo) {
+                        batch.set(
+                            db
+                                .collection(Cll.CACHE_PORTAL_ALUNO)
+                                .doc(aluno.alunoId),
+                            { ultimaLicaoId: licaoId },
+                            { merge: true },
+                        );
+                    }
                 });
             }
             batch.update(cacheRef, { ...cache });
@@ -3495,23 +3812,45 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             .where("ativo", "==", true)
             .limit(1);
         const licaoAtivaSnap = await licaoAtivaQuery.get();
-
+        const novaLicaoRef = db.collection(Cll.LICOES).doc();
         if (licaoAtivaSnap.empty) dadosParaSalvar.ativo = true;
         else {
             const licaoAtivaDoc = licaoAtivaSnap.docs[0];
-            const licaoAtivaData = licaoAtivaDoc.data();
-
+            const licaoAtivaData = licaoAtivaDoc.data() as Licao;
+            let isInativa = false;
             if (dataInicio >= licaoAtivaData.data_fim.toDate()) {
                 dadosParaSalvar.ativo = true;
                 batch.update(licaoAtivaDoc.ref, { ativo: false });
+                isInativa = true;
             } else if (dataFim <= licaoAtivaData.data_inicio.toDate())
                 dadosParaSalvar.ativo = false;
             else if (dadosParaSalvar.ativo) {
                 batch.update(licaoAtivaDoc.ref, { ativo: false });
+                isInativa = true;
+            }
+
+            if (isInativa) {
+                const licaoCacheSnap = await db
+                    .collection("cache_licao")
+                    .doc(`${igrejaId}_${licaoAtivaDoc.id}`)
+                    .get();
+                const licaoCacheData =
+                    licaoCacheSnap.data() as CacheLicaoInterface;
+
+                const { detalhes_aluno, detalhes_aulas } = licaoCacheData;
+                if (Object.keys(detalhes_aulas).length)
+                    for (const alunoId in detalhes_aluno) {
+                        addTrofeusAluno(
+                            db,
+                            alunoId,
+                            detalhes_aluno[alunoId],
+                            batchConquistas,
+                            licaoAtivaData,
+                            licaoAtivaDoc.id,
+                        );
+                    }
             }
         }
-
-        const novaLicaoRef = db.collection(Cll.LICOES).doc();
         batch.set(novaLicaoRef, dadosParaSalvar);
 
         for (let i = 0; i < dados.numero_aulas; i++) {
@@ -3573,6 +3912,28 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                         id: matriculaRef.id,
                     };
                 }
+
+                batchConquistas.set(
+                    db.collection(Cll.CACHE_PORTAL_ALUNO).doc(aluno.alunoId),
+                    {
+                        ultimaLicaoId: novaLicaoRef.id,
+                        historico: {
+                            [novaLicaoRef.id]: {
+                                ano: dadosParaSalvar.data_inicio
+                                    .toDate()
+                                    .getFullYear(),
+                                classeId: dadosParaSalvar.classeId,
+                                classeNome: dadosParaSalvar.classeNome,
+                                data_fim: dadosParaSalvar.data_fim.toMillis(),
+                                data_inicio:
+                                    dadosParaSalvar.data_inicio.toMillis(),
+                                licaoId: novaLicaoRef.id,
+                                titulo: dadosParaSalvar.titulo,
+                            },
+                        },
+                    },
+                    { merge: true },
+                );
             });
             batch.set(
                 db
@@ -3645,7 +4006,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             cache,
         );
 
-        await batch.commit();
+        await Promise.all([batch.commit(), batchConquistas.commit()]);
 
         enviarLog(
             user,
@@ -3856,15 +4217,14 @@ export const deletarLicao = functions.https.onCall(async (request) => {
     }
 
     try {
+        let batch = db.batch();
+        let count = 1;
         const refs = [licaoRef];
-
         const aulasRef = licaoRef.collection("aulas");
-
         const colecoes = [
             Cll.MATRICULAS,
             Cll.CACHE_MATRICULAS,
             Cll.REGISTROS_AULA,
-            Cll.CACHE_LICAO,
         ];
 
         const promises = await Promise.all([
@@ -3873,6 +4233,13 @@ export const deletarLicao = functions.https.onCall(async (request) => {
             ),
             aulasRef.get(),
         ]);
+        const licaoCacheRef = db
+            .collection(Cll.CACHE_LICAO)
+            .doc(`${licaoSnap.data()?.igrejaId}_${licaoId}`);
+        refs.push(licaoCacheRef);
+
+        const licaoCacheSnap = await licaoCacheRef.get();
+        const licaoCache = licaoCacheSnap.data() as CacheLicaoInterface;
 
         for (const doc of promises) {
             for (const v of doc.docs) {
@@ -3887,8 +4254,19 @@ export const deletarLicao = functions.https.onCall(async (request) => {
             }
         }
 
-        let batch = db.batch();
-        let count = 0;
+        const alunos = Object.keys(licaoCache.detalhes_aluno);
+        if (alunos.length) {
+            alunos.forEach((v) => {
+                batch.set(
+                    db.collection(Cll.CACHE_PORTAL_ALUNO).doc(v),
+                    {
+                        historico: { [licaoId]: FieldValue.delete() },
+                    },
+                    { merge: true },
+                );
+                count++;
+            });
+        }
         if (licaoSnap.data()?.ativo) {
             const ultimaLicao = await db
                 .collection("licoes")
@@ -3902,8 +4280,20 @@ export const deletarLicao = functions.https.onCall(async (request) => {
                 .limit(1)
                 .get();
             if (!ultimaLicao.empty) {
-                batch.update(ultimaLicao.docs[0].ref, { ativo: true });
+                const ultimaLicaoDoc = ultimaLicao.docs[0];
+                batch.update(ultimaLicaoDoc.ref, { ativo: true });
                 count++;
+
+                alunos.forEach((v) => {
+                    batch.set(
+                        db.collection(Cll.CACHE_PORTAL_ALUNO).doc(v),
+                        {
+                            ultimaLicaoId: ultimaLicao.docs[0].id,
+                        },
+                        { merge: true },
+                    );
+                    count++;
+                });
             }
         }
         const batchs = [batch];
@@ -4185,6 +4575,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             missoes_dinheiro: dadosParaSalvar.missoes.dinheiro,
             missoes_pix: dadosParaSalvar.missoes.pix,
             total_matriculados: dadosParaSalvar.total_matriculados,
+            descricao: dadosParaSalvar.descricao,
         };
         const dadosAlunos: any = {};
         const dadosGeraisCache = {
@@ -4298,6 +4689,15 @@ export const salvarChamada = functions.https.onCall(async (request) => {
                                     false,
                             },
                         );
+
+                    if (!obj?.["nome"]) {
+                        const alunoSnap = await db
+                            .collection("alunos")
+                            .doc(id)
+                            .get();
+                        if (alunoSnap.exists)
+                            obj["nome"] = alunoSnap.data()!.nome_completo;
+                    }
 
                     const trouxeRevista = chamada[id].trouxe_licao;
                     const trouxeBiblia = chamada[id].trouxe_biblia;
@@ -4568,6 +4968,8 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             );
         }
 
+        const licaoData = licao.data() as Licao;
+
         const dadosParaSalvar: Matriculas = {
             alunoId,
             alunoNome: aluno.data()!.nome_completo,
@@ -4580,7 +4982,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             igrejaId: classe.data()!.igrejaId,
             igrejaNome: classe.data()!.igrejaNome,
             licaoId,
-            licaoNome: licao.data()!.titulo,
+            licaoNome: licaoData!.titulo,
             licaoRef: licaoRef,
             ministerioId: user.ministerioId,
             possui_revista: dados.possui_revista,
@@ -4602,6 +5004,24 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
                     id: matricula.id,
                 },
             },
+        );
+        batch.set(
+            db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId),
+            {
+                ultimaLicaoId: licaoId,
+                historico: {
+                    [licaoId]: {
+                        ano: licaoData.data_inicio.toDate().getFullYear(),
+                        classeId: licaoData.classeId,
+                        classeNome: licaoData.classeNome,
+                        data_fim: licaoData.data_fim.toMillis(),
+                        data_inicio: licaoData.data_inicio.toMillis(),
+                        licaoId: licaoId,
+                        titulo: licaoData.titulo,
+                    },
+                },
+            },
+            { merge: true },
         );
 
         batch.update(licaoRef, { total_matriculados: FieldValue.increment(1) });
@@ -5942,7 +6362,7 @@ export const limparconvitesexpiradoseenviaraniversario = onSchedule(
             let mensagem = "Hoje é aniversário de:";
             listaAniversariantes.forEach((v: any) => {
                 if (v.nome_completo)
-                    mensagem += `\n\n ${v.nome_completo} (${getIdade(v.data_nascimento)} anos)`;
+                    mensagem += `\n\n ${v.nome_completo} (${getIdade(v.data_nascimento) + 1} anos)`;
             });
             listaMembrosAniversariantes.forEach((v: any) => {
                 if (v.nome_completo)
@@ -7021,4 +7441,252 @@ export const pegarRankingPublico = functions.https.onCall(async (request) => {
     }
 
     return { lista_aulas, detalhes_aulas, detalhes_aluno };
+});
+
+export const getLinkPortalAluno = functions.https.onCall(async (request) => {
+    const { user } = await validarUsuario(request);
+
+    const { alunoId, igrejaId, ministerioId } = request.data;
+    if (ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso.",
+        );
+    }
+
+    const alunoHex = Buffer.from(alunoId).toString("hex");
+    const igrejaHex = Buffer.from(igrejaId).toString("hex");
+
+    const hash = new Hashids(process.env.CHAVE_SECRETA, 10);
+
+    const alunoIdHash = hash.encodeHex(alunoHex);
+    const igrejaIdHash = hash.encodeHex(igrejaHex);
+
+    return { alunoIdHash, igrejaIdHash };
+});
+interface ConquistaInterface {
+    icon: string;
+    titulo: string;
+    descricao: string;
+    raridade: "comum" | "rara" | "epica" | "lendaria" | "unica";
+    tipo: "manual" | "automatica";
+    detalhes: {
+        [licaoId: string]: {
+            trimestre: string;
+            licaoNome: string;
+            licaoId: string;
+            classeId: string;
+            classeNome: string;
+            data: number;
+        };
+    };
+    multiplicador: number;
+}
+
+interface HistoricoPortalInterface {
+    licaoId: string;
+    data_inicio: number;
+    data_fim: number;
+    ano: number;
+    titulo: string;
+}
+
+interface CachePortalAlunoInterface {
+    alunoId: string;
+    igrejaId: string;
+    ministerioId: string;
+    nome: string;
+    data_nascimento: Timestamp;
+
+    ultimaLicaoId?: string;
+
+    conquistas: { [alunoId: string]: ConquistaInterface };
+    ids_classes: string[];
+    historico: { [licaoId: string]: HistoricoPortalInterface };
+}
+
+export const getPortalAluno = functions.https.onCall(async (request) => {
+    const userUid = request.auth?.uid;
+    const { dataNascimento, alunoHash, igrejaHash, alunoId, licaoId } =
+        request.data;
+    let dadosCachePortal;
+
+    const db = admin.firestore();
+    if (userUid && alunoId) {
+        const { isSuperAdmin, user } = await validarUsuario(request);
+        const alunoPortal = await db
+            .collection(Cll.CACHE_PORTAL_ALUNO)
+            .doc(alunoId)
+            .get();
+
+        if (!alunoPortal.exists) {
+            throw new functions.https.HttpsError(
+                "not-found",
+                "Dados inválidos ou ausentes",
+            );
+        }
+
+        const aluno = alunoPortal.data() as CachePortalAlunoInterface;
+        if (
+            (!isSuperAdmin && aluno.igrejaId !== user.igrejaId) ||
+            user.ministerioId !== aluno.ministerioId
+        ) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Você não tem permissão para acessar isso.",
+            );
+        }
+
+        dadosCachePortal = aluno;
+    } else {
+        const hash = new Hashids(process.env.CHAVE_SECRETA, 10);
+        const alunoIdDecode = hash.decodeHex(alunoHash);
+        const igrejaIdDecode = hash.decodeHex(igrejaHash);
+
+        const alunoId = Buffer.from(alunoIdDecode, "hex").toString("utf8");
+        const igrejaId = Buffer.from(igrejaIdDecode, "hex").toString("utf8");
+
+        const alunoSnap = await db
+            .collection(Cll.CACHE_PORTAL_ALUNO)
+            .doc(alunoId)
+            .get();
+        const alunoPortal = alunoSnap.data() as CachePortalAlunoInterface;
+
+        if (
+            !alunoSnap.exists ||
+            alunoPortal.data_nascimento.toDate().toLocaleDateString("pt-BR") !==
+                dataNascimento ||
+            alunoPortal.igrejaId !== igrejaId
+        ) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Houve um erro ao acessar o portal. Veja com seu professor se seus dados estão cadastrados corretamente.",
+            );
+        }
+
+        dadosCachePortal = alunoPortal;
+    }
+
+    const dadosResposta: any = {
+        ...dadosCachePortal,
+        licao_atual: {},
+    };
+
+    if (licaoId || dadosCachePortal.ultimaLicaoId) {
+        const cacheLicaoSnap = await db
+            .collection(Cll.CACHE_LICAO)
+            .doc(
+                `${dadosCachePortal.igrejaId}_${licaoId || dadosCachePortal.ultimaLicaoId}`,
+            )
+            .get();
+        if (cacheLicaoSnap.exists) {
+            const cacheLicao = cacheLicaoSnap.data() as CacheLicaoInterface;
+            const licao: any = {
+                classeNome: cacheLicao.classeNome,
+                licaoNome: cacheLicao.licaoNome,
+                data_inicio: cacheLicao.data_inicio.toMillis(),
+                data_fim: cacheLicao.data_fim.toMillis(),
+            };
+
+            const chamada: any = {};
+            for (const [data, detalhes] of Object.entries(
+                cacheLicao.detalhes_aulas,
+            )) {
+                chamada[data] = detalhes.chamada?.[dadosCachePortal.alunoId];
+            }
+
+            licao["chamada"] = chamada;
+            licao["detalhes_aluno"] =
+                cacheLicao.detalhes_aluno[dadosCachePortal.alunoId];
+
+            dadosResposta["licao_atual"] = licao;
+        }
+    }
+
+    return dadosResposta;
+});
+
+export const setTrofeuAlunos = functions.https.onCall(async (request) => {
+    const { db, user, isSecretario, isSuperAdmin } =
+        await validarUsuario(request);
+
+    const {
+        trimestre,
+        licaoId,
+        licaoNome,
+        classeId,
+        classeNome,
+        data,
+        alunos,
+        titulo,
+        descricao,
+        icon,
+    } = request.data;
+
+    if (
+        !trimestre ||
+        !licaoId ||
+        !licaoNome ||
+        !classeId ||
+        !classeNome ||
+        !data ||
+        !alunos ||
+        !titulo ||
+        !descricao ||
+        !icon
+    ) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes",
+        );
+    }
+
+    const licaoSnap = await db.collection(Cll.LICOES).doc(licaoId).get();
+    const licao = licaoSnap.data();
+
+    if (
+        (!isSuperAdmin && licao?.igrejaId !== user.igrejaId) ||
+        (isSecretario && licao?.classeId !== user.classeId) ||
+        licao?.ministerioId !== user.ministerioId
+    ) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso.",
+        );
+    }
+
+    const batch = db.batch();
+
+    alunos.forEach((alunoId: any) => {
+        const ref = db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId);
+        batch.set(
+            ref,
+            {
+                conquistas: {
+                    [titulo.toLowerCase().replace(/\s/g, "_")]: {
+                        descricao,
+                        icon,
+                        multiplicador: FieldValue.increment(1),
+                        titulo,
+                        raridade: "unica",
+                        tipo: "manual",
+                        detalhes: {
+                            [licaoId]: {
+                                classeId,
+                                classeNome,
+                                data,
+                                licaoId,
+                                licaoNome,
+                                trimestre,
+                            },
+                        },
+                    },
+                },
+            },
+            { merge: true },
+        );
+    });
+
+    await batch.commit();
+    return { message: "Troféu enviado com sucesso" };
 });

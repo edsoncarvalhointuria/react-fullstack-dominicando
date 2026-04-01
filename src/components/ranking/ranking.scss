@@ -214,11 +214,18 @@
     min-height: 100vh;
     background-color: v.$cor-secundaria-fundo;
 
+    @media all and (max-width: 30em) {
+        padding: 0;
+    }
+
     .panorama-licao__lista-alunos {
+        // padding: 2rem;
         h2 {
             font-size: 1.8rem;
             font-weight: 700;
             color: #111827;
+            padding: 2rem;
+            padding-bottom: 0;
         }
     }
 
@@ -227,7 +234,11 @@
         max-width: 100%;
     }
 
-    .acordeao-aluno__nome{
+    .acordeao-aluno {
+        padding: 0;
+    }
+
+    .acordeao-aluno__nome {
         text-transform: capitalize;
     }
 }

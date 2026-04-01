@@ -12,55 +12,57 @@ import {
     faCircleQuestion,
     faFilePen,
     faHouse,
+    faUser,
 } from "@fortawesome/free-solid-svg-icons";
 
+const OPCOES_NAV: NavbarItemInterface[] = [
+    { texto: "Início", caminho: "/dashboard", icon: faHouse },
+    { texto: "Chamada", caminho: "/aulas", icon: faFilePen },
+    { texto: "Relatórios", caminho: "/relatorios", icon: faChartColumn },
+    {
+        texto: "Gestão",
+        dropdown: [
+            { texto: "Igrejas", caminho: "/igrejas", superAdmin: true },
+            {
+                texto: "Rótulos Classes",
+                caminho: "/rotulos-classes",
+                superAdmin: true,
+            },
+            { texto: "Classes", caminho: "/classes", admin: true },
+            { texto: "Membros", caminho: "/membros", admin: true },
+            { texto: "Alunos", caminho: "/alunos" },
+            { texto: "Matriculas", caminho: "/matriculas" },
+            { texto: "Visitas", caminho: "/visitas" },
+            { texto: "Usuários", caminho: "/usuarios" },
+            // {
+            //     texto: "Notificações",
+            //     caminho: "/notificacoes",
+            //     professor: true,
+            // },
+            { texto: "Comp. PIX", caminho: "/comprovantes" },
+            {
+                texto: "Trimestres",
+                caminho: "/trimestres",
+                superAdmin: true,
+            },
+        ],
+    },
+    {
+        texto: "Preparo",
+        caminho: "/preparo",
+        notRoles: [ROLES.SECRETARIO_CLASSE],
+        icon: faBookOpen,
+    },
+    {
+        texto: "Pedidos",
+        caminho: "/pedidos",
+        notRoles: [ROLES.PROFESSOR, ROLES.SECRETARIO_CLASSE],
+        icon: faBagShopping,
+    },
+    { texto: "Portal", caminho: "/portal-aluno", icon: faUser },
+    { texto: "Ajuda", caminho: "/ajuda", icon: faCircleQuestion },
+];
 function Navbar() {
-    const OPCOES_NAV: NavbarItemInterface[] = [
-        { texto: "Início", caminho: "/dashboard", icon: faHouse },
-        { texto: "Chamada", caminho: "/aulas", icon: faFilePen },
-        { texto: "Relatórios", caminho: "/relatorios", icon: faChartColumn },
-        {
-            texto: "Gestão",
-            dropdown: [
-                { texto: "Igrejas", caminho: "/igrejas", superAdmin: true },
-                {
-                    texto: "Rótulos Classes",
-                    caminho: "/rotulos-classes",
-                    superAdmin: true,
-                },
-                { texto: "Classes", caminho: "/classes", admin: true },
-                { texto: "Membros", caminho: "/membros", admin: true },
-                { texto: "Alunos", caminho: "/alunos" },
-                { texto: "Matriculas", caminho: "/matriculas" },
-                { texto: "Visitas", caminho: "/visitas" },
-                { texto: "Usuários", caminho: "/usuarios" },
-                // {
-                //     texto: "Notificações",
-                //     caminho: "/notificacoes",
-                //     professor: true,
-                // },
-                { texto: "Comp. PIX", caminho: "/comprovantes" },
-                {
-                    texto: "Trimestres",
-                    caminho: "/trimestres",
-                    superAdmin: true,
-                },
-            ],
-        },
-        {
-            texto: "Preparo",
-            caminho: "/preparo",
-            notRoles: [ROLES.SECRETARIO_CLASSE],
-            icon: faBookOpen,
-        },
-        {
-            texto: "Pedidos",
-            caminho: "/pedidos",
-            notRoles: [ROLES.PROFESSOR, ROLES.SECRETARIO_CLASSE],
-            icon: faBagShopping,
-        },
-        { texto: "Ajuda", caminho: "/ajuda", icon: faCircleQuestion },
-    ];
     const TAMANHO_MOBILE = 1010;
     const [isMobile, setIsMobile] = useState(
         window.innerWidth <= TAMANHO_MOBILE,

@@ -316,22 +316,34 @@ function CadastroUsuarioModal({
                                 </motion.div>
 
                                 <AnimatePresence>
-                                    {(currentRole === ROLES.SECRETARIO_CLASSE ||
-                                        currentRole === ROLES.PROFESSOR) && (
+                                    {currentIgreja && (
                                         <motion.div
                                             variants={variantsItem}
                                             key="secretario-classe-input"
                                             className="cadastro-usuario__form-input"
                                         >
                                             <p>
-                                                Classe <span>*</span>
+                                                Classe{" "}
+                                                {currentRole ===
+                                                    ROLES.SECRETARIO_CLASSE ||
+                                                currentRole ===
+                                                    ROLES.PROFESSOR ? (
+                                                    <span>*</span>
+                                                ) : (
+                                                    <i>(não é obrigatório)</i>
+                                                )}
                                             </p>
                                             <Controller
                                                 name="classeId"
                                                 control={control}
                                                 rules={{
                                                     required:
-                                                        "O cargo selecionado, exige que uma classe vinculada",
+                                                        currentRole ===
+                                                            ROLES.SECRETARIO_CLASSE ||
+                                                        currentRole ===
+                                                            ROLES.PROFESSOR
+                                                            ? "O cargo selecionado, exige que uma classe vinculada"
+                                                            : false,
                                                 }}
                                                 render={({ field }) => (
                                                     <Dropdown

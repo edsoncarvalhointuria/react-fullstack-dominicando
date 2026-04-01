@@ -96,7 +96,6 @@ const ChartMembros = React.memo(
         );
     },
 );
-
 function Dashboard() {
     const [options, setOptions] = useState<
         ClasseInterface[] | IgrejaInterface[]

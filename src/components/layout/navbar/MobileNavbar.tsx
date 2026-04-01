@@ -347,7 +347,7 @@ function MobileNavbar({
                                 )}
                             </ul>
 
-                            <motion.div whileTap={{ scale: 0.8 }}>
+                            <motion.div whileTap={{ scale: 0.95 }}>
                                 <button
                                     className="nav-mobile__sair"
                                     onClick={logout}

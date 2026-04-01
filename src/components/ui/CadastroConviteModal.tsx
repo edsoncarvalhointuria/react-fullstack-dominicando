@@ -74,7 +74,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
     const [mensagemErro, setMensagemErro] = useState("");
     const [roles, setRoles] = useState(ROLES_LIST);
     const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null
+        null,
     );
     const [currentRole, setCurrentRole] = useState<{
         nome: string;
@@ -122,12 +122,12 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
         if (copiadoCode)
             timeoutRef.current = setTimeout(
                 () => setCopiadoCode(false),
-                2000
+                2000,
             ) as any;
         if (copiadoLink)
             timeoutRef.current = setTimeout(
                 () => setCopiadoLink(false),
-                2000
+                2000,
             ) as any;
 
         return () => clearTimeout(timeoutRef.current);
@@ -140,12 +140,12 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                     ROLES_LIST.filter(
                         (v) =>
                             v.id !== ROLES.PASTOR_PRESIDENTE &&
-                            v.id !== ROLES.SUPER_ADMIN
-                    )
+                            v.id !== ROLES.SUPER_ADMIN,
+                    ),
                 );
             if (user.role === ROLES.SUPER_ADMIN)
                 setRoles(
-                    ROLES_LIST.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE)
+                    ROLES_LIST.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE),
                 );
         }
     }, [user]);
@@ -159,20 +159,20 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                         (v) =>
                             v.id !== "pastor_presidente" &&
                             v.id !== "super_admin" &&
-                            v.id !== "pastor"
-                    )
+                            v.id !== "pastor",
+                    ),
                 );
             else if (user.role === ROLES.SUPER_ADMIN)
                 setRoles(
-                    ROLES_LIST.filter((v) => v.id !== "pastor_presidente")
+                    ROLES_LIST.filter((v) => v.id !== "pastor_presidente"),
                 );
             else if (isAdmin.current)
                 setRoles(
                     ROLES_LIST.filter(
                         (v) =>
                             v.id !== "pastor_presidente" &&
-                            v.id !== "super_admin"
-                    )
+                            v.id !== "super_admin",
+                    ),
                 );
     }, [user]);
     return (
@@ -221,7 +221,9 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                             className="cadastro-usuario__form-input"
                                             style={{ zIndex: 9 }}
                                         >
-                                            <p>Cargo</p>
+                                            <p>
+                                                Cargo <span>*</span>
+                                            </p>
                                             <Controller
                                                 name="role"
                                                 control={control}
@@ -236,13 +238,13 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                             roles.find(
                                                                 (v) =>
                                                                     v.id ===
-                                                                    field.value
+                                                                    field.value,
                                                             )?.nome || null
                                                         }
                                                         onSelect={(v) => {
                                                             setCurrentRole(v);
                                                             field.onChange(
-                                                                v?.id || null
+                                                                v?.id || null,
                                                             );
                                                         }}
                                                         isAll={false}
@@ -258,7 +260,9 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                             variants={variantsItem}
                                             className="cadastro-usuario__form-input"
                                         >
-                                            <p>Igreja</p>
+                                            <p>
+                                                Igreja <span>*</span>
+                                            </p>
                                             <Controller
                                                 name="igrejaId"
                                                 control={control}
@@ -273,17 +277,17 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                             igrejas.find(
                                                                 (v) =>
                                                                     v.id ===
-                                                                    field.value
+                                                                    field.value,
                                                             )?.nome || null
                                                         }
                                                         onSelect={(v) => {
                                                             setValue(
                                                                 "classeId",
-                                                                undefined
+                                                                undefined,
                                                             );
                                                             setCurrentIgreja(v);
                                                             field.onChange(
-                                                                v?.id || null
+                                                                v?.id || null,
                                                             );
                                                         }}
                                                         isAll={false}
@@ -298,16 +302,26 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                         </motion.div>
 
                                         <AnimatePresence>
-                                            {(currentRole?.id ===
-                                                ROLES.SECRETARIO_CLASSE ||
-                                                currentRole?.id ===
-                                                    ROLES.PROFESSOR) && (
+                                            {currentIgreja && (
                                                 <motion.div
                                                     variants={variantsItem}
                                                     key="secretario-classe-input"
                                                     className="cadastro-usuario__form-input"
                                                 >
-                                                    <p>Classe</p>
+                                                    <p>
+                                                        Classe{" "}
+                                                        {currentRole?.id ===
+                                                            ROLES.SECRETARIO_CLASSE ||
+                                                        currentRole?.id ===
+                                                            ROLES.PROFESSOR ? (
+                                                            <span>*</span>
+                                                        ) : (
+                                                            <i>
+                                                                (não é
+                                                                obrigatório)
+                                                            </i>
+                                                        )}
+                                                    </p>
                                                     <Controller
                                                         name="classeId"
                                                         control={control}
@@ -325,16 +339,16 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                                     classesMemo.find(
                                                                         (v) =>
                                                                             v.id ===
-                                                                            field.value
+                                                                            field.value,
                                                                     )?.nome ||
                                                                     null
                                                                 }
                                                                 onSelect={(
-                                                                    v
+                                                                    v,
                                                                 ) => {
                                                                     field.onChange(
                                                                         v?.id ||
-                                                                            null
+                                                                            null,
                                                                     );
                                                                 }}
                                                                 isErro={
@@ -346,7 +360,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
 
                                                     {errors.classeId &&
                                                         ErroMenssage(
-                                                            errors.classeId
+                                                            errors.classeId,
                                                         )}
                                                 </motion.div>
                                             )}
@@ -395,7 +409,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                         setCopiadoCode(true);
                                         setCopiadoLink(false);
                                         navigator.clipboard.writeText(
-                                            retorno.codigo
+                                            retorno.codigo,
                                         );
                                     }}
                                 >
@@ -417,7 +431,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                     onClick={() => {
                                         setCopiadoLink(true);
                                         navigator.clipboard.writeText(
-                                            `${window.location.origin}/cadastrar/usuario/${retorno.codigo}`
+                                            `${window.location.origin}/cadastrar/usuario/${retorno.codigo}`,
                                         );
                                         setCopiadoCode(false);
                                     }}

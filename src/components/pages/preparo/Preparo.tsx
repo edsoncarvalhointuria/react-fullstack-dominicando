@@ -4,6 +4,7 @@ import {
     faCloudArrowUp,
 } from "@fortawesome/free-solid-svg-icons";
 import "./preparo.scss";
+import "@/components/ui/licao-card.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import SearchInput from "../../ui/SearchInput";
@@ -27,10 +28,10 @@ function Preparo() {
     const [update, setUpdate] = useState(false);
     const [licoes, setLicoes] = useState<LicaoPreparoInterface[]>([]);
     const [openLicao, setOpenLicao] = useState<LicaoPreparoInterface | null>(
-        null
+        null,
     );
     const [editLicao, setEditLicao] = useState<LicaoPreparoInterface | null>(
-        null
+        null,
     );
     const [pesquisa, setPesquisa] = useState("");
     const [vazio, setVazio] = useState(false);
@@ -51,7 +52,7 @@ function Preparo() {
                         .includes(pesquisa) ||
                     `${v.trimestre} trimestre de ${v.data_inicio
                         .toDate()
-                        .getFullYear()}`.includes(pesquisa)
+                        .getFullYear()}`.includes(pesquisa),
             );
         return l;
     }, [licoes, pesquisa]);
@@ -65,7 +66,7 @@ function Preparo() {
                 licaoCll,
                 where("ministerioId", "==", user?.ministerioId),
                 where("ativo", "==", true),
-                limit(1)
+                limit(1),
             );
             const licaoDocs = await getDocs(q);
 
@@ -92,14 +93,14 @@ function Preparo() {
             const licoesCll = collection(db, "licoes_preparo");
             const q = query(
                 licoesCll,
-                where("ministerioId", "==", user?.ministerioId)
+                where("ministerioId", "==", user?.ministerioId),
             );
             const licoesSnap = await getDocs(q);
 
             if (licoesSnap.empty) return [];
 
             const licoes = licoesSnap.docs.map(
-                (v) => ({ id: v.id, ...v.data() } as LicaoPreparoInterface)
+                (v) => ({ id: v.id, ...v.data() }) as LicaoPreparoInterface,
             );
             const licaoAtiva = licoes.findIndex((v) => v.ativo);
             const l = [
@@ -109,7 +110,7 @@ function Preparo() {
                     .sort(
                         (a, b) =>
                             (b.data_inicio.toDate() as any) -
-                            (a.data_inicio.toDate() as any)
+                            (a.data_inicio.toDate() as any),
                     ),
             ];
             return l;
@@ -164,7 +165,7 @@ function Preparo() {
                                             setNovoTrimestre(true);
                                             window.history.pushState(
                                                 { modal: true },
-                                                ""
+                                                "",
                                             );
                                         }}
                                     >

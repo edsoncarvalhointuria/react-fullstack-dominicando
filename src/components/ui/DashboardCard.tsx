@@ -13,8 +13,13 @@ import {
 import "./dashboard-card.scss";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUpRightAndDownLeftFromCenter } from "@fortawesome/free-solid-svg-icons";
-import React, { useState } from "react";
+import {
+    faChartArea,
+    faChartSimple,
+    faLayerGroup,
+    faUpRightAndDownLeftFromCenter,
+} from "@fortawesome/free-solid-svg-icons";
+import React, { useMemo, useState } from "react";
 import DashboardCardModal from "./DashboardCardModal";
 
 const CORES_GRAFICO = [
@@ -22,6 +27,7 @@ const CORES_GRAFICO = [
     "#10B981",
     "#F59E0B",
     "#EF4444",
+    "#A855F7",
     "#14B8A6",
     "#FACC15",
     "#EC4899",
@@ -31,7 +37,6 @@ const CORES_GRAFICO = [
     "#0EA5E9",
     "#D946EF",
     "#84CC16",
-    "#A855F7",
 ];
 
 function DashboardCard({
@@ -40,7 +45,6 @@ function DashboardCard({
     icon,
     datas,
     chartType = "area",
-    withIndex = false,
 }: {
     title: string;
     value: string;
@@ -50,10 +54,15 @@ function DashboardCard({
     withIndex?: boolean;
 }) {
     const [expandirCard, setExpandirCard] = useState(false);
-    const dataKeys = Object.keys(datas[0] || {}).filter((v) => v !== "name");
-    const condition =
-        (chartType === "area" || datas.length >= 14) && datas.length > 1;
-    const index = withIndex ? Math.max(0, datas.length - 5) : 0;
+    const [stack, setStack] = useState(title !== "Total Matriculados");
+    const dataKeys = useMemo(
+        () => Object.keys(datas[0] || {}).filter((v) => v !== "name"),
+        [datas],
+    );
+    const condition = useMemo(
+        () => (chartType === "area" || datas.length >= 14) && datas.length > 1,
+        [],
+    );
 
     return (
         <>
@@ -66,6 +75,40 @@ function DashboardCard({
 
                     {chartType !== "pie" ? (
                         <div className="dashboard-card__expandir">
+                            <div className="dashboard-card__cards">
+                                <div className="dashboard-card__card">
+                                    <label htmlFor={"bars-card" + title}>
+                                        <FontAwesomeIcon icon={faLayerGroup} />
+                                    </label>
+                                    <input
+                                        type="radio"
+                                        name={"bars" + title}
+                                        id={"bars-card" + title}
+                                        onChange={() => setStack(true)}
+                                        checked={stack}
+                                    />
+                                </div>
+                                <div className="dashboard-card__card">
+                                    <label htmlFor={"bar-card" + title}>
+                                        {chartType === "bar" ? (
+                                            <FontAwesomeIcon
+                                                icon={faChartSimple}
+                                            />
+                                        ) : (
+                                            <FontAwesomeIcon
+                                                icon={faChartArea}
+                                            />
+                                        )}
+                                    </label>
+                                    <input
+                                        type="radio"
+                                        name={"bars" + title}
+                                        id={"bar-card" + title}
+                                        onChange={() => setStack(false)}
+                                        checked={!stack}
+                                    />
+                                </div>
+                            </div>
                             <button onClick={() => setExpandirCard(true)}>
                                 <FontAwesomeIcon
                                     icon={faUpRightAndDownLeftFromCenter}
@@ -181,13 +224,12 @@ function DashboardCard({
                                     <Brush
                                         dataKey="name"
                                         height={15}
-                                        key={Math.random()}
                                         stroke="#3B82F6"
-                                        startIndex={index}
                                     />
 
                                     {dataKeys.map((v, i) => (
                                         <Area
+                                            stackId={stack ? "name" : undefined}
                                             isAnimationActive={false}
                                             type="monotone"
                                             key={v + i}
@@ -266,22 +308,30 @@ function DashboardCard({
                                         height={15}
                                         stroke="#3B82F6"
                                         key={Math.random()}
-                                        startIndex={index}
                                     />
 
-                                    {dataKeys.map((v, i) => (
-                                        <Bar
-                                            isAnimationActive={false}
-                                            dataKey={v}
-                                            key={v + i}
-                                            fill={
-                                                CORES_GRAFICO[
-                                                    i % CORES_GRAFICO.length
-                                                ]
-                                            }
-                                            radius={[4, 4, 0, 0]}
-                                        />
-                                    ))}
+                                    {dataKeys.map((v, i) => {
+                                        return (
+                                            <Bar
+                                                stackId={
+                                                    stack ? "name" : undefined
+                                                }
+                                                isAnimationActive={false}
+                                                dataKey={v}
+                                                key={v + i}
+                                                fill={
+                                                    CORES_GRAFICO[
+                                                        i % CORES_GRAFICO.length
+                                                    ]
+                                                }
+                                                radius={
+                                                    stack
+                                                        ? undefined
+                                                        : [4, 4, 0, 0]
+                                                }
+                                            />
+                                        );
+                                    })}
                                 </BarChart>
                             )}
                         </ResponsiveContainer>

@@ -4,6 +4,7 @@ import {
     Bar,
     BarChart,
     Brush,
+    LabelList,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -15,10 +16,27 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faChartLine,
     faChartSimple,
+    faLayerGroup,
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import useIsMobile from "../../hooks/useIsMobile";
+const CORES_GRAFICO = [
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#A855F7",
+    "#14B8A6",
+    "#FACC15",
+    "#EC4899",
+    "#22C55E",
+    "#6366F1",
+    "#F43F5E",
+    "#0EA5E9",
+    "#D946EF",
+    "#84CC16",
+];
 
 function DashboardCardModal({
     title,
@@ -35,27 +53,23 @@ function DashboardCardModal({
     chartType: "bar" | "area";
     onClose: () => void;
 }) {
-    const CORES_GRAFICO = [
-        "#3B82F6",
-        "#10B981",
-        "#F59E0B",
-        "#EF4444",
-        "#D946EF",
-        "#FACC15",
-        "#EC4899",
-        "#22C55E",
-        "#14B8A6",
-        "#6366F1",
-        "#F43F5E",
-        "#0EA5E9",
-        "#84CC16",
-        "#A855F7",
-    ];
-
+    const [stack, setStack] = useState(false);
     const [chart, setChart] = useState<"bar" | "area">(chartType);
     const isMobile = useIsMobile(500);
-
-    const dataKeys = Object.keys(datas[0] || {}).filter((v) => v !== "name");
+    const dataKeys = useMemo(
+        () => Object.keys(datas[0] || {}).filter((v) => v !== "name"),
+        [],
+    );
+    const datasMemo = useMemo(() => {
+        return datas.map((v) => {
+            const total = Object.values(v).reduce(
+                (prev, current) =>
+                    typeof current === "number" ? prev + current : prev,
+                0,
+            );
+            return { ...v, total };
+        });
+    }, [datas]);
     return (
         <div className="dashboard-card-modal-overlay" onClick={onClose}>
             <motion.div
@@ -74,11 +88,26 @@ function DashboardCardModal({
                                 )}
                                 <h2 className="">{title}</h2>
                             </div>
-                            {value && (
-                                <div className="dashboard-card-modal__value">
-                                    <p>{value}</p>
+
+                            <div className="dashboard-card-modal__container">
+                                {value && (
+                                    <div className="dashboard-card-modal__value">
+                                        <p>{value}</p>
+                                    </div>
+                                )}
+
+                                <div className="dashboard-card-modal__header--stack">
+                                    <label htmlFor="dashboard-card-modal-check">
+                                        <FontAwesomeIcon icon={faLayerGroup} />
+                                    </label>
+                                    <input
+                                        type="checkbox"
+                                        name="dashboard-card-modal-check"
+                                        id="dashboard-card-modal-check"
+                                        onChange={() => setStack((v) => !v)}
+                                    />
                                 </div>
-                            )}
+                            </div>
                         </div>
 
                         <button
@@ -195,6 +224,7 @@ function DashboardCardModal({
 
                                     {dataKeys.map((v, i) => (
                                         <Area
+                                            stackId={stack ? "name" : undefined}
                                             type="monotone"
                                             key={v + i}
                                             dataKey={v}
@@ -213,9 +243,12 @@ function DashboardCardModal({
                                 </AreaChart>
                             ) : (
                                 <BarChart
-                                    data={datas}
+                                    data={datasMemo}
                                     layout={
                                         isMobile ? "vertical" : "horizontal"
+                                    }
+                                    margin={
+                                        isMobile ? { right: 35 } : { top: 15 }
                                     }
                                 >
                                     <Tooltip
@@ -277,7 +310,10 @@ function DashboardCardModal({
                                             <YAxis
                                                 dataKey="name"
                                                 type="category"
-                                                width={80}
+                                                width={78}
+                                                tick={{ fontSize: 5 }}
+                                                tickSize={5}
+                                                style={{ fontSize: 13 }}
                                             />
                                         </>
                                     ) : (
@@ -295,6 +331,7 @@ function DashboardCardModal({
 
                                     {dataKeys.map((v, i) => (
                                         <Bar
+                                            stackId={stack ? "name" : undefined}
                                             dataKey={v}
                                             key={v + i}
                                             fill={
@@ -303,11 +340,29 @@ function DashboardCardModal({
                                                 ]
                                             }
                                             radius={
-                                                isMobile
-                                                    ? [0, 4, 4, 0]
-                                                    : [4, 4, 0, 0]
+                                                stack
+                                                    ? undefined
+                                                    : isMobile
+                                                      ? [0, 4, 4, 0]
+                                                      : [4, 4, 0, 0]
                                             }
-                                        />
+                                        >
+                                            {i === dataKeys.length - 1 &&
+                                            stack ? (
+                                                <LabelList
+                                                    position={
+                                                        isMobile
+                                                            ? "right"
+                                                            : "top"
+                                                    }
+                                                    dataKey={"total"}
+                                                    style={{
+                                                        fontSize: "10px",
+                                                        fill: "#000",
+                                                    }}
+                                                />
+                                            ) : undefined}
+                                        </Bar>
                                     ))}
                                 </BarChart>
                             )}

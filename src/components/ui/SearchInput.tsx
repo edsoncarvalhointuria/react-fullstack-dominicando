@@ -2,7 +2,7 @@ import { motion, type Variants } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import "./search-input.scss";
-import { useState } from "react";
+import React, { useState } from "react";
 
 const variantsInput: Variants = {
     initial: { scale: 1, borderColor: "#d1d5db", boxShadow: "none" },
@@ -63,4 +63,4 @@ function SearchInput({
     );
 }
 
-export default SearchInput;
+export default React.memo(SearchInput);

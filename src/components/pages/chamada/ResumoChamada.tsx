@@ -16,6 +16,7 @@ import {
     faUsersRectangle,
 } from "@fortawesome/free-solid-svg-icons";
 import { AcordeaoItem, InfoLinha } from "./ChamadaItens";
+import "./resumo-chamada.scss";
 
 function ResumoChamada({
     matriculados,

@@ -246,7 +246,7 @@ function Usuarios() {
     );
 
     const usuariosMemo = useMemo(() => {
-        let u = usuarios;
+        let u = [...usuarios];
 
         if (currentIgreja) u = u.filter((v) => v.igrejaId === currentIgreja.id);
         if (pesquisa) {

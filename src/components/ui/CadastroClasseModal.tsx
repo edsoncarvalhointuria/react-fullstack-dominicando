@@ -312,7 +312,7 @@ function CadastroClasseModal({
                                             {idade_maxima ? (
                                                 <span> *</span>
                                             ) : (
-                                                ""
+                                                <i>(não obrigatório)</i>
                                             )}
                                         </label>
                                         <input
@@ -343,7 +343,12 @@ function CadastroClasseModal({
 
                                     <div className="classe-modal__input-group">
                                         <label htmlFor="idade-maxima-classe">
-                                            Idade Máxima
+                                            Idade Máxima{" "}
+                                            {!idade_maxima ? (
+                                                <i>(não obrigatório)</i>
+                                            ) : (
+                                                <></>
+                                            )}
                                         </label>
                                         <input
                                             className={

@@ -203,8 +203,14 @@
                 font-size: 1.5rem;
                 font-weight: 600;
                 cursor: pointer;
+
                 @media all and (max-width: 30em) {
                     text-align: left;
+                }
+
+                strong {
+                    font-weight: 700;
+                    color: rgba(v.$cor-primaria-texto, 0.8);
                 }
 
                 &:hover {

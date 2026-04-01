@@ -70,6 +70,7 @@ import {
 } from "framer-motion";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import "./pedidos-respostas.scss";
+import "./pedidos-formulario.scss";
 import { useDataContext } from "../../../context/DataContext";
 import SearchInput from "../../ui/SearchInput";
 import Dropdown from "../../ui/Dropdown";
@@ -603,10 +604,12 @@ const PedidosRespostaShareModal = ({
     onClose,
     modeloId,
     link,
+    title,
 }: {
     onClose: () => void;
     modeloId?: string;
     link?: string;
+    title?: string;
 }) => {
     const [copy, setCopy] = useState(false);
     return (
@@ -621,7 +624,7 @@ const PedidosRespostaShareModal = ({
                     <span>
                         <FontAwesomeIcon icon={faShareNodes} />
                     </span>
-                    <p>Compartilhar Formulário</p>
+                    <p>{title ? title : "Compartilhar Formulário"}</p>
                 </div>
                 <button className="compartilhar-modal__close" onClick={onClose}>
                     <FontAwesomeIcon icon={faXmark} />
@@ -661,21 +664,21 @@ const PedidosRespostaShareModal = ({
         </motion.div>
     );
 };
+const OPCOES_BTN = [
+    {
+        nome: "Maior Presença",
+        icon: faRankingStar,
+        key: "picoPresenca",
+    },
+    {
+        nome: "Total Matriculados",
+        icon: faUsers,
+        key: "totalMatriculados",
+    },
+    { nome: "Média Presença", icon: faPercent, key: "mediaPresenca" },
+];
 const BotaoRespostaSugestao = React.memo(
     ({ onSelect }: { onSelect: (opcao: string) => void }) => {
-        const OPCOES = [
-            {
-                nome: "Maior Presença",
-                icon: faRankingStar,
-                key: "picoPresenca",
-            },
-            {
-                nome: "Total Matriculados",
-                icon: faUsers,
-                key: "totalMatriculados",
-            },
-            { nome: "Média Presença", icon: faPercent, key: "mediaPresenca" },
-        ];
         const [isOpen, setIsOpen] = useState(false);
         return (
             <div className="pedidos-sugestao-button">
@@ -698,7 +701,7 @@ const BotaoRespostaSugestao = React.memo(
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
                         >
-                            {OPCOES.map((v) => (
+                            {OPCOES_BTN.map((v) => (
                                 <div
                                     className="pedidos-sugestao-button__opcao"
                                     key={v.nome}

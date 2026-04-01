@@ -11,6 +11,10 @@
     z-index: 2000;
     padding: 1.5rem;
     align-items: start;
+
+    @media all and (max-width: 375px) {
+        padding: 0.5rem;
+    }
 }
 
 .cadastro-usuario {
@@ -68,6 +72,10 @@
     &__body {
         padding: 2.5rem;
         overflow-y: auto;
+
+        @media all and (max-width: 375px) {
+            padding: 1.5rem;
+        }
     }
 
     &__form {
@@ -96,6 +104,11 @@
 
             span {
                 color: v.$cor-erro;
+            }
+
+            i {
+                font-size: 1.2rem;
+                color: rgba(v.$cor-primaria-texto, 0.5);
             }
         }
 

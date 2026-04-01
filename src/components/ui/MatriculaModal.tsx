@@ -141,7 +141,7 @@ function MatriculaModal({
                                             </thead>
 
                                             <tbody>
-                                                {alunos.map((v) => (
+                                                {alunosMemo.map((v) => (
                                                     <tr
                                                         key={v.id}
                                                         className="matricula-modal__aluno"
