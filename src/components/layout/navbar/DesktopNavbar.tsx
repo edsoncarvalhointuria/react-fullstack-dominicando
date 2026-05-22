@@ -123,11 +123,13 @@ function DesktopNavbar({
     userName,
     userEmail,
     logout,
+    portalAluno,
 }: {
     OPCOES: NavbarItemInterface[];
     userName: string;
     userEmail: string;
     logout: () => void;
+    portalAluno?: string;
 }) {
     const [showAccount, setShowAccount] = useState(false);
     const [showAlert, setShowAlert] = useState(false);
@@ -287,6 +289,14 @@ function DesktopNavbar({
                                     >
                                         Minha Conta
                                     </Link>
+                                    {portalAluno && (
+                                        <Link
+                                            to={portalAluno}
+                                            className="nav-desktop__conta-container--link"
+                                        >
+                                            Portal do Aluno
+                                        </Link>
+                                    )}
                                     <motion.div>
                                         <button
                                             className="nav-mobile__sair"

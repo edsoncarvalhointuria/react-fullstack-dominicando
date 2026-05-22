@@ -1367,6 +1367,24 @@ $cor-missoes: #0ea5e9;
         border-radius: 0;
     }
 
+    input[type="checkbox"] {
+        width: 2.2rem;
+        height: 2.2rem;
+        cursor: pointer;
+        accent-color: v.$cor-primaria-itens;
+        flex-shrink: 0;
+
+        &:checked + .acordeao-aluno__infos {
+            border-color: v.$cor-primaria-itens;
+            box-shadow: 0 0 0 1px v.$cor-primaria-itens;
+            background-color: rgba(0, 0, 0, 0.01);
+        }
+    }
+
+    label {
+        cursor: pointer;
+    }
+
     &__overlay {
         position: fixed;
         inset: 0;
@@ -1388,6 +1406,20 @@ $cor-missoes: #0ea5e9;
 
     & .resumo-chamada {
         padding: 2rem 1rem;
+    }
+
+    & .resumo-chamada__acordeao-lista {
+        margin: 0 0 1rem 3.5rem;
+    }
+
+    & .resumo-chamada__acordeao-lista--selecionar-todos {
+        font-weight: 700; // Deixa o texto em negrito
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1); // Linha divisória sutil
+        margin-bottom: 0.5rem; // Empurra os itens de baixo para longe da linha
+        padding-bottom: 1rem; // Dá mais respiro acima da linha
+
+        // Se você tiver uma cor de destaque no seu arquivo de variáveis (opcional):
+        // color: v.$cor-primaria-destaque;
     }
 
     // & .detalhes-aluno__header {

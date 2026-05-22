@@ -88,6 +88,8 @@
         li {
             padding: 0.5rem 0;
             font-size: 1.6rem;
+            display: flex;
+            gap: 1rem;
             color: v.$cor-primaria-texto;
         }
     }

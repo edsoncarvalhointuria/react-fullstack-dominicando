@@ -11,6 +11,7 @@ import CadastrarUsuario from "./components/pages/cadastrar/CadastrarUsuario";
 import PWReloadPrompt from "./components/layout/PWA/PWReloadPrompt";
 import InstallModal from "./components/ui/InstallModal";
 import "./components/pages/alunos/alunos.scss";
+
 // import Dashboard from "./components/pages/dashboard/Dashboard";
 // import Aulas from "./components/pages/aulas/Aulas";
 // import Chamada from "./components/pages/chamada/Chamada";
@@ -51,7 +52,12 @@ import "./components/pages/alunos/alunos.scss";
 // const CadastrarUsuario = lazy(
 //     () => import("./components/pages/cadastrar/CadastrarUsuario"),
 // );
+
+const LerPDF = lazy(() => import("./components/pages/ler_pdf/LerPDF"));
 const Dashboard = lazy(() => import("./components/pages/dashboard/Dashboard"));
+const LicoesGlobais = lazy(
+    () => import("./components/pages/licoes_globais/LicoesGlobais"),
+);
 const Aulas = lazy(() => import("./components/pages/aulas/Aulas"));
 const Chamada = lazy(() => import("./components/pages/chamada/Chamada"));
 const Alunos = lazy(() => import("./components/pages/alunos/Alunos"));
@@ -252,6 +258,7 @@ function App() {
                         key={location.key}
                         element={<PortalAluno />}
                     />
+                    <Route path="/ler-pdf" element={<LerPDF />} />
 
                     <Route path="/cadastrar">
                         <Route
@@ -373,6 +380,10 @@ function App() {
                                 path="formulario/:modeloId/:type"
                                 element={<PedidosResposta />}
                             />
+                        </Route>
+
+                        <Route path="/licoes-globais">
+                            <Route path="" element={<LicoesGlobais />} />
                         </Route>
 
                         <Route path="/portal-aluno">

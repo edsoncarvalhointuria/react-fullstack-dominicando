@@ -16,4 +16,22 @@ interface LicaoInterface {
     titulo: string;
     total_matriculados: number;
     relatorio_enviado?: boolean;
+    licaoGlobalId?: string;
+    primeiroAcesso?: boolean;
+    pdf?: string | null;
+}
+
+interface LicaoGlobalInterface {
+    id: string;
+    ativo: boolean;
+    img: string | null;
+    pdf: string | null;
+    rotuloId: string;
+    data_fim: Timestamp;
+    data_inicio: Timestamp;
+    ministerioId: string;
+    numero_aulas: number;
+    numero_trimestre: number;
+    titulo: string;
+    igrejas: string[];
 }

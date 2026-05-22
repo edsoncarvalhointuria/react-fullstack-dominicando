@@ -422,11 +422,13 @@
         box-shadow: 5px 0 20px rgba(0, 0, 0, 0.1);
         z-index: 20;
         display: grid;
-        padding: 7rem 3rem 0rem 3rem;
+        padding: 6rem 3rem 0rem 3rem;
         grid-template-rows: 8rem 1fr 8rem;
         gap: 1rem;
 
         &__conta {
+            display: flex;
+            flex-direction: column;
             &--nome {
                 font-size: 1.8rem;
                 font-weight: 700;
@@ -438,6 +440,11 @@
                 margin-bottom: 1rem;
                 overflow-wrap: break-word;
                 word-break: break-all;
+            }
+            &--links {
+                display: flex;
+                gap: 0.5rem;
+                justify-content: space-between;
             }
             &--link {
                 font-size: 1.5rem;

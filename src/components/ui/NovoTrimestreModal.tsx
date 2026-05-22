@@ -1,12 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-    faChevronDown,
     faChurch,
     faFilePen,
     faImage,
     faRulerVertical,
     faSquarePen,
+    faStar,
     faTrash,
     faTriangleExclamation,
     faUserPlus,
@@ -24,8 +24,11 @@ import React, {
 import {
     collection,
     doc,
+    documentId,
     getDoc,
     getDocs,
+    limit,
+    orderBy,
     query,
     where,
 } from "firebase/firestore";
@@ -58,6 +61,7 @@ import { getIdade } from "../../utils/getIdade";
 import { useAuthContext } from "../../context/AuthContext";
 import { reduzirImagem } from "../../utils/reduzirImagem";
 import { useDataContext } from "../../context/DataContext";
+import { ListaDeAulas } from "./NovoTrimestreTemplate";
 
 interface AlunoSelecionado {
     alunoId: string;
@@ -79,88 +83,48 @@ const functions = getFunctions();
 const salvarNovoTrimestre = httpsCallable(functions, "salvarNovoTrimestre");
 const deletarLicao = httpsCallable(functions, "deletarLicao");
 
-const ListaAulas = React.memo(({ dataAulas }: { dataAulas: string[][] }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    return (
-        <AnimatePresence>
-            {dataAulas.length && (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0 }}
-                    onTap={() => setIsOpen((v) => !v)}
-                    className={`novo-trimestre__previsao-aulas ${isOpen ? "is-open" : ""}`}
-                    key={"previsao-aulas"}
-                >
-                    <h3>
-                        Lista de aulas{" "}
-                        <span>
-                            <FontAwesomeIcon icon={faChevronDown} />
-                        </span>
-                    </h3>
-                    <AnimatePresence>
-                        {isOpen && (
-                            <motion.div
-                                key={"previsao-aulas-container"}
-                                initial={{ y: -10, height: 0 }}
-                                animate={{ y: 0, height: "auto" }}
-                                exit={{ y: -10, height: 0 }}
-                            >
-                                <motion.ul className="novo-trimestre__previsao-aulas--lista">
-                                    {dataAulas.map(([aula, data]) => (
-                                        <motion.li key={aula + data}>
-                                            <p>{aula}</p>
-                                            <data value={data}>{data}</data>
-                                        </motion.li>
-                                    ))}
-                                </motion.ul>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
-});
-
 const ItemAlunoMatriculado = React.memo(
     ({
-        aluno,
+        alunoId,
+        alunoIdade,
+        alunoNome,
         isForaDaFaixa,
         remove,
-        fieldIndex,
+        index,
         register,
     }: {
-        aluno: any;
+        alunoId: string;
+        alunoIdade: string;
+        alunoNome: string;
         isForaDaFaixa: boolean;
         remove: UseFieldArrayRemove;
-        fieldIndex: (v: any) => number;
+        index: number;
         register: UseFormRegister<any>;
     }) => {
         return (
             <motion.li
-                layoutId={aluno.alunoId}
+                layoutId={alunoId}
                 className={isForaDaFaixa ? "matriculas--fora-da-faixa" : ""}
             >
                 <motion.div
                     className="matriculas-item__nome"
-                    onTap={() => remove(fieldIndex(aluno))}
+                    onTap={() => remove(index)}
                 >
-                    <span>{aluno?.nome}</span>{" "}
+                    <span>{alunoNome}</span>{" "}
                     <span className="matriculas--lista-idade">
-                        ({aluno?.idade} anos)
+                        ({alunoIdade} anos)
                     </span>
                 </motion.div>
 
                 <div className="matriculas-item__licao">
-                    <label htmlFor={"matriculados-revista" + aluno.alunoId}>
+                    <label htmlFor={"matriculados-revista" + alunoId}>
                         Revista?
                     </label>
                     <input
                         type="checkbox"
-                        id={"matriculados-revista" + aluno.alunoId}
+                        id={"matriculados-revista" + alunoId}
                         {...register(
-                            `alunosSelecionados.${fieldIndex(aluno)}.possui_revista`,
+                            `alunosSelecionados.${index}.possui_revista`,
                         )}
                     />
                 </div>
@@ -219,8 +183,10 @@ const AlunosMatriculados = ({
         <ul className="matriculas--lista">
             {listaAlunosSelecionados.map((v) => (
                 <ItemAlunoMatriculado
-                    aluno={v}
-                    fieldIndex={fieldIndex}
+                    alunoId={v.alunoId}
+                    alunoIdade={v?.idade}
+                    alunoNome={v?.nome}
+                    index={fieldIndex(v)}
                     isForaDaFaixa={alunosForaDaFaixa.has(v.alunoId)}
                     register={register}
                     remove={remove}
@@ -267,7 +233,6 @@ function NovoTrimestreModal({
     >(new Map());
     const [pesquisa, setPesquisa] = useState("");
     const [showCadastroAluno, setShowCadastroAluno] = useState<boolean>(false);
-    const [dataAulas, setDataAulas] = useState<string[][]>([]);
     const [isEnviando, setIsEnviando] = useState(false);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
@@ -311,8 +276,6 @@ function NovoTrimestreModal({
     const { classes } = useDataContext();
 
     const imagem = useWatch({ control, name: "img" });
-    const dataInicio = useWatch({ control, name: "data_inicio" });
-    const numeroAulas = useWatch({ control, name: "numero_aulas" });
 
     const normalizeDate = (data: any) => {
         const d = new Date(data);
@@ -621,26 +584,6 @@ function NovoTrimestreModal({
         alunosForaDaIdadeRef.current = alunosForaDaIdadeMemo;
     }, [alunosForaDaIdadeMemo]);
     useEffect(() => {
-        if (dataInicio && numeroAulas > 0) {
-            const data = new Date(dataInicio + "T12:00:00");
-
-            if (data.getUTCDay() !== 0) return setDataAulas([]);
-
-            const listaDatas: string[][] = Array.from({
-                length: numeroAulas,
-            }).map((_, i) => {
-                const dataAula = new Date(data);
-                dataAula.setUTCDate(dataAula.getUTCDate() + i * 7);
-                return [
-                    "Aula " + (i + 1),
-                    dataAula.toLocaleDateString("pt-BR"),
-                ];
-            });
-
-            setDataAulas(listaDatas);
-        }
-    }, [dataInicio, numeroAulas]);
-    useEffect(() => {
         const getLicao = async () => {
             if (!licaoReference) {
                 const licoesCollection = collection(db, "licoes");
@@ -699,11 +642,36 @@ function NovoTrimestreModal({
 
             return alunos;
         };
-        const getTrimestreAnterior = async (licaoId: string) => {
+        const getTrimestreAnterior = async (
+            licaoId: string,
+            isPrimeiroAcesso?: boolean,
+        ) => {
+            let licaoIdFinal = licaoId;
+            if (isPrimeiroAcesso) {
+                const ultimaLicaoCll = collection(db, "licoes");
+                const q = query(
+                    ultimaLicaoCll,
+                    where(documentId(), "!=", licaoId),
+                    where("classeId", "==", classeId),
+                    isSuperAdmin.current
+                        ? where("ministerioId", "==", user!.ministerioId)
+                        : where("igrejaId", "==", user!.igrejaId),
+                    orderBy("data_inicio", "desc"),
+                    limit(1),
+                );
+
+                const ultimaLicaoDocs = await getDocs(q);
+
+                if (!ultimaLicaoDocs.empty) {
+                    const ultimaLicaoId = ultimaLicaoDocs.docs[0].id;
+                    licaoIdFinal = ultimaLicaoId;
+                }
+            }
+
             const matriculasCollection = doc(
                 db,
                 "cache_matriculas",
-                `${igrejaId}_${licaoId}`,
+                `${igrejaId}_${licaoIdFinal}`,
             );
 
             const matriculasSnap = await getDoc(matriculasCollection);
@@ -745,7 +713,49 @@ function NovoTrimestreModal({
                 setAlunosMap(alunoMap as any);
 
                 if (licaoReference) {
-                    getTrimestreAnterior(licaoReference.id)
+                    if (licaoReference.primeiroAcesso) {
+                        setMensagem({
+                            message: (
+                                <>
+                                    <span>
+                                        Esta lição foi{" "}
+                                        <strong>
+                                            cadastrada automaticamente
+                                        </strong>{" "}
+                                        para você.
+                                    </span>
+                                    <br />
+                                    <span>
+                                        👉 Próximo passo:{" "}
+                                        <strong>
+                                            matricule os alunos deste trimestre
+                                        </strong>
+                                        .
+                                    </span>
+                                    <br />
+                                    <span>
+                                        💡 Dica: use o botão{" "}
+                                        <strong>
+                                            "Importar alunos do trimestre
+                                            anterior"
+                                        </strong>{" "}
+                                        para preencher mais rápido.
+                                    </span>
+                                </>
+                            ),
+                            title: "Primeiro Acesso",
+                            onClose: () => setMensagem(null),
+                            onConfirm: () => setMensagem(null),
+                            onCancel: () => setMensagem(null),
+                            cancelText: "Ok",
+                            confirmText: "Ok",
+                            icon: <FontAwesomeIcon icon={faStar} />,
+                        });
+                    }
+                    getTrimestreAnterior(
+                        licaoReference.id,
+                        licaoReference.primeiroAcesso,
+                    )
                         .then((matricula) => {
                             const result = matricula?.map(
                                 (v) =>
@@ -762,7 +772,8 @@ function NovoTrimestreModal({
                             trimestreAnterior.current = result;
 
                             reset({
-                                alunosSelecionados: result,
+                                alunosSelecionados:
+                                    licaoReference.primeiroAcesso ? [] : result,
                                 data_inicio: licaoReference.data_inicio
                                     .toDate()
                                     .toISOString()
@@ -803,353 +814,385 @@ function NovoTrimestreModal({
     }, []);
     return (
         <>
-            <motion.div
-                className="novo-trimestre"
-                initial={{ opacity: 0, y: -50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 50 }}
+            <div
+                className="novo-trimestre-close"
+                onClick={() => (!isEnviando ? onClose() : null)}
             >
-                {isLoading ? (
-                    <LoadingModal
-                        isEnviando={isLoading}
-                        mensagem="Carregando"
-                    />
-                ) : (
-                    <>
-                        <LoadingModal isEnviando={isEnviando} />
-                        <div className="novo-trimestre__header">
-                            <div className="novo-trimestre__header--title-group">
-                                <div className="novo-trimestre__header--title">
-                                    {licaoReference ? (
-                                        <h2>{licaoReference.titulo}</h2>
-                                    ) : (
-                                        <h2>Preencha os dados da nova lição</h2>
-                                    )}
-                                </div>
-                                <div className="novo-trimestre__header--infos">
-                                    {isSuperAdmin.current && (
-                                        <p>
-                                            <FontAwesomeIcon icon={faChurch} />
-                                            <strong>Igreja:</strong>{" "}
-                                            {classe?.igrejaNome}
-                                        </p>
-                                    )}
-                                    <p>
-                                        <FontAwesomeIcon
-                                            icon={faUsersRectangle}
-                                        />
-                                        <strong>Classe:</strong> {classe?.nome}
-                                    </p>
-                                    {(classe?.idade_minima ||
-                                        classe?.idade_maxima) && (
+                <motion.div
+                    className="novo-trimestre"
+                    initial={{ opacity: 0, y: -50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {isLoading ? (
+                        <LoadingModal
+                            isEnviando={isLoading}
+                            mensagem="Carregando"
+                        />
+                    ) : (
+                        <>
+                            <LoadingModal isEnviando={isEnviando} />
+                            <div className="novo-trimestre__header">
+                                <div className="novo-trimestre__header--title-group">
+                                    <div className="novo-trimestre__header--title">
+                                        {licaoReference ? (
+                                            <h2>{licaoReference.titulo}</h2>
+                                        ) : (
+                                            <h2>
+                                                Preencha os dados da nova lição
+                                            </h2>
+                                        )}
+                                    </div>
+                                    <div className="novo-trimestre__header--infos">
+                                        {isSuperAdmin.current && (
+                                            <p>
+                                                <FontAwesomeIcon
+                                                    icon={faChurch}
+                                                />
+                                                <strong>Igreja:</strong>{" "}
+                                                {classe?.igrejaNome}
+                                            </p>
+                                        )}
                                         <p>
                                             <FontAwesomeIcon
-                                                icon={faRulerVertical}
+                                                icon={faUsersRectangle}
                                             />
-                                            <strong>Faixa Etária:</strong>{" "}
-                                            {typeof classe?.idade_minima ===
-                                            "number"
-                                                ? classe?.idade_minima
-                                                : "N/A"}{" "}
-                                            -{" "}
-                                            {typeof classe?.idade_maxima ===
-                                            "number"
-                                                ? classe?.idade_maxima
-                                                : "N/A"}{" "}
-                                            anos
+                                            <strong>Classe:</strong>{" "}
+                                            {classe?.nome}
                                         </p>
-                                    )}
+                                        {(classe?.idade_minima ||
+                                            classe?.idade_maxima) && (
+                                            <p>
+                                                <FontAwesomeIcon
+                                                    icon={faRulerVertical}
+                                                />
+                                                <strong>Faixa Etária:</strong>{" "}
+                                                {typeof classe?.idade_minima ===
+                                                "number"
+                                                    ? classe?.idade_minima
+                                                    : "N/A"}{" "}
+                                                -{" "}
+                                                {typeof classe?.idade_maxima ===
+                                                "number"
+                                                    ? classe?.idade_maxima
+                                                    : "N/A"}{" "}
+                                                anos
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div
-                                className="novo-trimestre__header--close"
-                                onClick={() => onClose()}
-                            >
-                                <FontAwesomeIcon icon={faXmark} />
-                            </div>
-
-                            {licaoReference ? (
-                                <div className="novo-trimestre__header--aviso">
-                                    <FontAwesomeIcon icon={faSquarePen} />
-                                    <span>
-                                        Atenção: você está editando a lição
-                                    </span>
+                                <div
+                                    className="novo-trimestre__header--close"
+                                    onClick={() => onClose()}
+                                >
+                                    <FontAwesomeIcon icon={faXmark} />
                                 </div>
-                            ) : (
-                                licao && (
+
+                                {licaoReference ? (
                                     <div className="novo-trimestre__header--aviso">
-                                        <FontAwesomeIcon
-                                            icon={faTriangleExclamation}
-                                        />
+                                        <FontAwesomeIcon icon={faSquarePen} />
                                         <span>
-                                            Já existe uma lição ativa para esta
-                                            classe.
+                                            Atenção: você está editando a lição
                                         </span>
                                     </div>
-                                )
-                            )}
-                        </div>
-                        <div className="novo-trimestre__body">
-                            <FormProvider {...methods}>
-                                <form
-                                    onSubmit={handleSubmit(onSubmit)}
-                                    className="novo-trimestre__form"
-                                >
-                                    {/* Imagem */}
-                                    <div className="novo-trimestre__input novo-trimestre__input--file">
-                                        <label htmlFor="imagem_capa">
-                                            <FontAwesomeIcon icon={faImage} />
+                                ) : (
+                                    licao && (
+                                        <div className="novo-trimestre__header--aviso">
+                                            <FontAwesomeIcon
+                                                icon={faTriangleExclamation}
+                                            />
                                             <span>
-                                                {imagem && imagem.length > 0
-                                                    ? imagem[0].name
-                                                    : licaoReference?.img
-                                                      ? "Alterar capa revista"
-                                                      : "Adicionar capa da revista"}
+                                                Já existe uma lição ativa para
+                                                esta classe.
                                             </span>
-                                        </label>
-                                        <input
-                                            type="file"
-                                            id="imagem_capa"
-                                            accept="image/*"
-                                            {...register("img")}
-                                        />
-                                    </div>
-
-                                    {/* Título e Trimestre */}
-                                    <div className="novo-trimestre__input-group">
-                                        <div className="novo-trimestre__input">
-                                            <label htmlFor="titulo">
-                                                Titulo da lição <i>*</i>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                id="titulo"
-                                                className={
-                                                    errors.titulo
-                                                        ? "input-error"
-                                                        : ""
-                                                }
-                                                {...register("titulo", {
-                                                    required:
-                                                        "O título da lição é obrigatório",
-                                                })}
-                                            />
-                                            {
-                                                <ErroComponent
-                                                    field={errors.titulo}
-                                                />
-                                            }
                                         </div>
-
-                                        <div className="novo-trimestre__input">
-                                            <label htmlFor="novo-trimestre-trimestre">
-                                                Nº do Trimestre <i>*</i>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                step={1}
-                                                id="novo-trimestre-trimestre"
-                                                className={
-                                                    errors.trimestre
-                                                        ? "input-error"
-                                                        : ""
-                                                }
-                                                {...register("trimestre", {
-                                                    required:
-                                                        "O Nº do trimestre é obrigatório.",
-                                                    min: {
-                                                        value: 1,
-                                                        message:
-                                                            "Número do trimestre está inválido",
-                                                    },
-                                                    max: {
-                                                        value: 4,
-                                                        message:
-                                                            "Número do trimestre está inválido",
-                                                    },
-                                                    valueAsNumber: true,
-                                                })}
-                                            />
-                                            {
-                                                <ErroComponent
-                                                    field={errors.trimestre}
-                                                />
-                                            }
-                                        </div>
-                                    </div>
-
-                                    {/* Data Início e Quantidade de Aulas */}
-                                    <div className="novo-trimestre__input-group">
-                                        <div className="novo-trimestre__input">
-                                            <label htmlFor="data_inicio">
-                                                Data de Início <i>*</i>
-                                            </label>
-                                            <input
-                                                type="date"
-                                                id="data_inicio"
-                                                className={
-                                                    errors.data_inicio
-                                                        ? "input-error"
-                                                        : ""
-                                                }
-                                                {...register("data_inicio", {
-                                                    required:
-                                                        "A data de início é obrigatória.",
-                                                    validate: (value) => {
-                                                        if (!value) return true;
-                                                        const dia = new Date(
-                                                            value,
-                                                        ).getUTCDay();
-                                                        return (
-                                                            dia === 0 ||
-                                                            "A data de início precisa ser um domingo!"
-                                                        );
-                                                    },
-                                                })}
-                                            />
-                                            {
-                                                <ErroComponent
-                                                    field={errors.data_inicio}
-                                                />
-                                            }
-                                        </div>
-                                        <div className="novo-trimestre__input">
-                                            <label htmlFor="numero_aulas">
-                                                Quantidade de Aulas <i>*</i>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="numero_aulas"
-                                                className={
-                                                    errors.numero_aulas
-                                                        ? "input-error"
-                                                        : ""
-                                                }
-                                                {...register("numero_aulas", {
-                                                    required:
-                                                        "A quantidade de aulas é obrigatória",
-                                                    valueAsNumber: true,
-                                                    min: {
-                                                        value: 1,
-                                                        message:
-                                                            "O valor mínimo é 1",
-                                                    },
-                                                })}
-                                            />
-                                            {
-                                                <ErroComponent
-                                                    field={errors.numero_aulas}
-                                                />
-                                            }
-                                        </div>
-                                    </div>
-
-                                    <ListaAulas dataAulas={dataAulas} />
-
-                                    <div className="matriculas">
-                                        <div className="matriculas-alunos__search">
-                                            <SearchInput
-                                                texto="aluno (nome, idade)"
-                                                onSearch={(v) => setPesquisa(v)}
-                                            />
-                                        </div>
-                                        <div className="matriculas-disponiveis">
-                                            <h3>Alunos não matriculados</h3>
-                                            <button
-                                                type="button"
-                                                className="matriculas-cadastrar"
-                                                onClick={() =>
-                                                    setShowCadastroAluno(true)
-                                                }
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faUserPlus}
-                                                />
-                                                Cadastrar novo aluno
-                                            </button>
-                                            <AlunosDisponiveis
-                                                append={append}
-                                                listaAlunos={listaAlunosMemo}
-                                            />
-                                        </div>
-
-                                        <div className="matriculas-matriculados">
-                                            <h3>
-                                                Alunos Matriculados: (
-                                                {fields.length})
-                                            </h3>
-                                            <button
-                                                type="button"
-                                                onClick={importarAlunos}
-                                                className="matriculas-importar"
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faUsersRectangle}
-                                                />
-                                                Importar do trimestre anterior?
-                                            </button>
-                                            <AlunosMatriculados
-                                                alunosForaDaFaixa={
-                                                    alunosForaDaIdadeMemo
-                                                }
-                                                fieldIndex={fieldIndex}
-                                                listaAlunosSelecionados={
-                                                    listaAlunosSelecionadosMemo
-                                                }
-                                                register={register}
-                                                remove={remove}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        className={`novo-trimestre__actions ${
-                                            licaoReference &&
-                                            !isSecretario.current
-                                                ? "novo-trimestre__actions--edit"
-                                                : ""
-                                        }`}
+                                    )
+                                )}
+                            </div>
+                            <div className="novo-trimestre__body">
+                                <FormProvider {...methods}>
+                                    <form
+                                        onSubmit={handleSubmit(onSubmit)}
+                                        className="novo-trimestre__form"
                                     >
-                                        {licaoReference &&
-                                            !isSecretario.current && (
+                                        {/* Imagem */}
+                                        <div className="novo-trimestre__input novo-trimestre__input--file">
+                                            <label htmlFor="imagem_capa">
+                                                <FontAwesomeIcon
+                                                    icon={faImage}
+                                                />
+                                                <span>
+                                                    {imagem && imagem.length > 0
+                                                        ? imagem[0].name
+                                                        : licaoReference?.img
+                                                          ? "Alterar capa revista"
+                                                          : "Adicionar capa da revista"}
+                                                </span>
+                                            </label>
+                                            <input
+                                                type="file"
+                                                id="imagem_capa"
+                                                accept="image/*"
+                                                {...register("img")}
+                                            />
+                                        </div>
+
+                                        {/* Título e Trimestre */}
+                                        <div className="novo-trimestre__input-group">
+                                            <div className="novo-trimestre__input">
+                                                <label htmlFor="titulo">
+                                                    Titulo da lição <i>*</i>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="titulo"
+                                                    className={
+                                                        errors.titulo
+                                                            ? "input-error"
+                                                            : ""
+                                                    }
+                                                    {...register("titulo", {
+                                                        required:
+                                                            "O título da lição é obrigatório",
+                                                    })}
+                                                />
+                                                {
+                                                    <ErroComponent
+                                                        field={errors.titulo}
+                                                    />
+                                                }
+                                            </div>
+
+                                            <div className="novo-trimestre__input">
+                                                <label htmlFor="novo-trimestre-trimestre">
+                                                    Nº do Trimestre <i>*</i>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    step={1}
+                                                    id="novo-trimestre-trimestre"
+                                                    className={
+                                                        errors.trimestre
+                                                            ? "input-error"
+                                                            : ""
+                                                    }
+                                                    {...register("trimestre", {
+                                                        required:
+                                                            "O Nº do trimestre é obrigatório.",
+                                                        min: {
+                                                            value: 1,
+                                                            message:
+                                                                "Número do trimestre está inválido",
+                                                        },
+                                                        max: {
+                                                            value: 4,
+                                                            message:
+                                                                "Número do trimestre está inválido",
+                                                        },
+                                                        valueAsNumber: true,
+                                                    })}
+                                                />
+                                                {
+                                                    <ErroComponent
+                                                        field={errors.trimestre}
+                                                    />
+                                                }
+                                            </div>
+                                        </div>
+
+                                        {/* Data Início e Quantidade de Aulas */}
+                                        <div className="novo-trimestre__input-group">
+                                            <div className="novo-trimestre__input">
+                                                <label htmlFor="data_inicio">
+                                                    Data de Início <i>*</i>
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    id="data_inicio"
+                                                    className={
+                                                        errors.data_inicio
+                                                            ? "input-error"
+                                                            : ""
+                                                    }
+                                                    {...register(
+                                                        "data_inicio",
+                                                        {
+                                                            required:
+                                                                "A data de início é obrigatória.",
+                                                            validate: (
+                                                                value,
+                                                            ) => {
+                                                                if (!value)
+                                                                    return true;
+                                                                const dia =
+                                                                    new Date(
+                                                                        value,
+                                                                    ).getUTCDay();
+                                                                return (
+                                                                    dia === 0 ||
+                                                                    "A data de início precisa ser um domingo!"
+                                                                );
+                                                            },
+                                                        },
+                                                    )}
+                                                />
+                                                {
+                                                    <ErroComponent
+                                                        field={
+                                                            errors.data_inicio
+                                                        }
+                                                    />
+                                                }
+                                            </div>
+                                            <div className="novo-trimestre__input">
+                                                <label htmlFor="numero_aulas">
+                                                    Quantidade de Aulas <i>*</i>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    id="numero_aulas"
+                                                    className={
+                                                        errors.numero_aulas
+                                                            ? "input-error"
+                                                            : ""
+                                                    }
+                                                    {...register(
+                                                        "numero_aulas",
+                                                        {
+                                                            required:
+                                                                "A quantidade de aulas é obrigatória",
+                                                            valueAsNumber: true,
+                                                            min: {
+                                                                value: 1,
+                                                                message:
+                                                                    "O valor mínimo é 1",
+                                                            },
+                                                        },
+                                                    )}
+                                                />
+                                                {
+                                                    <ErroComponent
+                                                        field={
+                                                            errors.numero_aulas
+                                                        }
+                                                    />
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <ListaDeAulas
+                                            control={control}
+                                            nameAulas="numero_aulas"
+                                            nameData="data_inicio"
+                                        />
+                                        <div className="matriculas">
+                                            <div className="matriculas-alunos__search">
+                                                <SearchInput
+                                                    texto="aluno (nome, idade)"
+                                                    onSearch={(v) =>
+                                                        setPesquisa(v)
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="matriculas-disponiveis">
+                                                <h3>Alunos não matriculados</h3>
                                                 <button
                                                     type="button"
-                                                    className="button-delete"
-                                                    onClick={deletarRevista}
+                                                    className="matriculas-cadastrar"
+                                                    onClick={() =>
+                                                        setShowCadastroAluno(
+                                                            true,
+                                                        )
+                                                    }
                                                 >
-                                                    Deletar
+                                                    <FontAwesomeIcon
+                                                        icon={faUserPlus}
+                                                    />
+                                                    Cadastrar novo aluno
                                                 </button>
-                                            )}
-                                        <div className="novo-trimestre__actions-btn">
-                                            <button
-                                                type="button"
-                                                className="button-secondary"
-                                                onClick={() => onClose()}
-                                            >
-                                                Cancelar
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                className="button-primary"
-                                            >
-                                                {licaoReference
-                                                    ? "Salvar"
-                                                    : "Criar Trimestre"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                            </FormProvider>
-                        </div>
-                    </>
-                )}
+                                                <AlunosDisponiveis
+                                                    append={append}
+                                                    listaAlunos={
+                                                        listaAlunosMemo
+                                                    }
+                                                />
+                                            </div>
 
-                <div
-                    className="novo-trimestre-close"
-                    onClick={() => (!isEnviando ? onClose() : null)}
-                ></div>
-            </motion.div>
+                                            <div className="matriculas-matriculados">
+                                                <h3>
+                                                    Alunos Matriculados: (
+                                                    {fields.length})
+                                                </h3>
+                                                <button
+                                                    type="button"
+                                                    onClick={importarAlunos}
+                                                    className="matriculas-importar"
+                                                >
+                                                    <FontAwesomeIcon
+                                                        icon={faUsersRectangle}
+                                                    />
+                                                    Importar do trimestre
+                                                    anterior?
+                                                </button>
+                                                <AlunosMatriculados
+                                                    alunosForaDaFaixa={
+                                                        alunosForaDaIdadeMemo
+                                                    }
+                                                    fieldIndex={fieldIndex}
+                                                    listaAlunosSelecionados={
+                                                        listaAlunosSelecionadosMemo
+                                                    }
+                                                    register={register}
+                                                    remove={remove}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            className={`novo-trimestre__actions ${
+                                                licaoReference &&
+                                                !isSecretario.current
+                                                    ? "novo-trimestre__actions--edit"
+                                                    : ""
+                                            }`}
+                                        >
+                                            {licaoReference &&
+                                                !isSecretario.current && (
+                                                    <button
+                                                        type="button"
+                                                        className="button-delete"
+                                                        onClick={deletarRevista}
+                                                    >
+                                                        Deletar
+                                                    </button>
+                                                )}
+                                            <div className="novo-trimestre__actions-btn">
+                                                <button
+                                                    type="button"
+                                                    className="button-secondary"
+                                                    onClick={() => onClose()}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    className="button-primary"
+                                                >
+                                                    {licaoReference
+                                                        ? "Salvar"
+                                                        : "Criar Trimestre"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </FormProvider>
+                            </div>
+                        </>
+                    )}
+                </motion.div>
+            </div>
             <AnimatePresence>
                 <AlertModal
                     key={"mensagem-alert-modal-novo-trimestre"}

@@ -155,11 +155,13 @@ function MobileNavbar({
     userName,
     userEmail,
     logout,
+    portalAluno,
 }: {
     OPCOES: NavbarItemInterface[];
     userName: string;
     userEmail: string;
     logout: () => void;
+    portalAluno?: string;
 }) {
     const [openMenu, setOpenMenu] = useState(false);
     const [openAlert, setOpenAlert] = useState(false);
@@ -234,13 +236,25 @@ function MobileNavbar({
                                 <p className="nav-mobile__conta--email">
                                     {userEmail}
                                 </p>
-                                <Link
-                                    className="nav-mobile__conta--link"
-                                    to="/minha-conta"
-                                    onClick={() => setOpenMenu(false)}
-                                >
-                                    Minha Conta
-                                </Link>
+
+                                <div className="nav-mobile__conta--links">
+                                    <Link
+                                        className="nav-mobile__conta--link"
+                                        to="/minha-conta"
+                                        onClick={() => setOpenMenu(false)}
+                                    >
+                                        Minha Conta
+                                    </Link>
+                                    {portalAluno && (
+                                        <Link
+                                            className="nav-mobile__conta--link"
+                                            to={portalAluno}
+                                            onClick={() => setOpenMenu(false)}
+                                        >
+                                            Portal Aluno
+                                        </Link>
+                                    )}
+                                </div>
                             </div>
 
                             <ul className="nav-mobile__links">

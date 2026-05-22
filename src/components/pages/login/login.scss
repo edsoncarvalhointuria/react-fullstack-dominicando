@@ -8,6 +8,10 @@
     place-items: center;
     padding: 2rem;
 
+    @media all and (max-width: 350px) {
+        padding: 0;
+    }
+
     & .login-page__logo {
         width: 100%;
         max-width: 20rem;

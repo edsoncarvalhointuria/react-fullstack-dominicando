@@ -22,8 +22,10 @@ import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import type { TrimestresInterface } from "../../interfaces/TrimestresInterface";
 import "./alterar-trimestre.scss";
+import "./novo-trimestre-modal.scss";
 import type { LicaoInterface } from "../../interfaces/LicaoInterface";
 import { useNavigate } from "react-router-dom";
+import { ListaDeAulas } from "./NovoTrimestreTemplate";
 
 interface Trimestre {
     data_inicio: string;
@@ -81,17 +83,15 @@ function AlterarTrimestre({
         register,
         reset,
         handleSubmit,
-        watch,
         formState: { errors },
+        control,
     } = methods;
     const [isEnviando, setIsEnviando] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [mensagemErro, setMensagemErro] = useState("");
-    const [dataAulas, setDataAulas] = useState<string[][]>([]);
+
     const [licoes, setLicoes] = useState<LicaoInterface[]>([]);
-    const [isOpenAulas, setIsOpenAulas] = useState(false);
     const [isOpenLicoes, setIsOpenLicoes] = useState(false);
-    const { data_inicio, numero_aulas } = watch();
 
     const navigate = useNavigate();
 
@@ -109,26 +109,6 @@ function AlterarTrimestre({
         }
     };
 
-    useEffect(() => {
-        if (data_inicio && numero_aulas > 0) {
-            const data = new Date(data_inicio + "T12:00:00");
-
-            if (data.getUTCDay() !== 0) return setDataAulas([]);
-
-            const listaDatas: string[][] = Array.from({
-                length: numero_aulas,
-            }).map((_, i) => {
-                const dataAula = new Date(data);
-                dataAula.setUTCDate(dataAula.getUTCDate() + i * 7);
-                return [
-                    "Aula " + (i + 1),
-                    dataAula.toLocaleDateString("pt-BR"),
-                ];
-            });
-
-            setDataAulas(listaDatas);
-        }
-    }, [data_inicio, numero_aulas]);
     useEffect(() => {
         const getTrimestre = async () => {
             const trimestresDoc = doc(db, "trimestres", trimestreId);
@@ -168,7 +148,7 @@ function AlterarTrimestre({
                 where("data_inicio", ">=", dataInicio),
                 where("data_fim", "<=", dataFim),
                 where("numero_trimestre", "==", trimestre.numero_trimestre),
-                where("ministerioId", "==", trimestre.ministerioId)
+                where("ministerioId", "==", trimestre.ministerioId),
             );
             const licoesDocs = await getDocs(q);
 
@@ -177,7 +157,7 @@ function AlterarTrimestre({
                     ({
                         id: v.id,
                         ...v.data(),
-                    } as LicaoInterface)
+                    }) as LicaoInterface,
             );
 
             setLicoes(licoes);
@@ -242,7 +222,7 @@ function AlterarTrimestre({
                                                 validate: (value) => {
                                                     if (!value) return true;
                                                     const dia = new Date(
-                                                        value
+                                                        value,
                                                     ).getUTCDay();
                                                     return (
                                                         dia === 0 ||
@@ -315,79 +295,12 @@ function AlterarTrimestre({
                                         field={errors.numero_aulas}
                                     />
                                 </div>
-                                <AnimatePresence>
-                                    {dataAulas.length && (
-                                        <motion.div
-                                            initial={{
-                                                opacity: 0,
-                                            }}
-                                            animate={{
-                                                opacity: 1,
-                                            }}
-                                            exit={{ opacity: 0 }}
-                                            onTap={() =>
-                                                setIsOpenAulas((v) => !v)
-                                            }
-                                            className={`alterar-trimestre__licoes ${
-                                                isOpenAulas ? "is-open" : ""
-                                            }`}
-                                            key={"previsao-aulas"}
-                                        >
-                                            <h3>
-                                                Lista de aulas{" "}
-                                                <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faChevronDown}
-                                                    />
-                                                </span>
-                                            </h3>
-                                            <AnimatePresence>
-                                                {isOpenAulas && (
-                                                    <motion.ul
-                                                        key={
-                                                            "previsao-aulas-container"
-                                                        }
-                                                        initial={{
-                                                            y: -10,
-                                                            height: 0,
-                                                        }}
-                                                        animate={{
-                                                            y: 0,
-                                                            height: "auto",
-                                                        }}
-                                                        exit={{
-                                                            y: -10,
-                                                            height: 0,
-                                                        }}
-                                                        className="novo-trimestre__previsao-aulas--lista"
-                                                    >
-                                                        {dataAulas.map(
-                                                            ([aula, data]) => (
-                                                                <motion.li
-                                                                    key={
-                                                                        aula +
-                                                                        data
-                                                                    }
-                                                                >
-                                                                    <p>
-                                                                        {aula}
-                                                                    </p>
-                                                                    <data
-                                                                        value={
-                                                                            data
-                                                                        }
-                                                                    >
-                                                                        {data}
-                                                                    </data>
-                                                                </motion.li>
-                                                            )
-                                                        )}
-                                                    </motion.ul>
-                                                )}
-                                            </AnimatePresence>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
+
+                                <ListaDeAulas
+                                    control={control}
+                                    nameAulas="numero_aulas"
+                                    nameData="data_inicio"
+                                />
 
                                 <AnimatePresence>
                                     {licoes.length ? (
@@ -452,7 +365,7 @@ function AlterarTrimestre({
                                                                     type="button"
                                                                     onTap={() =>
                                                                         navigate(
-                                                                            `/aulas/igreja/${v.igrejaId}/classe/${v.classeId}`
+                                                                            `/aulas/igreja/${v.igrejaId}/classe/${v.classeId}`,
                                                                         )
                                                                     }
                                                                 >

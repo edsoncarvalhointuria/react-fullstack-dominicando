@@ -810,12 +810,26 @@ const ResumoAula = ({
     detalhes,
     dados,
     onClose,
+    trimestre,
 }: {
     detalhes: DetalhesAulaCacheLicao & { aula: string };
     dados: CacheLicaoInterface;
     onClose: () => void;
+    trimestre: string;
 }) => {
-    const [secaoAberta, setSecaoAberta] = useState(-1);
+    const [showTrophy, setShowTrophy] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [mensagem, setMensagem] = useState<{
+        message: string | ReactNode;
+        title: string;
+        confirmText: string;
+        cancelText: string;
+        onCancel: () => void;
+        onClose: () => void;
+        onConfirm: () => void;
+        icon?: any;
+    } | null>(null);
+
     const dadosMemo = useMemo(() => {
         const alunos = new Map();
         for (const id in detalhes.chamada) {
@@ -833,129 +847,220 @@ const ResumoAula = ({
 
         return alunos;
     }, [dados]);
+    const methods = useForm();
+    const { register, setValue, getValues, handleSubmit, control } = methods;
+    const alunosSelecionados = useWatch({ name: "alunos", control });
+
+    const onSubmit = async (v: any) => {
+        setIsLoading(true);
+        setShowTrophy(false);
+        try {
+            const { data } = await setTrofeuAlunos({
+                ...v,
+                trimestre,
+                licaoId: dados.licaoId,
+                licaoNome: dados.licaoNome,
+                classeId: dados.classeId,
+                classeNome: dados.classeNome,
+                data: Date.now(),
+            });
+            setMensagem({
+                title: "Troféu enviado!",
+                message: (data as any)?.message,
+                onClose: onClose,
+                onConfirm: onClose,
+                onCancel: onClose,
+                cancelText: "Cancelar",
+                confirmText: "Ok",
+                icon: <FontAwesomeIcon icon={faHeart} />,
+            });
+        } catch (error: any) {
+            console.log(error.message);
+            setMensagem({
+                title: "Dados invalidos",
+                message: error.message,
+                onClose: () => setMensagem(null),
+                onConfirm: () => setMensagem(null),
+                onCancel: () => setMensagem(null),
+                cancelText: "Cancelar",
+                confirmText: "Ok",
+                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    const fecharModal = useCallback(() => {
+        setShowTrophy(false);
+    }, []);
 
     return (
-        <motion.div
-            className="resumo-aula__overlay"
-            onClick={onClose}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-        >
-            <div className="resumo-aula" onClick={(e) => e.stopPropagation()}>
-                <div className="resumo-aula__container">
-                    <div className="detalhes-aluno__header">
-                        <h3>Chamada {detalhes.aula}</h3>
-                        <button onClick={onClose}>
-                            <FontAwesomeIcon icon={faXmark} />
-                        </button>
-                    </div>
-                    <div className="resumo-chamada">
-                        <div className="resumo-chamada__card">
-                            <h3>Resumo de Presença</h3>
-                            <InfoLinha
-                                icon={faUsersRectangle}
-                                label="Matriculados"
-                                value={
-                                    detalhes?.total_matriculados ||
-                                    dados.total_matriculados
-                                }
-                            />
-                            <AcordeaoItem
-                                titulo="Presentes"
-                                icone={faUserCheck}
-                                total={detalhes.presentes_chamada}
-                                listaAlunos={dadosMemo.get("Presente") || []}
-                                secaoId="presentes"
-                                secaoAberta={secaoAberta}
-                                setSecaoAberta={setSecaoAberta}
-                            />
-                            <AcordeaoItem
-                                titulo="Atrasados"
-                                icone={faUserClock}
-                                total={detalhes.atrasados}
-                                listaAlunos={dadosMemo.get("Atrasado") || []}
-                                secaoId="atrasados"
-                                secaoAberta={secaoAberta}
-                                setSecaoAberta={setSecaoAberta}
-                            />
-                            <AcordeaoItem
-                                titulo="Ausentes"
-                                icone={faUserXmark}
-                                total={detalhes.ausentes}
-                                listaAlunos={dadosMemo.get("Ausentes") || []}
-                                secaoId="ausentes"
-                                secaoAberta={secaoAberta}
-                                setSecaoAberta={setSecaoAberta}
-                            />
-                            <AcordeaoItem
-                                icone={faUserPlus}
-                                titulo="Visitas"
-                                total={detalhes.visitas}
-                                listaAlunos={detalhes.visitas_lista.map(
-                                    (v) => ({
-                                        alunoId: Date.now(),
-                                        alunoNome: v.nome_completo,
-                                    }),
-                                )}
-                                secaoId="visitas"
-                                secaoAberta={secaoAberta}
-                                setSecaoAberta={setSecaoAberta}
-                            />
-                            <InfoLinha
-                                icon={faUsers}
-                                label="TOTAL DE PESSOAS"
-                                value={detalhes.total_presenca}
-                                isTotal
-                            />
+        <>
+            <motion.div
+                className="resumo-aula__overlay"
+                onClick={onClose}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+            >
+                <div
+                    className="resumo-aula"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <LoadingModal isEnviando={isLoading} />
+                    <div className="resumo-aula__container">
+                        <div className="detalhes-aluno__header">
+                            <h3>Chamada {detalhes.aula}</h3>
+                            <button onClick={onClose}>
+                                <FontAwesomeIcon icon={faXmark} />
+                            </button>
                         </div>
+                        <div className="resumo-chamada">
+                            <FormProvider {...methods}>
+                                <form
+                                    className="resumo-chamada__card"
+                                    onSubmit={handleSubmit(onSubmit)}
+                                >
+                                    <h3>Resumo de Presença</h3>
+                                    <InfoLinha
+                                        icon={faUsersRectangle}
+                                        label="Matriculados"
+                                        value={
+                                            detalhes?.total_matriculados ||
+                                            dados.total_matriculados
+                                        }
+                                    />
+                                    <AcordeaoItem
+                                        titulo="Presentes"
+                                        icone={faUserCheck}
+                                        total={detalhes.presentes_chamada}
+                                        listaAlunos={
+                                            dadosMemo.get("Presente") || []
+                                        }
+                                        form={{
+                                            register,
+                                            setValue,
+                                            name: "alunos",
+                                            getValues,
+                                        }}
+                                    />
+                                    <AcordeaoItem
+                                        titulo="Atrasados"
+                                        icone={faUserClock}
+                                        total={detalhes.atrasados}
+                                        listaAlunos={
+                                            dadosMemo.get("Atrasado") || []
+                                        }
+                                        form={{
+                                            register,
+                                            setValue,
+                                            name: "alunos",
+                                            getValues,
+                                        }}
+                                    />
+                                    <AcordeaoItem
+                                        titulo="Ausentes"
+                                        icone={faUserXmark}
+                                        total={detalhes.ausentes}
+                                        listaAlunos={
+                                            dadosMemo.get("Ausentes") || []
+                                        }
+                                        form={{
+                                            register,
+                                            setValue,
+                                            name: "alunos",
+                                            getValues,
+                                        }}
+                                    />
+                                    <AcordeaoItem
+                                        icone={faUserPlus}
+                                        titulo="Visitas"
+                                        total={detalhes.visitas}
+                                        listaAlunos={detalhes.visitas_lista.map(
+                                            (v) =>
+                                                ({
+                                                    alunoId: Date.now(),
+                                                    alunoNome: v.nome_completo,
+                                                }) as any,
+                                        )}
+                                    />
+                                    <InfoLinha
+                                        icon={faUsers}
+                                        label="TOTAL DE PESSOAS"
+                                        value={detalhes.total_presenca}
+                                        isTotal
+                                    />
+                                    {showTrophy && (
+                                        <EnviarTrofeuModal
+                                            onClose={fecharModal}
+                                        />
+                                    )}
+                                </form>
+                            </FormProvider>
 
-                        <div className="resumo-chamada__card">
-                            <h3>Dados Gerais</h3>
-                            <InfoLinha
-                                icon={faBookBible}
-                                label="Bíblias"
-                                value={detalhes.biblias || 0}
-                            />
-                            <InfoLinha
-                                icon={faBookOpen}
-                                label="Revistas"
-                                value={detalhes.licoes || 0}
-                            />
-                            <hr />
-                            <InfoLinha
-                                icon={faSackDollar}
-                                label="Total Ofertas"
-                                value={detalhes.ofertas.toLocaleString(
-                                    "pt-BR",
-                                    {
-                                        style: "currency",
-                                        currency: "BRL",
-                                    },
-                                )}
-                            />
-                            <InfoLinha
-                                icon={faPlane}
-                                label="Total Missões"
-                                value={detalhes.missoes.toLocaleString(
-                                    "pt-BR",
-                                    {
-                                        style: "currency",
-                                        currency: "BRL",
-                                    },
-                                )}
-                            />
-                            <hr />
-                            <InfoLinha
-                                icon={faNoteSticky}
-                                label="Observações"
-                                value={detalhes?.descricao || "Nenhuma"}
-                            />
+                            {!!alunosSelecionados?.length && !showTrophy && (
+                                <motion.button
+                                    className="panorama-licao__dar-trofeu"
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0 }}
+                                    onClick={() => setShowTrophy(true)}
+                                >
+                                    <i>
+                                        <FontAwesomeIcon icon={faTrophy} />
+                                    </i>
+                                    <span>{alunosSelecionados?.length}</span>
+                                </motion.button>
+                            )}
+                            <div className="resumo-chamada__card">
+                                <h3>Dados Gerais</h3>
+                                <InfoLinha
+                                    icon={faBookBible}
+                                    label="Bíblias"
+                                    value={detalhes.biblias || 0}
+                                />
+                                <InfoLinha
+                                    icon={faBookOpen}
+                                    label="Revistas"
+                                    value={detalhes.licoes || 0}
+                                />
+                                <hr />
+                                <InfoLinha
+                                    icon={faSackDollar}
+                                    label="Total Ofertas"
+                                    value={detalhes.ofertas.toLocaleString(
+                                        "pt-BR",
+                                        {
+                                            style: "currency",
+                                            currency: "BRL",
+                                        },
+                                    )}
+                                />
+                                <InfoLinha
+                                    icon={faPlane}
+                                    label="Total Missões"
+                                    value={detalhes.missoes.toLocaleString(
+                                        "pt-BR",
+                                        {
+                                            style: "currency",
+                                            currency: "BRL",
+                                        },
+                                    )}
+                                />
+                                <hr />
+                                <InfoLinha
+                                    icon={faNoteSticky}
+                                    label="Observações"
+                                    value={detalhes?.descricao || "Nenhuma"}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </motion.div>
+            </motion.div>
+
+            <AlertModal isOpen={!!mensagem} {...mensagem!} />
+        </>
     );
 };
 
@@ -2044,6 +2149,7 @@ const PanoramaResumo = React.memo(
         listaAulas,
         datasMap,
         dados,
+        trimestre,
     }: {
         listaAulas: {
             numero: number;
@@ -2052,6 +2158,7 @@ const PanoramaResumo = React.memo(
         }[];
         datasMap: Map<string, DetalhesAulaCacheLicao>;
         dados: CacheLicaoInterface;
+        trimestre: string;
     }) => {
         const [aula, setAula] = useState<
             (DetalhesAulaCacheLicao & { aula: string }) | null
@@ -2164,6 +2271,7 @@ const PanoramaResumo = React.memo(
                             detalhes={aula}
                             onClose={() => setAula(null)}
                             key={"resume-aula"}
+                            trimestre={trimestre}
                         />
                     )}
                 </AnimatePresence>
@@ -2263,6 +2371,7 @@ function PanoramaLicao({
                                         datasMap={diasMap}
                                         listaAulas={listaAulas}
                                         dados={dados!}
+                                        trimestre={`${licao.numero_trimestre}º Trimestre de ${licao.data_inicio.toDate().getFullYear()}`}
                                     />
                                 ) : (
                                     <></>

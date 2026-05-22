@@ -41,6 +41,11 @@ const OPCOES_NAV: NavbarItemInterface[] = [
             // },
             { texto: "Comp. PIX", caminho: "/comprovantes" },
             {
+                texto: "Lições Globais",
+                caminho: "/licoes-globais",
+                superAdmin: true,
+            },
+            {
                 texto: "Trimestres",
                 caminho: "/trimestres",
                 superAdmin: true,
@@ -62,6 +67,13 @@ const OPCOES_NAV: NavbarItemInterface[] = [
     { texto: "Portal", caminho: "/portal-aluno", icon: faUser },
     { texto: "Ajuda", caminho: "/ajuda", icon: faCircleQuestion },
 ];
+const { alunoHash, igrejaHash } = JSON.parse(
+    localStorage.getItem("login-portal-aluno") ?? "{}",
+);
+const portalLink =
+    alunoHash && igrejaHash
+        ? `portal-aluno/${igrejaHash}/${alunoHash}`
+        : undefined;
 function Navbar() {
     const TAMANHO_MOBILE = 1010;
     const [isMobile, setIsMobile] = useState(
@@ -116,6 +128,7 @@ function Navbar() {
                     OPCOES={listaFiltrada as any}
                     userName={(user?.nome || "").split(" ")[0]}
                     userEmail={user?.email || ""}
+                    portalAluno={portalLink}
                     logout={logout}
                 />
             ) : (
@@ -124,6 +137,7 @@ function Navbar() {
                     userName={(user?.nome || "").split(" ")[0]}
                     userEmail={user?.email || ""}
                     logout={logout}
+                    portalAluno={portalLink}
                 />
             )}
         </>

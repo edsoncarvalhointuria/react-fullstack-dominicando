@@ -18,6 +18,7 @@ import { ROLES } from "../roles/Roles";
 
 import type { AppUser } from "../interfaces/AppUser";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { useNavigate } from "react-router-dom";
 
 export interface AuthType {
     user: AppUser | null;
@@ -40,6 +41,7 @@ const salvarNotificacao = httpsCallable(functions, "salvarNotificacao");
 
 function AuthContext({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
+    const navigate = useNavigate();
 
     const isSuperAdmin = useRef(false);
     const isAdmin = useRef(false);
@@ -129,7 +131,7 @@ function AuthContext({ children }: { children: ReactNode }) {
     useEffect(() => {
         const unscrible = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
-                const usuarioDoc = doc(db, "usuarios", currentUser.uid);
+                const usuarioDoc = doc(db, "usuarios", currentUser.uid || "");
 
                 const unsubscribeOnSnapshot = onSnapshot(
                     usuarioDoc,
@@ -173,6 +175,13 @@ function AuthContext({ children }: { children: ReactNode }) {
                     },
                 );
                 return () => unsubscribeOnSnapshot();
+            } else {
+                const { igrejaHash, alunoHash } = JSON.parse(
+                    localStorage.getItem("login-portal-aluno") ?? "{}",
+                );
+                if (igrejaHash && alunoHash) {
+                    navigate(`portal-aluno/${igrejaHash}/${alunoHash}`);
+                }
             }
         });
 

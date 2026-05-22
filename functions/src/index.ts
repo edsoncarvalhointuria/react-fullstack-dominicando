@@ -29,6 +29,7 @@ enum Cll {
     IGREJAS = "igrejas",
     LICOES = "licoes",
     LICOES_PREPARO = "licoes_preparo",
+    LICOES_GLOBAIS = "licoes_globais",
     MATRICULAS = "matriculas",
     MEMBROS = "membros",
     MINISTERIOS = "ministerios",
@@ -1581,7 +1582,7 @@ export const onAlunoUpdate = onDocumentUpdated(
             dadosAntigos.data_nascimento.toMillis() !==
             dadosNovos.data_nascimento.toMillis();
 
-        if (!nomeMudou || !dataMudou) {
+        if (!nomeMudou && !dataMudou) {
             console.log("Nenhum dado mudou, encerrando trigger");
             return;
         }
@@ -3646,18 +3647,30 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
 
             const matriculasCache = await db
                 .collection(Cll.CACHE_MATRICULAS)
-                .where("licaoId", "==", licaoId)
+                .doc(`${igrejaId}_${licaoId}`)
                 .get();
+            if (!matriculasCache.exists) {
+                await db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${igrejaId}_${licaoId}`)
+                    .set({
+                        igrejaId,
+                        ministerioId: dadosParaSalvar.ministerioId,
+                        licaoId,
+                        lista: {},
+                    });
+            }
+
             const todasMatriculasMap = new Map();
-            matriculasCache.docs.forEach((v) => {
-                Object.entries(v.data()?.lista || {}).forEach(([_, v]) => {
+            Object.entries(matriculasCache.data()?.lista || {}).forEach(
+                ([_, v]) => {
                     const matricula = v as any;
                     todasMatriculasMap.set(matricula.alunoId, {
                         id: matricula.id,
                         alunoId: matricula.alunoId,
                     });
-                });
-            });
+                },
+            );
 
             const alunosSelecionadosMap = new Map(
                 dados.alunosSelecionados.map((v) => [v.alunoId, v]),
@@ -3791,7 +3804,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             batch.update(cacheRef, { ...cache });
 
             dadosParaSalvar.ativo = licao.data()!.ativo;
-            batch.update(licaoRef, dadosParaSalvar);
+            batch.update(licaoRef, { dadosParaSalvar, primeiroAcesso: false });
 
             await batch.commit();
 
@@ -3947,7 +3960,19 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 },
                 { merge: true },
             );
-        }
+        } else
+            batch.set(
+                db
+                    .collection(Cll.CACHE_MATRICULAS)
+                    .doc(`${igrejaId}_${novaLicaoRef.id}`),
+                {
+                    igrejaId,
+                    ministerioId: dadosParaSalvar.ministerioId,
+                    licaoId: novaLicaoRef.id,
+                    lista: {},
+                },
+                { merge: true },
+            );
 
         const trimestre = {
             ano: dataInicio.getFullYear(),
@@ -6361,12 +6386,22 @@ export const limparconvitesexpiradoseenviaraniversario = onSchedule(
 
             let mensagem = "Hoje é aniversário de:";
             listaAniversariantes.forEach((v: any) => {
-                if (v.nome_completo)
-                    mensagem += `\n\n ${v.nome_completo} (${getIdade(v.data_nascimento) + 1} anos)`;
+                if (v.nome_completo) {
+                    const [dia, mes, _] = v.data_nascimento
+                        .toDate()
+                        .toLocaleDateString("pt-BR")
+                        .split("/");
+                    mensagem += `\n\n ${v.nome_completo} (${dia}/${mes} - ${getIdade(v.data_nascimento) + 1} anos)`;
+                }
             });
             listaMembrosAniversariantes.forEach((v: any) => {
-                if (v.nome_completo)
-                    mensagem += `\n\n ${v.nome_completo} (${getIdade(v.data_nascimento)} anos)`;
+                if (v.nome_completo) {
+                    const [dia, mes, _] = v.data_nascimento
+                        .toDate()
+                        .toLocaleDateString("pt-BR")
+                        .split("/");
+                    mensagem += `\n\n ${v.nome_completo} (${dia}/${mes} - ${getIdade(v.data_nascimento) + 1} anos)`;
+                }
             });
 
             await fetch(
@@ -7573,12 +7608,24 @@ export const getPortalAluno = functions.https.onCall(async (request) => {
     };
 
     if (licaoId || dadosCachePortal.ultimaLicaoId) {
-        const cacheLicaoSnap = await db
-            .collection(Cll.CACHE_LICAO)
-            .doc(
-                `${dadosCachePortal.igrejaId}_${licaoId || dadosCachePortal.ultimaLicaoId}`,
-            )
-            .get();
+        const [cacheLicaoSnap, licaoSnap] = await Promise.all([
+            db
+                .collection(Cll.CACHE_LICAO)
+                .doc(
+                    `${dadosCachePortal.igrejaId}_${licaoId || dadosCachePortal.ultimaLicaoId}`,
+                )
+                .get(),
+            db
+                .collection(Cll.LICOES)
+                .doc(licaoId || dadosCachePortal.ultimaLicaoId)
+                .get(),
+        ]);
+        let pdf = "";
+
+        if (licaoSnap.exists) {
+            const licao = licaoSnap.data();
+            pdf = licao?.pdf;
+        }
         if (cacheLicaoSnap.exists) {
             const cacheLicao = cacheLicaoSnap.data() as CacheLicaoInterface;
             const licao: any = {
@@ -7586,6 +7633,7 @@ export const getPortalAluno = functions.https.onCall(async (request) => {
                 licaoNome: cacheLicao.licaoNome,
                 data_inicio: cacheLicao.data_inicio.toMillis(),
                 data_fim: cacheLicao.data_fim.toMillis(),
+                pdf,
             };
 
             const chamada: any = {};
@@ -7689,4 +7737,657 @@ export const setTrofeuAlunos = functions.https.onCall(async (request) => {
 
     await batch.commit();
     return { message: "Troféu enviado com sucesso" };
+});
+
+interface FormNovoTrimestreGlobal {
+    img?: string;
+    pdf?: string;
+    rotuloId: string;
+    data_inicio: string;
+    numero_aulas: number;
+    numero_trimestre: number;
+    titulo: string;
+    igrejas: string[];
+    licaoId?: string;
+}
+
+interface LicaoGlobalInterface {
+    ativo: boolean;
+    img: string | null;
+    pdf: string | null;
+    rotuloId: string;
+    data_fim: Timestamp;
+    data_inicio: Timestamp;
+    ministerioId: string;
+    numero_aulas: number;
+    numero_trimestre: number;
+    titulo: string;
+    igrejas: string[];
+}
+
+export const cadastrarNovaLicaoGlobal = functions.https.onCall(
+    async (request) => {
+        const { user, isSuperAdmin, db } = await validarUsuario(request);
+
+        if (!isSuperAdmin) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Você não tem permissão para fazer isso",
+            );
+        }
+
+        const {
+            data_inicio,
+            igrejas,
+            numero_aulas,
+            numero_trimestre,
+            rotuloId,
+            titulo,
+            img,
+            pdf,
+            licaoId,
+        } = request.data as FormNovoTrimestreGlobal;
+
+        if (
+            !data_inicio ||
+            !igrejas.length ||
+            !numero_aulas ||
+            !numero_trimestre ||
+            !rotuloId ||
+            !titulo
+        ) {
+            throw new functions.https.HttpsError(
+                "permission-denied",
+                "Dados inválidos ou ausentes.",
+            );
+        }
+
+        try {
+            let batch = db.batch();
+            const batches = [batch];
+            let count = 0;
+            const useBatch = (
+                ref: admin.firestore.DocumentReference<any>,
+                obj: { [key: string]: any },
+                type: "update" | "set",
+                merge?: any,
+            ) => {
+                if (type === "update") batch.update(ref, obj);
+                else batch.set(ref, obj, merge);
+                count++;
+                if (count >= 499) {
+                    batch = db.batch();
+                    count = 0;
+                    batches.push(batch);
+                }
+            };
+            const batchUpdate = (
+                ref: admin.firestore.DocumentReference<any>,
+                obj: { [key: string]: any },
+            ) => useBatch(ref, obj, "update");
+            const batchSet = (
+                ref: admin.firestore.DocumentReference<any>,
+                obj: { [key: string]: any },
+                merge = {},
+            ) => useBatch(ref, obj, "set", merge);
+
+            // Cadastrando nova lição
+            const dataInicio = new Date(data_inicio + "T12:00:00");
+            const dataFim = new Date(dataInicio);
+            dataFim.setDate(dataFim.getDate() + (numero_aulas - 1) * 7);
+
+            const dadosLicaoG: LicaoGlobalInterface = {
+                ativo: true,
+                data_inicio: Timestamp.fromDate(dataInicio),
+                data_fim: Timestamp.fromDate(dataFim),
+                igrejas,
+                img: img ? img : null,
+                pdf: pdf ? pdf : null,
+                ministerioId: user.ministerioId,
+                numero_aulas,
+                numero_trimestre,
+                rotuloId,
+                titulo,
+            };
+
+            if (licaoId) {
+                const licaoSnap = await db
+                    .collection(Cll.LICOES_GLOBAIS)
+                    .doc(licaoId)
+                    .get();
+
+                if (!licaoSnap.exists) {
+                    throw new functions.https.HttpsError(
+                        "not-found",
+                        "Lição não encontrada",
+                    );
+                }
+                const licao = licaoSnap.data() as LicaoGlobalInterface;
+
+                batchUpdate(licaoSnap.ref, {
+                    ...dadosLicaoG,
+                    rotuloId: licao.rotuloId,
+                    ativo: licao.ativo,
+                });
+
+                const igrejasNovas = igrejas.filter(
+                    (v) => !licao.igrejas.includes(v),
+                );
+
+                if (igrejasNovas.length) {
+                    const classesSnap = await db
+                        .collection(Cll.CLASSES)
+                        .where("igrejaId", "in", igrejasNovas)
+                        .where("rotuloId", "==", rotuloId)
+                        .get();
+                    if (!classesSnap.empty) {
+                        const classes = classesSnap.docs.map((v) => ({
+                            id: v.id,
+                            ...v.data(),
+                        }));
+                        const promise = classes.map(async (v: any) => {
+                            const novaLicao = {
+                                ativo: true,
+                                classeId: v.id,
+                                classeNome: v.nome,
+                                data_inicio: dadosLicaoG.data_inicio,
+                                data_fim: dadosLicaoG.data_fim,
+                                igrejaId: v.igrejaId,
+                                igrejaNome: v.igrejaNome,
+                                img: dadosLicaoG.img,
+                                ministerioId: v.ministerioId,
+                                numero_aulas: dadosLicaoG.numero_aulas,
+                                numero_trimestre: dadosLicaoG.numero_trimestre,
+                                titulo: dadosLicaoG.titulo,
+                                total_matriculados: 0,
+                                licaoGlobalId: licaoId,
+                                primeiroAcesso: true,
+                                pdf: dadosLicaoG.pdf,
+                            };
+
+                            const [ultimaLicaoSnap, mesmaData] =
+                                await Promise.all([
+                                    db
+                                        .collection(Cll.LICOES)
+                                        .where("classeId", "==", v.id)
+                                        .where("ativo", "==", true)
+                                        .limit(1)
+                                        .get(),
+                                    db
+                                        .collection(Cll.LICOES)
+                                        .where("classeId", "==", v.id)
+                                        .where("data_inicio", "==", dataInicio)
+                                        .get(),
+                                ]);
+
+                            if (!mesmaData.empty) return;
+                            if (!ultimaLicaoSnap.empty) {
+                                const ultimaLicao =
+                                    ultimaLicaoSnap.docs[0].data() as Licao;
+                                if (
+                                    ultimaLicao.data_inicio.toDate() >
+                                    dataInicio
+                                )
+                                    novaLicao.ativo = false;
+                                else
+                                    batchUpdate(ultimaLicaoSnap.docs[0].ref, {
+                                        ativo: false,
+                                    });
+                            }
+
+                            const novaLicaoRef = db
+                                .collection(Cll.LICOES)
+                                .doc();
+                            batchSet(novaLicaoRef, novaLicao);
+                            for (let i = 0; i < numero_aulas; i++) {
+                                const dataPrevista = new Date(dataInicio);
+                                dataPrevista.setDate(
+                                    dataPrevista.getDate() + i * 7,
+                                );
+
+                                const aulaRef = novaLicaoRef
+                                    .collection("aulas")
+                                    .doc(String(i + 1));
+                                batch.set(aulaRef, {
+                                    numero_aula: i + 1,
+                                    data_prevista:
+                                        Timestamp.fromDate(dataPrevista),
+                                    realizada: false,
+                                    registroRef: null,
+                                });
+                            }
+
+                            const cache: CacheLicaoInterface = {
+                                classeId: v.id,
+                                classeNome: v.nome,
+                                data_fim: dadosLicaoG.data_fim,
+                                data_inicio: dadosLicaoG.data_inicio,
+                                ministerioId: dadosLicaoG.ministerioId,
+                                igrejaId: v.igrejaId,
+                                igrejaNome: v.igrejaNome,
+                                licaoId: novaLicaoRef.id,
+                                licaoNome: novaLicao.titulo,
+                                pico_presenca: 0,
+                                total_matriculados: 0,
+                                total_missoes: 0,
+                                total_missoes_dinheiro: 0,
+                                total_missoes_pix: 0,
+                                total_ofertas: 0,
+                                total_ofertas_dinheiro: 0,
+                                total_ofertas_pix: 0,
+                                detalhes_aulas: {},
+                                detalhes_aluno: {},
+                            };
+                            batchSet(
+                                db
+                                    .collection(Cll.CACHE_LICAO)
+                                    .doc(`${v.igrejaId}_${novaLicaoRef.id}`),
+                                cache,
+                            );
+                        });
+                        await Promise.all(promise);
+                    }
+                }
+
+                const licoesParaAtualizar = await db
+                    .collection(Cll.LICOES)
+                    .where("licaoGlobalId", "==", licaoId)
+                    .get();
+                if (!licoesParaAtualizar.empty) {
+                    const licoes = licoesParaAtualizar.docs
+                        .map((v) => ({ id: v.id, ...v.data() }) as Licao)
+                        .filter((v) => igrejas.includes(v.igrejaId));
+
+                    const update = {
+                        data_inicio: dadosLicaoG.data_inicio,
+                        data_fim: dadosLicaoG.data_fim,
+                        img: dadosLicaoG.img,
+                        pdf: dadosLicaoG.pdf,
+                        numero_aulas,
+                        numero_trimestre,
+                        titulo,
+                    };
+                    licoes.forEach((v) => {
+                        batchUpdate(
+                            db.collection(Cll.LICOES).doc(v.id),
+                            update,
+                        );
+                    });
+                }
+
+                await Promise.all(batches.map((v) => v.commit()));
+                enviarLog(
+                    user,
+                    request,
+                    "CADASTRAR_NOVA_LICAO_GLOBAL",
+                    `Dados atualizados com sucesso por ${user.uid}`,
+                    licao,
+                );
+
+                return { message: "Dados atualizados com sucesso!" };
+            }
+
+            const ultimaLicaoSnap = await db
+                .collection(Cll.LICOES_GLOBAIS)
+                .where("rotuloId", "==", dadosLicaoG.rotuloId)
+                .where("ativo", "==", true)
+                .limit(1)
+                .get();
+            if (!ultimaLicaoSnap.empty) {
+                const ultimaLicao = ultimaLicaoSnap.docs[0];
+                const ultimaLicaoData =
+                    ultimaLicao.data() as LicaoGlobalInterface;
+
+                if (ultimaLicaoData.data_inicio.toDate() > dataInicio)
+                    dadosLicaoG.ativo = false;
+                else batchUpdate(ultimaLicao.ref, { ativo: false });
+            }
+
+            const licaoRef = db.collection(Cll.LICOES_GLOBAIS).doc();
+            batchSet(licaoRef, dadosLicaoG);
+
+            //Cadastrando Trimestre
+            const trimestre = {
+                ano: dataInicio.getFullYear(),
+                data_fim: dadosLicaoG.data_fim,
+                data_inicio: dadosLicaoG.data_inicio,
+                ministerioId: dadosLicaoG.ministerioId,
+                nome: `${
+                    dadosLicaoG.numero_trimestre
+                }º Trimestre de ${dataInicio.getFullYear()}`,
+                numero_trimestre: dadosLicaoG.numero_trimestre,
+            };
+            const idTrimestre = `${dadosLicaoG.ministerioId}-${dataInicio
+                .toLocaleDateString("pt-BR")
+                .replace(/\//g, "-")}-${dataFim
+                .toLocaleDateString("pt-BR")
+                .replace(/\//g, "-")}-${dadosLicaoG.numero_trimestre}`;
+            batchSet(
+                db.collection(Cll.TRIMESTRES).doc(idTrimestre),
+                trimestre,
+                { merge: true },
+            );
+
+            // Cadastrando nas classes
+            const classesDocs = await db
+                .collection(Cll.CLASSES)
+                .where("ministerioId", "==", user.ministerioId)
+                .where("rotuloId", "==", rotuloId)
+                .get();
+            const classes = classesDocs.docs
+                .map(
+                    (v) =>
+                        ({ id: v.id, ...v.data() }) as Classe & { id: string },
+                )
+                .filter((v: any) => igrejas.includes(v.igrejaId));
+
+            const promise = classes.map(async (v) => {
+                const novaLicao = {
+                    ativo: true,
+                    classeId: v.id,
+                    classeNome: v.nome,
+                    data_inicio: dadosLicaoG.data_inicio,
+                    data_fim: dadosLicaoG.data_fim,
+                    igrejaId: v.igrejaId,
+                    igrejaNome: v.igrejaNome,
+                    img: dadosLicaoG.img,
+                    ministerioId: v.ministerioId,
+                    numero_aulas: dadosLicaoG.numero_aulas,
+                    numero_trimestre: dadosLicaoG.numero_trimestre,
+                    titulo: dadosLicaoG.titulo,
+                    total_matriculados: 0,
+                    licaoGlobalId: licaoRef.id,
+                    primeiroAcesso: true,
+                    pdf: dadosLicaoG.pdf,
+                };
+
+                const [ultimaLicaoSnap, mesmaData] = await Promise.all([
+                    db
+                        .collection(Cll.LICOES)
+                        .where("classeId", "==", v.id)
+                        .where("ativo", "==", true)
+                        .limit(1)
+                        .get(),
+                    db
+                        .collection(Cll.LICOES)
+                        .where("classeId", "==", v.id)
+                        .where("data_inicio", "==", dataInicio)
+                        .get(),
+                ]);
+
+                if (!mesmaData.empty) {
+                    return;
+                }
+                if (!ultimaLicaoSnap.empty) {
+                    const ultimaLicao = ultimaLicaoSnap.docs[0].data() as Licao;
+                    if (ultimaLicao.data_inicio.toDate() > dataInicio) {
+                        novaLicao.ativo = false;
+                    } else
+                        batchUpdate(ultimaLicaoSnap.docs[0].ref, {
+                            ativo: false,
+                        });
+                }
+
+                const novaLicaoRef = db.collection(Cll.LICOES).doc();
+                batchSet(novaLicaoRef, novaLicao);
+
+                for (let i = 0; i < numero_aulas; i++) {
+                    const dataPrevista = new Date(dataInicio);
+                    dataPrevista.setDate(dataPrevista.getDate() + i * 7);
+
+                    const aulaRef = novaLicaoRef
+                        .collection("aulas")
+                        .doc(String(i + 1));
+                    batchSet(aulaRef, {
+                        numero_aula: i + 1,
+                        data_prevista: Timestamp.fromDate(dataPrevista),
+                        realizada: false,
+                        registroRef: null,
+                    });
+                }
+
+                const cache: CacheLicaoInterface = {
+                    classeId: v.id,
+                    classeNome: v.nome,
+                    data_fim: dadosLicaoG.data_fim,
+                    data_inicio: dadosLicaoG.data_inicio,
+                    ministerioId: dadosLicaoG.ministerioId,
+                    igrejaId: v.igrejaId,
+                    igrejaNome: v.igrejaNome,
+                    licaoId: novaLicaoRef.id,
+                    licaoNome: novaLicao.titulo,
+                    pico_presenca: 0,
+                    total_matriculados: 0,
+                    total_missoes: 0,
+                    total_missoes_dinheiro: 0,
+                    total_missoes_pix: 0,
+                    total_ofertas: 0,
+                    total_ofertas_dinheiro: 0,
+                    total_ofertas_pix: 0,
+                    detalhes_aulas: {},
+                    detalhes_aluno: {},
+                };
+                batchSet(
+                    db
+                        .collection(Cll.CACHE_LICAO)
+                        .doc(`${v.igrejaId}_${novaLicaoRef.id}`),
+                    cache,
+                );
+            });
+            await Promise.all(promise);
+
+            await Promise.all(batches.map((v) => v.commit()));
+
+            enviarLog(
+                user,
+                request,
+                "CADASTRAR_NOVA_LICAO_GLOBAL",
+                `Dados cadastrados com sucesso por ${user.uid}`,
+            );
+
+            return { message: "Lições cadastradas com sucesso!" };
+        } catch (err: any) {
+            console.log("houve um erro ao cadastrar a lição", err);
+            throw new functions.https.HttpsError(
+                "internal",
+                "Houve um erro ao cadastrar a lição",
+            );
+        }
+    },
+);
+export const apagarLicaoGlobal = functions.https.onCall(async (request) => {
+    const { user, isSuperAdmin, db } = await validarUsuario(request);
+
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não pode fazer isso",
+        );
+    }
+
+    const { licaoId } = request.data;
+    if (!licaoId) {
+        throw new functions.https.HttpsError(
+            "invalid-argument",
+            "Dados inválidos ou ausentes",
+        );
+    }
+
+    const licaoSnap = await db
+        .collection(Cll.LICOES_GLOBAIS)
+        .doc(licaoId)
+        .get();
+    if (!licaoSnap.exists) {
+        throw new functions.https.HttpsError(
+            "not-found",
+            "Lição não encontrada",
+        );
+    }
+
+    const licaoG = licaoSnap.data() as LicaoGlobalInterface;
+    if (licaoG.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Você não tem permissão para fazer isso",
+        );
+    }
+
+    try {
+        let batch = db.batch();
+        let count = 0;
+        const batches = [batch];
+        const useBatch = (
+            ref: admin.firestore.DocumentReference<any>,
+            tipo: "delete" | "update",
+            obj = {},
+        ) => {
+            if (tipo === "delete") batch.delete(ref);
+            else batch.update(ref, obj);
+
+            count++;
+
+            if (count >= 499) {
+                batch = db.batch();
+                count = 0;
+                batches.push(batch);
+            }
+        };
+        const batchUpdate = (
+            ref: admin.firestore.DocumentReference<any>,
+            obj: { [key: string]: any },
+        ) => useBatch(ref, "update", obj);
+        const batchDelete = (ref: admin.firestore.DocumentReference<any>) =>
+            useBatch(ref, "delete");
+
+        const [licoesDocs, licaoAnteriorDocs] = await Promise.all([
+            db
+                .collection(Cll.LICOES)
+                .where("licaoGlobalId", "==", licaoId)
+                .where("ministerioId", "==", user.ministerioId)
+                .get(),
+            db
+                .collection(Cll.LICOES_GLOBAIS)
+                .where("data_inicio", "!=", licaoG.data_inicio)
+                .where("ministerioId", "==", user.ministerioId)
+                .where("rotuloId", "==", licaoG.rotuloId)
+                .orderBy("data_inicio", "desc")
+                .limit(1)
+                .get(),
+        ]);
+
+        if (!licaoAnteriorDocs.empty) {
+            const licaoAnteriorSnap = licaoAnteriorDocs.docs[0];
+            batchUpdate(licaoAnteriorSnap.ref, { ativo: true });
+        }
+        if (licoesDocs.empty) {
+            await licaoSnap.ref.delete();
+            const storage = admin.storage();
+            const bucket = storage.bucket();
+            const regex = /\/o\/(.*)\?/;
+            if (licaoG?.pdf) {
+                const caminho = licaoG.pdf.match(regex);
+                if (caminho) {
+                    const url = decodeURIComponent(caminho[1]);
+                    await bucket.file(url).delete();
+                }
+            }
+            if (licaoG?.img) {
+                const caminho = licaoG.img.match(regex);
+                if (caminho) {
+                    const url = decodeURIComponent(caminho[1]);
+                    await bucket.file(url).delete();
+                }
+            }
+
+            enviarLog(
+                user,
+                request,
+                "APAGAR_LICAO_GLOBAL",
+                `Lição deletada com sucesso pelo usuário ${user.uid}`,
+            );
+            return { message: "Lição deletada com sucesso!" };
+        }
+        const licoesIds = licoesDocs.docs.map((v) => v.id);
+
+        const promises = [];
+        for (let i = 0; i < licoesDocs.size; i += 30) {
+            const chunck = licoesIds.slice(i, i + 30);
+            promises.push(
+                db
+                    .collection(Cll.CACHE_LICAO)
+                    .where("licaoId", "in", chunck)
+                    .get(),
+            );
+        }
+
+        console.log("temos um total de", licoesIds.length);
+        const licoes = (await Promise.all(promises))
+            .flatMap((v) => v.docs)
+            .map(
+                (v) =>
+                    ({ ...v.data(), id: v.id }) as CacheLicaoInterface & {
+                        id: string;
+                    },
+            )
+            .filter((v: any) => !Object.keys(v.detalhes_aulas).length);
+        console.log("a exclusão será feita em", licoes.length);
+
+        batchDelete(licaoSnap.ref);
+        licoes.forEach((v: any) => {
+            batchDelete(db.collection(Cll.CACHE_LICAO).doc(v.id));
+            batchDelete(db.collection(Cll.LICOES).doc(v.licaoId));
+        });
+        const aulasAnteriores = licoes.map(async (v) => {
+            const aulasDocs = await db
+                .collection(Cll.LICOES)
+                .doc(v.licaoId)
+                .collection("aulas")
+                .get();
+
+            if (aulasDocs.empty) return;
+
+            aulasDocs.docs.forEach((v) => batchDelete(v.ref));
+        });
+        const licoesAnteriores = licoes.map(async (v) => {
+            const lAnteriorDocs = await db
+                .collection(Cll.LICOES)
+                .where("data_inicio", "!=", v.data_inicio)
+                .where("classeId", "==", v.classeId)
+                .orderBy("data_inicio", "desc")
+                .limit(1)
+                .get();
+            if (lAnteriorDocs.empty) return;
+
+            const lAnterior = lAnteriorDocs.docs[0];
+            batchUpdate(lAnterior.ref, { ativo: true });
+        });
+        await Promise.all([...licoesAnteriores, ...aulasAnteriores]);
+
+        const storage = admin.storage();
+        const bucket = storage.bucket();
+        const regex = /\/o\/(.*)\?/;
+        if (licaoG.pdf) {
+            const caminho = licaoG.pdf.match(regex);
+            if (caminho) {
+                const url = decodeURIComponent(caminho[1]);
+                await bucket.file(url).delete();
+            }
+        }
+
+        await batch.commit();
+
+        enviarLog(
+            user,
+            request,
+            "APAGAR_LICAO_GLOBAL",
+            `Lição deletada com sucesso pelo usuário ${user.uid}`,
+        );
+        return { message: "Lição deletada com sucesso!" };
+    } catch (error: any) {
+        console.log("erro ao deletar lição", error);
+        throw new functions.https.HttpsError(
+            "internal",
+            "Houve um erro ao deletar a lição",
+        );
+    }
 });

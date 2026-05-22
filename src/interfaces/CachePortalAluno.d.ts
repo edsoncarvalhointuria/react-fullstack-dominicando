@@ -51,7 +51,7 @@ interface ResponseGetPortalAluno extends CachePortalAlunoInterface {
         licaoNome: string;
         data_inicio: number;
         data_fim: number;
-
+        pdf?: string;
         detalhes_aluno: DetalhesAlunoCacheLicao;
         chamada: { [alunoId: string]: ChamadaChacheLicao };
     };

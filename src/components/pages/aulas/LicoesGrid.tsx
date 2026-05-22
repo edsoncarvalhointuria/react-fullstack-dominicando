@@ -8,7 +8,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import LicaoCard from "../../ui/LicaoCard";
 import "./licoes-grid.scss";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import LicaoModal from "../../ui/LicaoModal";
 import NovoTrimestreModal from "../../ui/NovoTrimestreModal";
@@ -67,6 +67,17 @@ function LicoesGrid({
         return itensMemo.slice(indice, ultimoIndice);
     }, [itensMemo, paginaAtual]);
 
+    const onSelectLicao = useCallback(
+        (licaoId: string) => {
+            const licao = revistas.find((v) => v.id === licaoId);
+            if (!licao) return;
+
+            if (licao.primeiroAcesso) setEditLicao(licao);
+            else setCurrentLicao(licao);
+        },
+        [revistas],
+    );
+
     const totalPaginas = Math.ceil(itensMemo.length / TOTAL_ITENS);
     useEffect(() => {
         const popstate = () => {
@@ -117,14 +128,25 @@ function LicoesGrid({
                 </div>
                 <div className="licoes-grid__grid">
                     <AnimatePresence>
-                        {itensPaginados.length > 0 ||
-                        revistas.length >= limite ? (
+                        {itensPaginados.length > 0 ? (
                             <>
                                 {itensPaginados.map((v) => (
                                     <LicaoCard
-                                        licao={v}
+                                        dataInicio={v.data_inicio
+                                            .toDate()
+                                            .toLocaleDateString("pt-BR", {
+                                                month: "2-digit",
+                                                year: "numeric",
+                                            })}
+                                        isAtivo={v.ativo}
+                                        licaoId={v.id}
+                                        numeroAulas={v.numero_aulas}
+                                        titulo={v.titulo}
+                                        trimestre={`${v.numero_trimestre}º Trimestre de ${v.data_inicio.toDate().getFullYear()}`}
+                                        img={v.img}
+                                        totalMatriculados={v.total_matriculados}
+                                        onClick={onSelectLicao}
                                         key={v.id}
-                                        openModal={setCurrentLicao}
                                     />
                                 ))}
 

@@ -4,6 +4,7 @@ import "./login.scss";
 import { useAuthContext } from "../../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import ResetSenhaModal from "../../ui/ResetSenhaModal";
+import Footer from "../../layout/footer/Footer";
 
 function Login() {
     const [showPassword, setShowPassword] = useState(false);
@@ -122,7 +123,7 @@ function Login() {
                                     setIsLoading(true);
                                     login(
                                         $login.current?.value || "",
-                                        $password.current?.value || ""
+                                        $password.current?.value || "",
                                     )
                                         .catch(() => setErro(true))
                                         .finally(() => setIsLoading(false));
@@ -152,6 +153,7 @@ function Login() {
                     </div>
                 </motion.div>
             </motion.section>
+            <Footer />
 
             <AnimatePresence>
                 {resetSenha && (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./cadastro-classe-modal.scss";
 import { motion } from "framer-motion";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../utils/firebase";
@@ -34,11 +34,12 @@ function CadastroRotuloModal({
         reset,
         handleSubmit,
         register,
-        watch,
+        control,
         formState: { errors },
     } = methods;
 
-    const { idade_minima, idade_maxima } = watch();
+    const idade_maxima = useWatch({ name: "idade_maxima", control });
+    const idade_minima = useWatch({ name: "idade_minima", control });
     const [isEnviando, setIsEnviando] = useState(false);
     const [mensagemErro, setMensagemErro] = useState("");
 

@@ -5,34 +5,50 @@ import {
     faBookOpen,
     faCalendarWeek,
 } from "@fortawesome/free-solid-svg-icons";
-import type { LicaoInterface } from "../../interfaces/LicaoInterface";
 import "./licao-card.scss";
 import React from "react";
 
 interface LicaoCardProps {
-    licao: LicaoInterface;
-    openModal: React.Dispatch<React.SetStateAction<LicaoInterface | null>>;
+    licaoId: string;
+    isAtivo: boolean;
+    img?: string | null;
+    titulo: string;
+    dataInicio: string;
+    numeroAulas: number;
+    trimestre: string;
+    totalMatriculados?: number;
+    onClick: (licaoId: string) => void;
 }
 
-function LicaoCard({ licao, openModal }: LicaoCardProps) {
+function LicaoCard({
+    dataInicio,
+    isAtivo,
+    licaoId,
+    numeroAulas,
+    onClick,
+    titulo,
+    img,
+    totalMatriculados,
+    trimestre,
+}: LicaoCardProps) {
     return (
         <motion.div
             className="licao-card"
             whileHover={{ y: -5, boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)" }}
-            whileTap={{ scale: 0.97 }}
+            whileTap={{ scale: 0.99 }}
             onTap={() => {
-                openModal(licao);
                 window.history.pushState({ modal: true }, "");
+                onClick(licaoId);
             }}
-            layoutId={licao.id}
+            layoutId={licaoId}
         >
             <motion.div
                 className="licao-card__imagem"
                 whileHover={{ opacity: 0.8 }}
             >
                 <img
-                    src={licao.img || "/revista-placeholder.png"}
-                    alt={`Capa da lição ${licao.titulo}`}
+                    src={img || "/revista-placeholder.png"}
+                    alt={`Capa da lição ${titulo}`}
                 />
             </motion.div>
 
@@ -40,46 +56,38 @@ function LicaoCard({ licao, openModal }: LicaoCardProps) {
                 <div className="licao-card__status-infos">
                     <div
                         className={`licao-card__status ${
-                            licao.ativo ? "licao-card__status--ativa" : ""
+                            isAtivo ? "licao-card__status--ativa" : ""
                         }`}
                     >
-                        {licao.ativo ? "Ativa" : "Encerrada"}
+                        {isAtivo ? "Ativa" : "Encerrada"}
                     </div>
 
                     <div
                         className={`licao-card__status licao-card__status-trimestre ${
-                            licao.ativo ? "licao-card__status--ativa" : ""
+                            isAtivo ? "licao-card__status--ativa" : ""
                         }`}
                     >
-                        {licao?.numero_trimestre || 1} º Trimestre de{" "}
-                        {licao.data_inicio
-                            .toDate()
-                            .toLocaleDateString("pt-BR", { year: "numeric" })}
+                        {trimestre}
                     </div>
                 </div>
 
-                <h3 className="licao-card__title">{licao.titulo}</h3>
+                <h3 className="licao-card__title">{titulo}</h3>
 
                 <div className="licao-card__info">
                     <div className="licao-card__info-item">
                         <FontAwesomeIcon icon={faBookOpen} />
-                        <span>{licao.numero_aulas} Aulas</span>
+                        <span>{numeroAulas} Aulas</span>
                     </div>
                     <div className="licao-card__info-item">
                         <FontAwesomeIcon icon={faCalendarWeek} />
-                        <span>
-                            {licao.data_inicio
-                                .toDate()
-                                .toLocaleDateString("pt-BR", {
-                                    month: "2-digit",
-                                    year: "numeric",
-                                })}
-                        </span>
+                        <span>{dataInicio}</span>
                     </div>
-                    <div className="licao-card__info-item">
-                        <FontAwesomeIcon icon={faUsers} />
-                        <span>{licao.total_matriculados} Alunos</span>
-                    </div>
+                    {totalMatriculados && (
+                        <div className="licao-card__info-item">
+                            <FontAwesomeIcon icon={faUsers} />
+                            <span>{totalMatriculados} Alunos</span>
+                        </div>
+                    )}
                 </div>
             </div>
         </motion.div>

@@ -3,7 +3,14 @@ import { useDataContext } from "../../../context/DataContext";
 import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useEffect, useState } from "react";
-import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import {
+    collection,
+    getDocs,
+    limit,
+    orderBy,
+    query,
+    where,
+} from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import Loading from "../../layout/loading/Loading";
 import LicoesGrid from "./LicoesGrid";
@@ -109,6 +116,7 @@ function Aulas() {
                 !isSuperAdmin.current
                     ? where("igrejaId", "==", user.igrejaId)
                     : where("ministerioId", "==", user.ministerioId),
+                orderBy("data_inicio", "desc"),
                 limit(limite),
             );
             const docs = await getDocs(q);

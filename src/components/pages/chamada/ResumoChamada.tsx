@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import type { MatriculasInterface } from "../../../interfaces/MatriculasInterface";
 import { useFormContext, useWatch } from "react-hook-form";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
     faBookBible,
     faBookOpen,
@@ -25,7 +25,6 @@ function ResumoChamada({
     matriculados: MatriculasInterface[];
     visitas_lista: VisitaFront[];
 }) {
-    const [secaoAberta, setSecaoAberta] = useState<string | null>(null);
     const { setValue, getValues, control } = useFormContext();
     const ofertaPix = useWatch({ name: "ofertaPix", control });
     const ofertaDinheiro = useWatch({ name: "ofertaDinheiro", control });
@@ -133,39 +132,30 @@ function ResumoChamada({
                     icone={faUserCheck}
                     total={totalPresentes}
                     listaAlunos={dadosProcessados.presentes}
-                    secaoId="presentes"
-                    secaoAberta={secaoAberta}
-                    setSecaoAberta={setSecaoAberta}
                 />
                 <AcordeaoItem
                     titulo="Atrasados"
                     icone={faUserClock}
                     total={totalAtrasados}
                     listaAlunos={dadosProcessados.atrasados}
-                    secaoId="atrasados"
-                    secaoAberta={secaoAberta}
-                    setSecaoAberta={setSecaoAberta}
                 />
                 <AcordeaoItem
                     titulo="Ausentes"
                     icone={faUserXmark}
                     total={totalAusentes}
                     listaAlunos={dadosProcessados.ausentes}
-                    secaoId="ausentes"
-                    secaoAberta={secaoAberta}
-                    setSecaoAberta={setSecaoAberta}
                 />
                 <AcordeaoItem
                     icone={faUserPlus}
                     titulo="Visitas"
                     total={visitas}
-                    listaAlunos={visitas_lista.map((v) => ({
-                        alunoId: Date.now(),
-                        alunoNome: v.nome_completo,
-                    }))}
-                    secaoId="visitas"
-                    secaoAberta={secaoAberta}
-                    setSecaoAberta={setSecaoAberta}
+                    listaAlunos={visitas_lista.map(
+                        (v) =>
+                            ({
+                                alunoId: Date.now(),
+                                alunoNome: v.nome_completo,
+                            }) as any,
+                    )}
                 />
                 <InfoLinha
                     icon={faUsers}

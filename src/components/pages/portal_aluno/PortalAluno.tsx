@@ -20,6 +20,7 @@ import {
     faDiceD6,
     faEllipsisVertical,
     faFeather,
+    faFilePdf,
     faFire,
     faFlag,
     faGear,
@@ -66,7 +67,7 @@ import React, {
 } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import Loading from "../../layout/loading/Loading";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import AlertModal from "../../ui/AlertModal";
 import type {
     ConquistaInterface,
@@ -247,8 +248,8 @@ const CoachMark = React.memo(
             });
 
             balaoRef.current.style.transform = `translate(${translateX}px, ${translateY}px)`;
-            ref.style.zIndex = "3000";
-            ref.style.position = "relative";
+            // ref.style.zIndex = "3000";
+            // ref.style.position = "relative";
 
             return () => {
                 ref.style.removeProperty("z-index");
@@ -855,6 +856,7 @@ const PortalVisaoGeral = ({ dados }: { dados: ResponseGetPortalAluno }) => {
             trimestre: `${numeroTrimestre}º Trimestre de ${ano}`,
         };
     }, [dados]);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const jaViu = JSON.parse(
@@ -876,6 +878,23 @@ const PortalVisaoGeral = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                         <h1>{dados.licao_atual.licaoNome}</h1>
 
                         <p>{dadosMemo.trimestre}</p>
+
+                        {dados.licao_atual?.pdf && (
+                            <button
+                                onClick={() =>
+                                    navigate("/ler-pdf", {
+                                        state: dados.licao_atual.pdf,
+                                    })
+                                }
+                                title="Ver PDF"
+                                type="button"
+                            >
+                                <i>
+                                    <FontAwesomeIcon icon={faFilePdf} />
+                                </i>
+                                <span>PDF</span>
+                            </button>
+                        )}
                     </div>
 
                     <Ofensiva dadosMemo={dadosMemo} />
@@ -1157,7 +1176,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                 onClose={jaViuHistorico}
             />
             <div className="historico_portal">
-                {currentDados ? (
+                {!!currentDados && (
                     <div className="historico_portal__voltar">
                         <button
                             onClick={() => {
@@ -1170,8 +1189,6 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                             <span>Voltar para linha do tempo</span>
                         </button>
                     </div>
-                ) : (
-                    <></>
                 )}
                 <LoadingModal isEnviando={isLoading} mensagem="carregando" />
                 {currentDados ? (
@@ -1588,25 +1605,25 @@ const PortalAlunoDados = React.memo(
         return (
             <div className="portal_aluno__dados">
                 <div className="portal_aluno__header">
-                    <motion.div
-                        className="portal_aluno__infos"
-                        initial={{ width: 0, opacity: 0 }}
-                        animate={{ opacity: 1, width: "auto" }}
-                        exit={{ opacity: 0 }}
-                        style={{ overflow: "hidden" }}
-                        transition={{ delay: 0.3 }}
-                    >
-                        <div className="portal_aluno__logo">
-                            <img
-                                src="/logo-atualizada.svg"
-                                alt="Logo Dominicando"
-                            />
-                        </div>
+                    <AnimatePresence>
+                        <motion.div
+                            className="portal_aluno__infos"
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ opacity: 1, width: "auto" }}
+                            exit={{ opacity: 0 }}
+                            style={{ overflow: "hidden" }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <div className="portal_aluno__logo">
+                                <img
+                                    src="/logo-atualizada.svg"
+                                    alt="Logo Dominicando"
+                                />
+                            </div>
 
-                        <AnimatePresence>
                             <p>Olá, {dados.nome}</p>
-                        </AnimatePresence>
-                    </motion.div>
+                        </motion.div>
+                    </AnimatePresence>
 
                     {!alunoId && (
                         <div className="portal_aluno__actions">
@@ -1702,6 +1719,10 @@ const PortalAlunoLogin = ({
                 localStorage.setItem(
                     `data-${igrejaHash}-${alunoHash}`,
                     dataNascimento,
+                );
+                localStorage.setItem(
+                    "login-portal-aluno",
+                    JSON.stringify({ igrejaHash, alunoHash }),
                 );
             }
 
@@ -1921,6 +1942,13 @@ const PortalAlunoLogin = ({
                                 </i>
                             </motion.button>
                         </motion.div>
+
+                        <div className="pagina-cadastrar-usuario__footer">
+                            <Link to="/">
+                                <FontAwesomeIcon icon={faArrowLeft} />
+                                Gestão EBD
+                            </Link>
+                        </div>
                     </form>
                 </FormProvider>
             </motion.div>
@@ -1938,6 +1966,7 @@ function PortalAluno({ alunoId }: { alunoId?: string }) {
     }, []);
     const sairPortal = useCallback(() => {
         localStorage.removeItem(`data-${igrejaHash}-${alunoHash}`);
+        localStorage.removeItem("login-portal-aluno");
         setResponse(null);
     }, []);
 

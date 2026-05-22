@@ -1,0 +1,286 @@
+@use "@/styles/variables" as v;
+
+.licoes-globais {
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+    width: 100%;
+    padding: 1rem;
+
+    &__header {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+
+        h2 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: v.$cor-primaria-texto;
+            margin: 0;
+        }
+
+        @media all and (min-width: 48em) {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        @media all and (max-width: 30em) {
+            align-items: center;
+        }
+    }
+
+    &__body {
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__lista {
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+    }
+
+    &__rotulos {
+        overflow: hidden;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 1rem;
+
+        // @media all and (max-width: 30em) {
+        //     scrollbar-width: none;
+        // }
+
+        &-container {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+        }
+
+        // &::after {
+        //     content: "";
+        //     display: block;
+        //     position: absolute;
+        //     width: 0;
+        //     height: 0;
+        //     border-top: 15px solid transparent;
+        //     border-bottom: 15px solid transparent;
+        //     border-left: 12px solid black;
+        //     border-radius: 1px;
+        // }
+    }
+
+    &__rotulo {
+        flex-shrink: 0;
+        padding: 0.8rem 1.8rem;
+        border-radius: 3rem;
+        background-color: #f1f5f9;
+        color: #64748b;
+        font-size: 1.4rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+
+        &:hover {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+
+        &--selected {
+            background-color: v.$cor-primaria-itens;
+            color: #ffffff;
+            border-color: v.$cor-primaria-itens;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+            &:hover {
+                background-color: v.$cor-primaria-itens;
+                color: #ffffff;
+                filter: brightness(0.95);
+            }
+        }
+    }
+
+    &__licoes {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    &__licoes-vazio {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2.5rem;
+        padding: 6rem 2rem;
+        background-color: #f8fafc;
+        border: 2px dashed #cbd5e1;
+        border-radius: 1.2rem;
+        text-align: center;
+
+        p {
+            font-size: 1.6rem;
+            color: #64748b;
+            font-weight: 500;
+            max-width: 45rem;
+            margin: 0;
+        }
+    }
+
+    &__sem-rotulos {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3rem;
+        padding: 6rem 2rem;
+        background-color: #fef2f2;
+        border: 1px solid #fca5a5;
+        border-radius: 1.2rem;
+        text-align: center;
+
+        &--texto {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+
+            p:first-child {
+                font-size: 1.8rem;
+                color: #991b1b;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 1rem;
+                margin: 0;
+
+                i {
+                    font-size: 2.2rem;
+                }
+            }
+
+            p:last-child {
+                font-size: 1.5rem;
+                color: #7f1d1d;
+                margin: 0;
+            }
+        }
+
+        &--link {
+            background-color: #ef4444;
+            color: #ffffff;
+            padding: 1.2rem 2.8rem;
+            border-radius: 0.8rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.25);
+
+            &::after {
+                content: "Ir para Rótulos de Classes";
+            }
+
+            &:hover {
+                background-color: #dc2626;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 15px rgba(239, 68, 68, 0.35);
+            }
+        }
+    }
+
+    &-modal {
+        &.licao-modal {
+            gap: 0;
+            li {
+                justify-content: center;
+                text-align: center;
+            }
+
+            & .licao-modal__header-config {
+                flex-direction: row;
+                @media all and (max-width: 30em) {
+                    flex-direction: column-reverse;
+                }
+            }
+
+            & .licao-modal__header--config {
+                &:hover {
+                    transform: none;
+                }
+            }
+        }
+    }
+}
+
+.novo-trimestre-global {
+    .matriculas-disponiveis {
+        grid-column: span 2;
+    }
+    &__lista {
+        list-style: none;
+        gap: 1.2rem;
+        max-height: 28rem;
+        overflow-y: auto;
+        flex-shrink: 0;
+        display: flex;
+        flex-wrap: wrap;
+
+        border-radius: 1rem;
+        border: 1px #334155 solid;
+        padding: 1rem;
+        scrollbar-width: thin;
+
+        li {
+            flex: 1;
+            min-width: 297px;
+        }
+    }
+
+    &__check {
+        display: flex;
+        align-items: center;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.8rem;
+        transition: all 0.2s ease;
+        padding-left: 1.2rem;
+
+        &:hover {
+            background-color: #f1f5f9;
+        }
+
+        &:has(input:checked) {
+            border-color: v.$cor-primaria-itens;
+            background-color: #eff6ff;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.05);
+        }
+
+        input[type="checkbox"] {
+            width: 2rem;
+            height: 2rem;
+            cursor: pointer;
+            accent-color: v.$cor-primaria-itens;
+            flex-shrink: 0;
+            margin: 0;
+
+            &:checked + label {
+                font-weight: 700;
+                color: v.$cor-primaria-itens;
+            }
+        }
+
+        label {
+            padding: 1.2rem;
+            flex: 1;
+            font-size: 1.4rem;
+            color: #475569;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+}

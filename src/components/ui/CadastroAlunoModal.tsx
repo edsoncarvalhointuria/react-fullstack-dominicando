@@ -2,7 +2,7 @@ import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import "./cadastro-aluno-modal.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { Controller, FormProvider, useForm } from "react-hook-form";
+import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { useEffect, useState } from "react";
 import {
     collection,
@@ -71,11 +71,10 @@ function CadastroAlunoModal({
         reset,
         handleSubmit,
         control,
-        watch,
         setValue,
         formState: { errors },
     } = methods;
-    const { isMembro } = watch();
+    const isMembro = useWatch({ name: "isMembro", control });
     const [isEnviando, setIsEnviando] = useState(false);
     const [mensagemErro, setMensagemErro] = useState("");
     const [membros, setMembros] = useState<

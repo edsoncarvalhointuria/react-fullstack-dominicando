@@ -30,13 +30,16 @@
     }
 
     &-close {
-        position: absolute;
-        width: 100vw;
-        height: 100vh;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: -2;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+        // width: 100vw;
+        // height: 100vh;
+        // top: 50%;
+        // left: 50%;
+        // transform: translate(-50%, -50%);
+        // z-index: -2;
     }
 
     &__header {
@@ -137,7 +140,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            user-select: none; // Impede que o texto seja selecionado ao clicar
+            user-select: none;
 
             span {
                 transition: transform 0.3s ease-in-out;
@@ -166,7 +169,7 @@
                 display: flex;
                 justify-content: space-between;
                 font-size: 1.4rem;
-                flex: 1;
+                // flex: 1;
                 flex-shrink: 0;
                 padding: 0.5rem;
 
@@ -201,7 +204,8 @@
         gap: 0.8rem;
         flex: 1;
 
-        label {
+        label,
+        &--label {
             font-size: 1.4rem;
             font-weight: 500;
             color: v.$cor-primaria-texto;
