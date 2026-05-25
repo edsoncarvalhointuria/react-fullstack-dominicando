@@ -158,6 +158,11 @@ function DashboardCardModal({
                                             borderRadius: "0.8rem",
                                         }}
                                         labelStyle={{ color: "#111827" }}
+                                        formatter={(v) =>
+                                            typeof v === "number"
+                                                ? v.toLocaleString("pt-BR")
+                                                : v
+                                        }
                                         labelFormatter={(_, j) => {
                                             return (
                                                 <span
@@ -186,14 +191,22 @@ function DashboardCardModal({
                                                             borderRadius: 20,
                                                         }}
                                                     >
-                                                        {j.reduce(
-                                                            (prev, current) =>
-                                                                (typeof current?.value ===
-                                                                "number"
-                                                                    ? current.value
-                                                                    : 0) + prev,
-                                                            0,
-                                                        )}
+                                                        {j
+                                                            .reduce(
+                                                                (
+                                                                    prev,
+                                                                    current,
+                                                                ) =>
+                                                                    (typeof current?.value ===
+                                                                    "number"
+                                                                        ? current.value
+                                                                        : 0) +
+                                                                    prev,
+                                                                0,
+                                                            )
+                                                            .toLocaleString(
+                                                                "pt-BR",
+                                                            )}
                                                     </strong>
                                                 </span>
                                             );
@@ -263,6 +276,11 @@ function DashboardCardModal({
                                             borderRadius: "0.8rem",
                                         }}
                                         labelStyle={{ color: "#111827" }}
+                                        formatter={(v) =>
+                                            typeof v === "number"
+                                                ? v.toLocaleString("pt-BR")
+                                                : v
+                                        }
                                         labelFormatter={(_, j) => {
                                             return (
                                                 <span
@@ -291,14 +309,22 @@ function DashboardCardModal({
                                                             borderRadius: 20,
                                                         }}
                                                     >
-                                                        {j.reduce(
-                                                            (prev, current) =>
-                                                                (typeof current?.value ===
-                                                                "number"
-                                                                    ? current.value
-                                                                    : 0) + prev,
-                                                            0,
-                                                        )}
+                                                        {j
+                                                            .reduce(
+                                                                (
+                                                                    prev,
+                                                                    current,
+                                                                ) =>
+                                                                    (typeof current?.value ===
+                                                                    "number"
+                                                                        ? current.value
+                                                                        : 0) +
+                                                                    prev,
+                                                                0,
+                                                            )
+                                                            .toLocaleString(
+                                                                "pt-BR",
+                                                            )}
                                                     </strong>
                                                 </span>
                                             );
