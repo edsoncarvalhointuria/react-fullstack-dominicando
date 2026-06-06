@@ -21,6 +21,7 @@ import { reduzirImagem } from "../../utils/reduzirImagem";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import NovoTrimestreTemplate, { ListaDeAulas } from "./NovoTrimestreTemplate";
+import "./novo-trimestre-modal.scss";
 
 interface NovoTrimestreAulasForm {
     titulo: string;
@@ -211,6 +212,25 @@ function NovoTrimestreAulasModal({
                         setValue(
                             "data_inicio",
                             data.toISOString().split("T")[0],
+                        );
+                    } else {
+                        const hoje = new Date();
+                        const trimestre = Math.floor(hoje.getMonth() / 3) + 1;
+                        const inicioTrimestre = new Date(
+                            hoje.getFullYear(),
+                            (trimestre - 1) * 3,
+                            1,
+                        );
+                        const diaSemana = inicioTrimestre.getDay();
+                        const domingo = (7 - diaSemana) % 7;
+                        inicioTrimestre.setDate(
+                            inicioTrimestre.getDate() + domingo,
+                        );
+
+                        setValue("trimestre", trimestre);
+                        setValue(
+                            "data_inicio",
+                            inicioTrimestre.toISOString().split("T")[0],
                         );
                     }
                 })

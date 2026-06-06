@@ -258,10 +258,9 @@ function PreparoAula() {
                 ]);
                 const viewsMap = new Map(
                     Object.entries(
-                        visualizacoesDocs.data() as VisualizacoesLista,
+                        (visualizacoesDocs.data() as VisualizacoesLista).lista,
                     ),
                 );
-
                 const usuariosMap = new Map();
                 usuariosDocs.docs.forEach((v) => {
                     const data = v.data() as CacheUsuarioInteface;

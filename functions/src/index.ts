@@ -6914,6 +6914,7 @@ export const deletarLicaoAulaPreparo = functions.https.onCall(
         const licaoAnterior = await db
             .collection("licoes_preparo")
             .where(admin.firestore.FieldPath.documentId(), "!=", licaoPreparoId)
+            .where("ministerioId", "==", user.ministerioId)
             .orderBy("data_inicio", "desc")
             .limit(1)
             .get();

@@ -77,7 +77,7 @@ function Preparo() {
             }
 
             const licaoSnap = licaoDocs.docs[0];
-            const licaoId = licaoSnap.id;
+            const licaoId = licaoSnap?.id;
             const aulaId = licaoSnap.data()?.ultima_aula?.id || 1;
 
             navigate(`licao/${licaoId}/aula/${aulaId}`);
@@ -100,20 +100,20 @@ function Preparo() {
             if (licoesSnap.empty) return [];
 
             const licoes = licoesSnap.docs.map(
-                (v) => ({ id: v.id, ...v.data() }) as LicaoPreparoInterface,
+                (v) => ({ id: v?.id, ...v.data() }) as LicaoPreparoInterface,
             );
-            const licaoAtiva = licoes.findIndex((v) => v.ativo);
-            const l = [
-                licoes[licaoAtiva],
-                ...licoes
-                    .filter((_, i) => i !== licaoAtiva)
-                    .sort(
-                        (a, b) =>
-                            (b.data_inicio.toDate() as any) -
-                            (a.data_inicio.toDate() as any),
-                    ),
-            ];
-            return l;
+
+            const licaoAtiva = licoes.find((v) => v.ativo);
+
+            return licoes.sort((a, b) => {
+                if (licaoAtiva && licaoAtiva.id === a.id) return -1;
+                if (licaoAtiva && licaoAtiva.id === b.id) return 1;
+
+                return (
+                    (b.data_inicio.toDate() as any) -
+                    (a.data_inicio.toDate() as any)
+                );
+            });
         };
 
         const popstate = () => {
@@ -191,7 +191,7 @@ function Preparo() {
                             {licoesMemo.length > 0 ? (
                                 licoesMemo.map((v) => (
                                     <LicaoPreparoCard
-                                        key={v.id}
+                                        key={v?.id}
                                         licao={v}
                                         openModal={(licao) =>
                                             setOpenLicao(licao)

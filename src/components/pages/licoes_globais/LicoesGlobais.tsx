@@ -569,7 +569,6 @@ const NovoTrimestreLicoesGlobais = ({
 
     useEffect(() => {
         if (!igrejas.length || !licaoRef) return;
-
         reset({
             data_inicio: licaoRef.data_inicio
                 .toDate()
