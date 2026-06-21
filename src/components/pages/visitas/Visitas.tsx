@@ -1,36 +1,24 @@
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faCalendar,
-    faCalendarWeek,
-    faFeather,
-    faPhone,
-    faPlus,
-    faThumbsUp,
-} from "@fortawesome/free-solid-svg-icons";
+import { faCalendar, faCalendarWeek, faFeather, faPhone, faThumbsUp } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import "./visitas.scss";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { db, functions } from "../../../utils/firebase";
 import { useNavigate } from "react-router-dom";
 import SearchInput from "../../ui/SearchInput";
 import CadastroAlunoModal from "../../ui/CadastroAlunoModal";
 import { useAuthContext } from "../../../context/AuthContext";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import type { VisitanteInterface } from "../../../interfaces/VisitantesInterface";
 import { getOrdem } from "../../../utils/getOrdem";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
+import ButtonsDefault from "../../ui/ButtonDefault";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -44,7 +32,6 @@ const variantsContainer: Variants = {
     exit: {},
 };
 
-const functions = getFunctions();
 const deletarVisita = httpsCallable(functions, "deletarVisita");
 const salvarVisita = httpsCallable(functions, "salvarVisita");
 const OPTIONS = [
@@ -93,16 +80,11 @@ function Visitas() {
     const [editVisita, setEditVisita] = useState("");
     const [pesquisa, setPesquisa] = useState("");
     const [addVisita, setAddVisita] = useState(false);
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
     const [visitas, setVisitas] = useState<VisitanteInterface[]>([]);
     const [update, setUpdate] = useState(false);
-    const [ordemColuna, setOrdemColuna] =
-        useState<keyof VisitanteInterface>("nome_completo");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordemColuna, setOrdemColuna] = useState<keyof VisitanteInterface>("nome_completo");
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [mensagem, setMensagem] = useState<{
         titulo: string;
         mensagem: string | ReactNode;
@@ -149,8 +131,7 @@ function Visitas() {
                 mensagem: (
                     <>
                         <span>
-                            Tem certeza que deseja deletar o visitante:{" "}
-                            <strong>{v.nome_completo}</strong>?
+                            Tem certeza que deseja deletar o visitante: <strong>{v.nome_completo}</strong>?
                         </span>
                     </>
                 ),
@@ -170,24 +151,17 @@ function Visitas() {
             (v) =>
                 v.igrejaNome.toLowerCase().includes(pesquisa) ||
                 v.nome_completo.toLowerCase().includes(pesquisa) ||
-                v.data_nascimento
-                    ?.toDate()
-                    ?.toLocaleDateString("pt-BR")
-                    ?.includes(pesquisa) ||
-                v.primeira_visita
-                    ?.toDate()
-                    ?.toLocaleDateString("pt-BR")
-                    ?.includes(pesquisa) ||
-                v.ultima_visita
-                    ?.toDate()
-                    ?.toLocaleDateString("pt-BR")
-                    ?.includes(pesquisa),
+                v.data_nascimento?.toDate()?.toLocaleDateString("pt-BR")?.includes(pesquisa) ||
+                v.primeira_visita?.toDate()?.toLocaleDateString("pt-BR")?.includes(pesquisa) ||
+                v.ultima_visita?.toDate()?.toLocaleDateString("pt-BR")?.includes(pesquisa),
         );
         v = v.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
 
         return v;
     }, [visitas, ordem, ordemColuna, pesquisa]);
     useEffect(() => {
+        if (!currentIgreja) return;
+
         const getVisitas = async (igrejaId: string) => {
             const visitasCll = collection(db, "visitantes");
             const q = query(
@@ -204,26 +178,22 @@ function Visitas() {
                 ...v.data(),
             })) as VisitanteInterface[];
 
-            return visitas.sort((a, b) =>
-                a.nome_completo.localeCompare(b.nome_completo),
-            );
+            return visitas.sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
         };
-        if (currentIgreja)
-            getVisitas(currentIgreja.id)
-                .then((v) => {
-                    setVisitas(v);
-                })
-                .catch((err) => {
-                    console.log("deu esse erro", err);
-                    navigate("/visitas");
-                })
-                .finally(() => {
-                    setIsLoading(false);
-                });
+        getVisitas(currentIgreja.id)
+            .then((v) => {
+                setVisitas(v);
+            })
+            .catch((err) => {
+                console.log("deu esse erro", err);
+                navigate("/visitas");
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
     }, [currentIgreja, update]);
     useEffect(() => {
-        if (igrejas.length && !isSuperAdmin.current)
-            setCurrentIgreja(igrejas[0]);
+        if (igrejas.length && !isSuperAdmin.current) setCurrentIgreja(igrejas[0]);
     }, [igrejas]);
     if (isLoadingData || isLoading) return <Loading />;
     return (
@@ -237,24 +207,13 @@ function Visitas() {
             >
                 <div className="alunos-page__header">
                     <div className="alunos-page__header-infos">
-                        <h2 className="alunos-page__header-title">
-                            Gestão de Visitas
-                        </h2>
-                        <motion.div
-                            className="alunos-page__cadastrar"
-                            whileTap={{ scale: 0.85 }}
-                        >
-                            <button
-                                onClick={() => setAddVisita(true)}
-                                disabled={!currentIgreja}
-                                className="alunos-page__cadastrar--cadastro"
-                            >
-                                <span>
-                                    <FontAwesomeIcon icon={faPlus} />
-                                </span>
-                                Cadastrar nova visita
-                            </button>
-                        </motion.div>
+                        <h2 className="alunos-page__header-title">Gestão de Visitas</h2>
+
+                        <ButtonsDefault
+                            disabled={!currentIgreja}
+                            onClickNew={setAddVisita}
+                            mensagem="Cadastrar nova visita"
+                        />
                     </div>
 
                     <div className="alunos-page__header-filtros">
@@ -263,26 +222,17 @@ function Visitas() {
                             <Dropdown
                                 lista={igrejas}
                                 current={currentIgreja?.nome || null}
-                                onSelect={(v) => setCurrentIgreja(v)}
+                                onSelect={setCurrentIgreja}
                                 isAll={false}
                                 selectId={currentIgreja?.id}
                             />
                         </div>
 
                         <div className="alunos-page__header-filtro">
-                            <SearchInput
-                                onSearch={(texto) => setPesquisa(texto)}
-                                texto="visitas"
-                            />
+                            <SearchInput onSearch={setPesquisa} texto="visitas" />
                         </div>
                         <OrderInput
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             isCrescente={ordem === "crescente"}
                             options={OPTIONS.filter((v) => v.isFilter)}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
@@ -306,27 +256,13 @@ function Visitas() {
                                 onDelete={onDeleteItem}
                             />
                         ) : (
-                            <motion.div
-                                className="alunos-page__vazio"
-                                variants={variantsItem}
-                            >
-                                <p className="alunos-page__vazio--mensagem">
-                                    Sem resultados
-                                </p>
-                                <motion.div
-                                    className="alunos-page__cadastrar"
-                                    whileTap={{ scale: 0.85 }}
-                                >
-                                    <button
-                                        onClick={() => setAddVisita(true)}
-                                        disabled={!currentIgreja}
-                                    >
-                                        <span>
-                                            <FontAwesomeIcon icon={faPlus} />
-                                        </span>
-                                        Cadastrar nova visita
-                                    </button>
-                                </motion.div>
+                            <motion.div className="alunos-page__vazio" variants={variantsItem}>
+                                <p className="alunos-page__vazio--mensagem">Sem resultados</p>
+                                <ButtonsDefault
+                                    disabled={!currentIgreja}
+                                    onClickNew={setAddVisita}
+                                    mensagem="Cadastrar nova visita"
+                                />
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -346,15 +282,11 @@ function Visitas() {
                                           visitas: [v],
                                           dados: v,
                                           visitaId: editVisita,
-                                          igrejaId:
-                                              currentIgreja?.id ||
-                                              user?.igrejaId,
+                                          igrejaId: currentIgreja?.id || user?.igrejaId,
                                       }
                                     : {
                                           visitas: [v],
-                                          igrejaId:
-                                              currentIgreja?.id ||
-                                              user?.igrejaId,
+                                          igrejaId: currentIgreja?.id || user?.igrejaId,
                                       },
                             )
                                 .then(() => setUpdate((v) => !v))

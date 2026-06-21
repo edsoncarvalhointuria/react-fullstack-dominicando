@@ -11,6 +11,7 @@ interface UsuarioInterface {
     role: Roles;
     uid: string;
     id: string;
+    atualizacao: number;
 }
 
 interface CacheUsuarioInteface {

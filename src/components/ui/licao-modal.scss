@@ -7,10 +7,7 @@
     width: 90vw;
     max-width: 80rem;
     max-height: 85vh;
-    background: linear-gradient(
-        180deg,
-        color.scale(v.$cor-primaria-fundo, $lightness: -2%)
-    );
+    background: linear-gradient(180deg, color.scale(v.$cor-primaria-fundo, $lightness: -2%));
     border-radius: 1.2rem;
 
     border: 1px solid rgba(v.$cor-secundaria-texto, 0.2);
@@ -120,10 +117,7 @@
 
             &:hover {
                 color: v.$cor-primaria-itens;
-                background-color: color.scale(
-                    v.$cor-primaria-itens,
-                    $alpha: -90%
-                );
+                background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
                 transform: rotate(90deg);
             }
         }
@@ -215,14 +209,12 @@
 
                 strong {
                     font-weight: 700;
-                    color: rgba(v.$cor-primaria-texto, 0.8);
+                    // color: rgba(white, 0.8);
+                    text-shadow: 1px 0px black;
                 }
 
                 &:hover {
-                    background-color: color.scale(
-                        v.$cor-primaria-itens,
-                        $lightness: -10%
-                    );
+                    background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
                 }
             }
         }
@@ -241,10 +233,7 @@
                 transform 0.2s;
 
             &:hover {
-                background-color: color.scale(
-                    v.$cor-primaria-itens,
-                    $alpha: -90%
-                );
+                background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
                 transform: translateX(-2px);
             }
         }

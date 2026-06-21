@@ -1,11 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import "./igrejas.scss";
-import {
-    faFeather,
-    faFileCsv,
-    faPlus,
-    faThumbsUp,
-} from "@fortawesome/free-solid-svg-icons";
+import { faFeather, faPlus, faThumbsUp } from "@fortawesome/free-solid-svg-icons";
 import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
@@ -15,11 +10,13 @@ import { Navigate } from "react-router-dom";
 import CadastroIgrejaModal from "../../ui/CadastroIgrejaModal";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import { getOrdem } from "../../../utils/getOrdem";
 import OrderInput from "../../ui/OrderInput";
 import ImportarCSVModal from "../../ui/ImportarCSVModal";
+import ButtonsDefault from "../../ui/ButtonDefault";
+import { functions } from "../../../utils/firebase";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -33,7 +30,6 @@ const variantsContainer: Variants = {
     exit: {},
 };
 
-const functions = getFunctions();
 const deletarIgreja = httpsCallable(functions, "deletarIgreja");
 const salvarIgrejaCSV = httpsCallable(functions, "salvarIgrejaCSV");
 const OPTIONS = [
@@ -56,9 +52,7 @@ function Igrejas() {
     const [isLoading, setIsLoading] = useState(false);
     const [ordemColuna, setOrdemColuna] = useState("");
     const [pesquisa, setPesquisa] = useState("");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [mensagem, setMensagem] = useState<{
         mensagem: string | ReactNode;
         titulo: string;
@@ -102,12 +96,10 @@ function Igrejas() {
                 mensagem: (
                     <>
                         <span>
-                            Tem certeza que deseja deletar a igreja:{" "}
-                            <strong>{v.nome}</strong>?
+                            Tem certeza que deseja deletar a igreja: <strong>{v.nome}</strong>?
                         </span>
                         <span>
-                            Isso irá apagar <strong>TODOS</strong> os dados
-                            relacionados a ela.
+                            Isso irá apagar <strong>TODOS</strong> os dados relacionados a ela.
                         </span>
                     </>
                 ),
@@ -126,17 +118,12 @@ function Igrejas() {
 
     const igrejasMemo = useMemo(() => {
         let i = igrejas;
-        i = i.filter(
-            (v) =>
-                v.nome.toLowerCase().includes(pesquisa) ||
-                v.id.toLowerCase() === pesquisa,
-        );
+        i = i.filter((v) => v.nome.toLowerCase().includes(pesquisa) || v.id.toLowerCase() === pesquisa);
         i = i.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
 
         return i;
     }, [igrejas, pesquisa, ordem, ordemColuna]);
-    if (!isLoadingData && !isSuperAdmin.current)
-        return <Navigate to={"/dashboard"} />;
+    if (!isLoadingData && !isSuperAdmin.current) return <Navigate to={"/dashboard"} />;
     if (isLoadingData || isLoading) return <Loading />;
     return (
         <>
@@ -152,44 +139,18 @@ function Igrejas() {
                         <div className="igrejas-page__title">
                             <h2>Gestão de Igrejas</h2>
                         </div>
-                        <div className="igrejas-page__buttons">
-                            <button
-                                title="Cadastrar nova igreja"
-                                onClick={() => setAddIgreja(true)}
-                                className="igrejas-page__buttons--cadastro"
-                            >
-                                <span>
-                                    <FontAwesomeIcon icon={faPlus} />
-                                </span>
-                                Cadastrar nova igreja
-                            </button>
 
-                            <button
-                                title="Importar CSV"
-                                className="igrejas-page__buttons--csv"
-                                onClick={() => setImportCSV(true)}
-                            >
-                                <span>
-                                    <FontAwesomeIcon icon={faFileCsv} />
-                                </span>
-                                Importar CSV
-                            </button>
-                        </div>
+                        <ButtonsDefault
+                            onClickNew={setAddIgreja}
+                            onClickCsv={setImportCSV}
+                            mensagem={"Cadastrar nova igreja"}
+                        />
                     </div>
                     <div className="igrejas-page__filtros">
-                        <SearchInput
-                            texto="Igreja"
-                            onSearch={(texto) => setPesquisa(texto)}
-                        />
+                        <SearchInput texto="Igreja" onSearch={setPesquisa} />
                         <OrderInput
                             isCrescente={ordem === "crescente"}
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             onSelect={(v) => setOrdemColuna(v.id)}
                             options={OPTIONS.filter((v) => v.isFilter)}
                         />
@@ -210,18 +171,10 @@ function Igrejas() {
                             onDelete={onDeleteItem}
                         />
                     ) : (
-                        <motion.div
-                            className="igrejas-page__vazio"
-                            variants={variantsItem}
-                        >
-                            <p className="igrejas-page__vazio--mensagem">
-                                Sem resultados
-                            </p>
+                        <motion.div className="igrejas-page__vazio" variants={variantsItem}>
+                            <p className="igrejas-page__vazio--mensagem">Sem resultados</p>
                             <div className="igrejas-page__button">
-                                <button
-                                    title="Cadastrar nova igreja"
-                                    onClick={() => setAddIgreja(true)}
-                                >
+                                <button title="Cadastrar nova igreja" onClick={() => setAddIgreja(true)}>
                                     <span>
                                         <FontAwesomeIcon icon={faPlus} />
                                     </span>

@@ -4,24 +4,15 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { useEffect, useState } from "react";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    Timestamp,
-    where,
-} from "firebase/firestore";
-import { db } from "../../utils/firebase";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { db, functions } from "../../utils/firebase";
 import type { AlunoInterface } from "../../interfaces/AlunoInterface";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import type { VisitanteInterface } from "../../interfaces/VisitantesInterface";
-import type { MembroInterface } from "../../interfaces/MembroInterface";
+import type { CacheMembroInterface, MembroInterface } from "../../interfaces/MembroInterface";
 import Dropdown from "./Dropdown";
-import { useAuthContext } from "../../context/AuthContext";
 
 interface CadastroAluno {
     nome_completo: string;
@@ -31,7 +22,6 @@ interface CadastroAluno {
     contato: string;
 }
 
-const functions = getFunctions();
 const salvarAluno = httpsCallable(functions, "salvarAluno");
 
 const variantsForm: Variants = {
@@ -77,15 +67,10 @@ function CadastroAlunoModal({
     const isMembro = useWatch({ name: "isMembro", control });
     const [isEnviando, setIsEnviando] = useState(false);
     const [mensagemErro, setMensagemErro] = useState("");
-    const [membros, setMembros] = useState<
-        (MembroInterface & { nome: string })[]
-    >([]);
-    const [currentMembro, setCurrentMembro] = useState<MembroInterface | null>(
-        null,
-    );
+    const [membros, setMembros] = useState<(MembroInterface & { nome: string })[]>([]);
+    const [currentMembro, setCurrentMembro] = useState<MembroInterface | null>(null);
     const [isLoadingMembros, setIsLoadingMembros] = useState(false);
 
-    const { user } = useAuthContext();
     const onSubmit = (dados: CadastroAluno) => {
         if (type === "aluno") {
             setIsEnviando(true);
@@ -135,10 +120,7 @@ function CadastroAlunoModal({
             } as AlunoInterface;
 
             reset({
-                data_nascimento: aluno.data_nascimento
-                    .toDate()
-                    .toISOString()
-                    .split("T")[0],
+                data_nascimento: aluno.data_nascimento.toDate().toISOString().split("T")[0],
                 nome_completo: aluno.nome_completo,
                 contato: aluno.contato || "",
                 isMembro: aluno.isMembro,
@@ -158,10 +140,7 @@ function CadastroAlunoModal({
 
             reset({
                 data_nascimento: visita.data_nascimento
-                    ? visita.data_nascimento
-                          .toDate()
-                          .toISOString()
-                          .split("T")[0]
+                    ? visita.data_nascimento.toDate().toISOString().split("T")[0]
                     : "",
                 nome_completo: visita.nome_completo,
                 contato: visita.contato || "",
@@ -178,47 +157,36 @@ function CadastroAlunoModal({
             });
     }, [alunoId, reset]);
     useEffect(() => {
-        const getMembros = async (igrejaId: string) => {
-            const membrosCll = collection(db, "membros");
-            const q = query(
-                membrosCll,
-                where("ministerioId", "==", user?.ministerioId),
-                where("igrejaId", "==", igrejaId),
-                where("alunoId", "==", null),
-            );
-            const membroSnap = await getDocs(q);
-
-            if (membroSnap.empty) return [];
-
-            const m = membroSnap.docs.map(
-                (v) =>
-                    ({
-                        id: v.id,
-                        ...v.data(),
-                        nome: v.data()?.nome_completo,
-                    }) as MembroInterface & { nome: string },
-            );
-            return m;
-        };
-        if (isMembro) {
-            setIsLoadingMembros(true);
-            getMembros(igrejaId)
-                .then((v) => setMembros(v))
-                .catch((err) => console.log("deu esse erro", err))
-                .finally(() => setIsLoadingMembros(false));
-        } else {
+        if (!isMembro) {
             setCurrentMembro(null);
             setValue("membroId", undefined);
+            return;
         }
+
+        const getMembros = async (igrejaId: string) => {
+            const membrosDoc = doc(db, "cache_membros", igrejaId);
+            const membroSnap = await getDoc(membrosDoc);
+
+            if (!membroSnap.exists()) return [];
+
+            const membrosLista = (membroSnap.data() as CacheMembroInterface).lista;
+
+            const m = Object.entries(membrosLista)
+                .map(([id, v]) => ({ nome: v.nome_completo, ...v, id }))
+                .filter((v) => !v.alunoId);
+            return m;
+        };
+        setIsLoadingMembros(true);
+        getMembros(igrejaId)
+            .then((v) => setMembros(v))
+            .catch((err) => console.log("deu esse erro", err))
+            .finally(() => setIsLoadingMembros(false));
     }, [isMembro]);
     useEffect(() => {
         if (membros.length && currentMembro)
             reset({
                 nome_completo: currentMembro.nome_completo,
-                data_nascimento: currentMembro.data_nascimento
-                    .toDate()
-                    .toISOString()
-                    .split("T")[0],
+                data_nascimento: currentMembro.data_nascimento.toDate().toISOString().split("T")[0],
                 isMembro: true,
                 membroId: currentMembro.id,
                 contato: currentMembro.contato || undefined,
@@ -245,39 +213,24 @@ function CadastroAlunoModal({
                         <div className="cadastro-aluno__title">
                             <FontAwesomeIcon icon={faUserPlus} />
                             {type === "aluno" ? (
-                                <h2>
-                                    {alunoId
-                                        ? "Editar Aluno"
-                                        : "Cadastrar Novo Aluno"}
-                                </h2>
+                                <h2>{alunoId ? "Editar Aluno" : "Cadastrar Novo Aluno"}</h2>
                             ) : (
                                 <h2>Cadastrar Visita</h2>
                             )}
                         </div>
-                        <button
-                            className="cadastro-aluno__close"
-                            onClick={onCancel}
-                        >
+                        <button className="cadastro-aluno__close" onClick={onCancel}>
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
 
                     <div className="cadastro-aluno__body">
                         <FormProvider {...methods}>
-                            <form
-                                className="cadastro-aluno__form"
-                                onSubmit={handleSubmit(onSubmit)}
-                            >
+                            <form className="cadastro-aluno__form" onSubmit={handleSubmit(onSubmit)}>
                                 {type === "aluno" && (
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input cadastro-aluno__input--membro">
                                             <span>Este aluno é um membro?</span>
-                                            <label htmlFor="cadastro-aluno-is-membro">
-                                                Este aluno é um membro?
-                                            </label>
+                                            <label htmlFor="cadastro-aluno-is-membro">Este aluno é um membro?</label>
 
                                             <input
                                                 type="checkbox"
@@ -289,10 +242,7 @@ function CadastroAlunoModal({
                                 )}
 
                                 {isMembro && (
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="">
                                                 Membro <span>*</span>
@@ -302,33 +252,22 @@ function CadastroAlunoModal({
                                                 control={control}
                                                 name="membroId"
                                                 rules={{
-                                                    required:
-                                                        "É necessário escolher o membro",
+                                                    required: "É necessário escolher o membro",
                                                 }}
                                                 render={({ field }) => (
                                                     <Dropdown
                                                         current={
-                                                            membros.find(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    field.value,
-                                                            )?.nome_completo ||
+                                                            membros.find((v) => v.id === field.value)?.nome_completo ||
                                                             null
                                                         }
                                                         lista={membros}
                                                         isAll={false}
-                                                        isErro={
-                                                            !!errors.membroId
-                                                        }
+                                                        isErro={!!errors.membroId}
                                                         onSelect={(v) => {
                                                             setCurrentMembro(v);
-                                                            field.onChange(
-                                                                v?.id,
-                                                            );
+                                                            field.onChange(v?.id);
                                                         }}
-                                                        isLoading={
-                                                            isLoadingMembros
-                                                        }
+                                                        isLoading={isLoadingMembros}
                                                     />
                                                 )}
                                             />
@@ -343,22 +282,14 @@ function CadastroAlunoModal({
                                                     exit="exit"
                                                     className="cadastro-aluno__input-erro"
                                                 >
-                                                    <p>
-                                                        {
-                                                            errors.membroId
-                                                                .message
-                                                        }
-                                                    </p>
+                                                    <p>{errors.membroId.message}</p>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </motion.div>
                                 )}
 
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="cadastro-aluno__form-item"
-                                >
+                                <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                     <div className="cadastro-aluno__input">
                                         <label htmlFor="cadastro-aluno-nome">
                                             Nome Completo <span>*</span>
@@ -368,14 +299,9 @@ function CadastroAlunoModal({
                                             disabled={isMembro}
                                             id="cadastro-aluno-nome"
                                             {...register("nome_completo", {
-                                                required:
-                                                    "O campo de nome é obrigatório",
+                                                required: "O campo de nome é obrigatório",
                                             })}
-                                            className={
-                                                errors.nome_completo
-                                                    ? "input-error"
-                                                    : ""
-                                            }
+                                            className={errors.nome_completo ? "input-error" : ""}
                                         />
                                     </div>
 
@@ -388,22 +314,14 @@ function CadastroAlunoModal({
                                                 exit="exit"
                                                 className="cadastro-aluno__input-erro"
                                             >
-                                                <p>
-                                                    {
-                                                        errors.nome_completo
-                                                            .message
-                                                    }
-                                                </p>
+                                                <p>{errors.nome_completo.message}</p>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
                                 </motion.div>
 
                                 <div className="cadastro-aluno__form-group">
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="cadastro-aluno-data-nascimento">
                                                 Data Nascimento <span>*</span>
@@ -412,25 +330,11 @@ function CadastroAlunoModal({
                                                 type="date"
                                                 disabled={isMembro}
                                                 id="cadastro-aluno-data-nascimento"
-                                                max={
-                                                    new Date()
-                                                        .toISOString()
-                                                        .split("T")[0]
-                                                }
-                                                {...register(
-                                                    "data_nascimento",
-                                                    {
-                                                        required:
-                                                            type === "aluno"
-                                                                ? "A data é obrigatória"
-                                                                : false,
-                                                    },
-                                                )}
-                                                className={
-                                                    errors.data_nascimento
-                                                        ? "input-error"
-                                                        : ""
-                                                }
+                                                max={new Date().toISOString().split("T")[0]}
+                                                {...register("data_nascimento", {
+                                                    required: type === "aluno" ? "A data é obrigatória" : false,
+                                                })}
+                                                className={errors.data_nascimento ? "input-error" : ""}
                                             />
                                         </div>
                                         <AnimatePresence>
@@ -442,47 +346,26 @@ function CadastroAlunoModal({
                                                     exit="exit"
                                                     className="cadastro-aluno__input-erro"
                                                 >
-                                                    <p>
-                                                        {
-                                                            errors
-                                                                .data_nascimento
-                                                                .message
-                                                        }
-                                                    </p>
+                                                    <p>{errors.data_nascimento.message}</p>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </motion.div>
 
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
-                                            <label htmlFor="cadastro-aluno-contato">
-                                                Contato
-                                            </label>
+                                            <label htmlFor="cadastro-aluno-contato">Contato</label>
                                             <input
                                                 type="text"
                                                 disabled={isMembro}
                                                 id="cadastro-aluno-contato"
-                                                className={
-                                                    errors.contato
-                                                        ? "input-error"
-                                                        : ""
-                                                }
+                                                className={errors.contato ? "input-error" : ""}
                                                 placeholder="(11) 99999-9999"
                                                 {...register("contato", {
                                                     validate: (value) => {
                                                         if (!value) return true;
-                                                        const regex =
-                                                            /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
-                                                        return (
-                                                            regex.test(
-                                                                value.trim(),
-                                                            ) ||
-                                                            "Número invalido"
-                                                        );
+                                                        const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
+                                                        return regex.test(value.trim()) || "Número invalido";
                                                     },
                                                 })}
                                             />
@@ -496,19 +379,14 @@ function CadastroAlunoModal({
                                                     exit="exit"
                                                     className="cadastro-aluno__input-erro"
                                                 >
-                                                    <p>
-                                                        {errors.contato.message}
-                                                    </p>
+                                                    <p>{errors.contato.message}</p>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </motion.div>
                                 </div>
 
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="cadastro-aluno__buttons"
-                                >
+                                <motion.div variants={variantsItem} className="cadastro-aluno__buttons">
                                     <button
                                         type="button"
                                         className="button-secondary"
@@ -518,21 +396,11 @@ function CadastroAlunoModal({
                                         Cancelar
                                     </button>
                                     {type === "aluno" ? (
-                                        <button
-                                            type="submit"
-                                            className="button-primary"
-                                            disabled={isEnviando}
-                                        >
-                                            {alunoId
-                                                ? "Editar Aluno"
-                                                : "Salvar Aluno"}
+                                        <button type="submit" className="button-primary" disabled={isEnviando}>
+                                            {alunoId ? "Editar Aluno" : "Salvar Aluno"}
                                         </button>
                                     ) : (
-                                        <button
-                                            type="submit"
-                                            className="button-primary"
-                                            disabled={isEnviando}
-                                        >
+                                        <button type="submit" className="button-primary" disabled={isEnviando}>
                                             Adicionar Visita
                                         </button>
                                     )}

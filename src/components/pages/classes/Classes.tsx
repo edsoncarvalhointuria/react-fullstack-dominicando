@@ -2,19 +2,11 @@ import { Navigate } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
     faChurch,
     faFeather,
-    faFileCsv,
     faNetworkWired,
-    faPlus,
     faTag,
     faThumbsUp,
     faTriangleExclamation,
@@ -26,11 +18,13 @@ import "./classes.scss";
 import CadastroClasseModal from "../../ui/CadastroClasseModal";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import OrderInput from "../../ui/OrderInput";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import { getOrdem } from "../../../utils/getOrdem";
 import ImportarCSVModal from "../../ui/ImportarCSVModal";
+import ButtonsDefault from "../../ui/ButtonDefault";
+import { functions } from "../../../utils/firebase";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -44,7 +38,6 @@ const variantsContainer: Variants = {
     exit: {},
 };
 
-const functions = getFunctions();
 const deletarClasse = httpsCallable(functions, "deletarClasse");
 const salvarClasseCSV = httpsCallable(functions, "salvarClasseCSV");
 const OPTIONS = [
@@ -89,20 +82,14 @@ const COLUNAS = ["nome", "idade_minima(opcional)", "idade_maxima(opcional)"];
 function Classes() {
     const { isSecretario, isSuperAdmin } = useAuthContext();
     const { isLoadingData, igrejas, classes, refetchData } = useDataContext();
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [addClasse, setAddClasse] = useState(false);
     const [importCSV, setImportCSV] = useState(false);
     const [editClasse, setEditClasse] = useState("");
     const [pesquisa, setPesquisa] = useState("");
-    const [ordemColuna, setOrdemColuna] = useState<"nome" | "igrejaNome">(
-        "nome",
-    );
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordemColuna, setOrdemColuna] = useState<"nome" | "igrejaNome">("nome");
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
         title: string;
@@ -163,12 +150,9 @@ function Classes() {
             setMensagem({
                 message: (
                     <>
+                        <span>Tem certeza que deseja deletar a classe: {v?.nome}?</span>
                         <span>
-                            Tem certeza que deseja deletar a classe: {v?.nome}?
-                        </span>
-                        <span>
-                            Isso irá deletar <strong>TODOS</strong> os usuários
-                            associados a ela.
+                            Isso irá deletar <strong>TODOS</strong> os usuários associados a ela.
                         </span>
                     </>
                 ),
@@ -204,11 +188,9 @@ function Classes() {
     }, [pesquisa, classes, currentIgreja, ordemColuna, ordem]);
 
     useEffect(() => {
-        if (!isSuperAdmin.current && igrejas.length)
-            setCurrentIgreja(igrejas[0]);
+        if (!isSuperAdmin.current && igrejas.length) setCurrentIgreja(igrejas[0]);
     }, [igrejas]);
-    if (!isLoadingData && isSecretario.current)
-        return <Navigate to="/dashboard" />;
+    if (!isLoadingData && isSecretario.current) return <Navigate to="/dashboard" />;
     if (isLoadingData || isLoading) return <Loading />;
     return (
         <>
@@ -225,28 +207,11 @@ function Classes() {
                             <h2>Gestão de Classes</h2>
                         </div>
 
-                        <div className="classes-page__cadastrar">
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onTap={() => setAddClasse(true)}
-                                title="Cadastrar nova classe"
-                                className="classes-page__cadastrar--cadastro"
-                            >
-                                <FontAwesomeIcon icon={faPlus} />
-                                Cadastrar nova classe
-                            </motion.button>
-                            {!isSecretario.current && (
-                                <motion.button
-                                    whileTap={{ scale: 0.9 }}
-                                    onTap={() => setImportCSV(true)}
-                                    title="Cadastrar nova classe"
-                                    className="classes-page__cadastrar--csv"
-                                >
-                                    <FontAwesomeIcon icon={faFileCsv} />
-                                    Importar CSV
-                                </motion.button>
-                            )}
-                        </div>
+                        <ButtonsDefault
+                            mensagem="Cadastrar nova classe"
+                            onClickNew={setAddClasse}
+                            onClickCsv={isSecretario.current ? undefined : setImportCSV}
+                        />
                     </div>
 
                     <div className="classes-page__filtros">
@@ -262,21 +227,12 @@ function Classes() {
                         </div>
 
                         <div className="classes-page__filtro">
-                            <SearchInput
-                                texto="classe"
-                                onSearch={(v) => setPesquisa(v)}
-                            />
+                            <SearchInput texto="classe" onSearch={setPesquisa} />
                         </div>
 
                         <OrderInput
                             isCrescente={ordem === "crescente"}
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
                             options={OPTIONS.filter((v) => v.isFilter)}
                         />
@@ -300,22 +256,14 @@ function Classes() {
                                 onSelectOrder={onSelectOrder}
                             />
                         ) : (
-                            <motion.div
-                                className="classes-page__vazio"
-                                variants={variantsItem}
-                            >
-                                <p className="classes-page__vazio--mensagem">
-                                    Sem resultados
-                                </p>
+                            <motion.div className="classes-page__vazio" variants={variantsItem}>
+                                <p className="classes-page__vazio--mensagem">Sem resultados</p>
                                 <motion.div
                                     className="classes-page__cadastrar"
                                     whileTap={{ scale: 0.85 }}
                                     onTap={() => setAddClasse(true)}
                                 >
-                                    <button title="Cadastrar nova classe">
-                                        <FontAwesomeIcon icon={faPlus} />
-                                        Cadastrar nova classe
-                                    </button>
+                                    <ButtonsDefault mensagem="Cadastrar nova classe" onClickNew={setAddClasse} />
                                 </motion.div>
                             </motion.div>
                         )}
@@ -345,6 +293,7 @@ function Classes() {
                         onCancel={() => setImportCSV(false)}
                         igreja
                         onSave={() => refetchData()}
+                        igrejaId={currentIgreja?.id}
                         firebaseFunction={salvarClasseCSV}
                     />
                 )}

@@ -93,18 +93,18 @@
             font-size: 1.5rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease-out;
+            transition: all 0.3s ease-out;
+            background-color: v.$cor-primaria-itens;
+            color: white;
 
-            &:first-of-type {
-                background-color: v.$cor-primaria-itens;
-                color: white;
-                &:hover {
-                    background-color: color.scale(
-                        v.$cor-primaria-itens,
-                        $lightness: -10%
-                    );
-                    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-                }
+            &:hover {
+                background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
+                box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+                transform: scale(1.05);
+            }
+
+            &:active {
+                transform: scale(0.97);
             }
 
             // &:last-of-type {

@@ -1,27 +1,21 @@
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faCalendar,
-    faChalkboard,
-    faPlus,
-    faTag,
-    faThumbsUp,
-    faTrash,
-} from "@fortawesome/free-solid-svg-icons";
+import { faCalendar, faChalkboard, faPlus, faTag, faThumbsUp, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { db, functions } from "../../../utils/firebase";
 import { Navigate, useNavigate } from "react-router-dom";
 import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { getOrdem } from "../../../utils/getOrdem";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import CadastroRotuloModal from "../../ui/CadastroRotuloModal";
+import ButtonsDefault from "../../ui/ButtonDefault";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -35,7 +29,6 @@ const variantsContainer: Variants = {
     exit: {},
 };
 
-const functions = getFunctions();
 const deletarRotulo = httpsCallable(functions, "deletarAluno");
 
 function RotulosClasses() {
@@ -68,11 +61,8 @@ function RotulosClasses() {
     const [addRotulo, setAddRotulo] = useState(false);
     const [update, setUpdate] = useState(false);
     const [pesquisa, setPesquisa] = useState("");
-    const [ordemColuna, setOrdemColuna] =
-        useState<keyof RotulosClassesInterface>("idade_minima");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordemColuna, setOrdemColuna] = useState<keyof RotulosClassesInterface>("idade_minima");
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [rotulos, setRotulos] = useState<RotulosClassesInterface[]>([]);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
@@ -137,10 +127,7 @@ function RotulosClasses() {
         const getRotulosClasses = async () => {
             setIsLoading(true);
             const rotulosCll = collection(db, "rotulos_classes");
-            const q = query(
-                rotulosCll,
-                where("ministerioId", "==", user?.ministerioId),
-            );
+            const q = query(rotulosCll, where("ministerioId", "==", user?.ministerioId));
             const rotulosDocs = await getDocs(q);
 
             if (rotulosDocs.empty) return [];
@@ -184,37 +171,18 @@ function RotulosClasses() {
                             </span>
                             Rótulos de Classes
                         </h2>
-                        <div className="alunos-page__cadastrar">
-                            <motion.button
-                                onTap={() => setAddRotulo(true)}
-                                whileTap={{ scale: 0.95 }}
-                                className="alunos-page__cadastrar--cadastro"
-                            >
-                                <span>
-                                    <FontAwesomeIcon icon={faPlus} />
-                                </span>
-                                Cadastrar Novo Rótulo
-                            </motion.button>
-                        </div>
+
+                        <ButtonsDefault mensagem="Cadastrar Novo Rótulo" onClickNew={setAddRotulo} />
                     </div>
 
                     <div className="alunos-page__header-filtros">
                         <div className="alunos-page__header-filtro">
-                            <SearchInput
-                                onSearch={(texto) => setPesquisa(texto)}
-                                texto="Rótulos"
-                            />
+                            <SearchInput onSearch={setPesquisa} texto="Rótulos" />
                         </div>
 
                         <OrderInput
                             isCrescente={ordem === "crescente"}
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
                             options={OPTIONS.filter((v) => v.isFilter)}
                         />
@@ -231,11 +199,7 @@ function RotulosClasses() {
                                 options={OPTIONS}
                                 onSelectOrder={(v) => {
                                     setOrdemColuna(v.id as any);
-                                    setOrdem((v) =>
-                                        v === "crescente"
-                                            ? "decrescente"
-                                            : "crescente",
-                                    );
+                                    setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"));
                                 }}
                                 onEdit={(v) => setEditRotulo(v.id)}
                                 onDelete={(v) =>
@@ -245,15 +209,11 @@ function RotulosClasses() {
                                         message: (
                                             <>
                                                 <span>
-                                                    Tem certeza que deseja o
-                                                    rótulo:{" "}
-                                                    <strong>{v.nome}</strong>?
+                                                    Tem certeza que deseja o rótulo: <strong>{v.nome}</strong>?
                                                 </span>
                                                 <span>
-                                                    Todas as classes que
-                                                    utilizam este rótulo terão
-                                                    seu rótulo substituído por{" "}
-                                                    <strong>OUTRO</strong>
+                                                    Todas as classes que utilizam este rótulo terão seu rótulo
+                                                    substituído por <strong>OUTRO</strong>
                                                 </span>
                                             </>
                                         ),
@@ -261,20 +221,13 @@ function RotulosClasses() {
                                         cancelText: "Cancelar",
                                         onCancel: () => setMensagem(null),
                                         onClose: () => setMensagem(null),
-                                        icon: (
-                                            <FontAwesomeIcon icon={faTrash} />
-                                        ),
+                                        icon: <FontAwesomeIcon icon={faTrash} />,
                                     })
                                 }
                             />
                         ) : (
-                            <motion.div
-                                className="alunos-page__vazio"
-                                variants={variantsItem}
-                            >
-                                <p className="alunos-page__vazio--mensagem">
-                                    Sem resultados
-                                </p>
+                            <motion.div className="alunos-page__vazio" variants={variantsItem}>
+                                <p className="alunos-page__vazio--mensagem">Sem resultados</p>
                                 <div className="alunos-page__cadastrar">
                                     <motion.button
                                         onTap={() => setAddRotulo(true)}

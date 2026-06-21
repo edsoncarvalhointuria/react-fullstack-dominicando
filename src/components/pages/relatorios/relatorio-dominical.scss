@@ -110,6 +110,10 @@
                 &:hover {
                     color: v.$cor-sucesso;
                 }
+
+                &:disabled {
+                    color: v.$cor-secundaria-texto;
+                }
             }
         }
     }
@@ -127,10 +131,7 @@
 
         &:active {
             cursor: grabbing;
-            background-color: color.scale(
-                v.$cor-primaria-fundo,
-                $lightness: -2%
-            );
+            background-color: color.scale(v.$cor-primaria-fundo, $lightness: -2%);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
 
@@ -139,10 +140,7 @@
 
             &:active {
                 cursor: grabbing;
-                background-color: color.scale(
-                    v.$cor-secundaria-fundo,
-                    $lightness: -2%
-                );
+                background-color: color.scale(v.$cor-secundaria-fundo, $lightness: -2%);
                 box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
             }
         }
@@ -180,7 +178,9 @@
                 color: v.$cor-secundaria-texto;
                 cursor: pointer;
                 font-size: 1.8rem;
-                transition: color 0.2s, transform 0.2s;
+                transition:
+                    color 0.2s,
+                    transform 0.2s;
                 margin-right: 1rem;
                 &:hover {
                     color: v.$cor-erro;
@@ -244,11 +244,15 @@
         font-size: 1.8rem;
         font-weight: 700;
         cursor: pointer;
-        transition: all 0.2s ease-out;
+        transition: all 0.3s ease-in-out;
 
         &:hover {
             background-color: color.scale(v.$cor-sucesso, $lightness: -10%);
-            transform: translateY(-2px);
+            transform: scale(1.02);
+        }
+
+        &:active {
+            transform: scale(0.98);
         }
     }
 }

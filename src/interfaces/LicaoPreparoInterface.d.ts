@@ -14,3 +14,14 @@ interface LicaoPreparoInterface {
     ativo: boolean;
     ultima_aula: null | ReferenceType;
 }
+
+interface AulaPreparo {
+    aula: string;
+    titulo_aula: string | null;
+    link_youtube: string | null;
+    trimestre: string;
+    total_visualizacoes: number;
+    realizado: boolean;
+    licaoId?: string;
+    ministerioId: string;
+}

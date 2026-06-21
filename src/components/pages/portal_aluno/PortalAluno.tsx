@@ -54,19 +54,10 @@ import {
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
-import React, {
-    Fragment,
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode,
-} from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import Loading from "../../layout/loading/Loading";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AlertModal from "../../ui/AlertModal";
 import type {
@@ -83,6 +74,8 @@ import Dropdown from "../../ui/Dropdown";
 import LoadingModal from "../../layout/loading/LoadingModal";
 import { useAuthContext } from "../../../context/AuthContext";
 import { Timestamp } from "firebase/firestore";
+import { functions } from "../../../utils/firebase";
+import LoadingVideo from "../../layout/loading/LoadingVideo";
 
 interface PortalAlunoLogin {
     dia: string;
@@ -91,7 +84,6 @@ interface PortalAlunoLogin {
     manterConectado: boolean;
 }
 
-const functions = getFunctions();
 const getPortalAluno = httpsCallable(functions, "getPortalAluno");
 
 const frequenciaVariants: Variants = {
@@ -178,7 +170,7 @@ const ABAS = [
     { nome: "Histórico", icon: faClockRotateLeft, id: "historia" },
 ];
 
-const CoachMark = React.memo(
+export const CoachMark = React.memo(
     ({
         refs,
         isOpen,
@@ -218,16 +210,12 @@ const CoachMark = React.memo(
             const alturaBalao = balaoRect.height;
             const margem = 8;
 
-            let translateX =
-                refRect.left + refRect.width / 2 - balaoRect.width / 2;
+            let translateX = refRect.left + refRect.width / 2 - balaoRect.width / 2;
             const margemTela = 5;
             let translateY = 0;
 
             if (translateX < margemTela) translateX = margemTela;
-            else if (
-                translateX + balaoRect.width >
-                window.innerWidth - margemTela
-            ) {
+            else if (translateX + balaoRect.width > window.innerWidth - margemTela) {
                 translateX = window.innerWidth - balaoRect.width - margemTela;
             }
             if (espacoAbaixo > alturaBalao) {
@@ -268,10 +256,7 @@ const CoachMark = React.memo(
                         exit={{ opacity: 0 }}
                         key={"coach-mark"}
                     >
-                        <div
-                            className="coach-mark__destaque"
-                            style={destaque}
-                        ></div>
+                        <div className="coach-mark__destaque" style={destaque}></div>
                         <motion.div
                             ref={balaoRef}
                             initial={{ opacity: 0 }}
@@ -286,62 +271,50 @@ const CoachMark = React.memo(
         );
     },
 );
-const PortalAlunoOpcoes = React.memo(
-    ({ onSelectOption }: { onSelectOption: (v: any) => void }) => {
-        const isMobile = useIsMobile(480);
+const PortalAlunoOpcoes = React.memo(({ onSelectOption }: { onSelectOption: (v: any) => void }) => {
+    const isMobile = useIsMobile(480);
 
-        return (
-            <div
-                className={`portal_aluno__opcoes ${isMobile ? "mobile-footer" : ""}`}
-            >
-                <div className="portal_aluno__lista">
-                    {ABAS.map((v, i) =>
-                        isMobile ? (
-                            <div
-                                className="portal_aluno__opcao"
-                                key={v.id}
-                                id={i === 1 ? "nav-bar-portal" : undefined}
-                            >
-                                <label htmlFor={`opcoes-${i}`}>
-                                    <i>
-                                        <FontAwesomeIcon icon={v.icon} />
-                                    </i>
-                                    <span>{v.nome}</span>
-                                </label>
-                                <input
-                                    type="radio"
-                                    name="opcoes"
-                                    id={`opcoes-${i}`}
-                                    defaultChecked={i === 0}
-                                    onChange={() => {
-                                        onSelectOption(v.id);
-                                    }}
-                                />
-                            </div>
-                        ) : (
-                            <div
-                                className="portal_aluno__opcao"
-                                key={v.id}
-                                id={i === 1 ? "nav-bar-portal" : undefined}
-                            >
-                                <label htmlFor={`opcoes-${i}`}>{v.nome}</label>
-                                <input
-                                    type="radio"
-                                    name="opcoes"
-                                    id={`opcoes-${i}`}
-                                    defaultChecked={i === 0}
-                                    onChange={() => {
-                                        onSelectOption(v.id);
-                                    }}
-                                />
-                            </div>
-                        ),
-                    )}
-                </div>
+    return (
+        <div className={`portal_aluno__opcoes ${isMobile ? "mobile-footer" : ""}`}>
+            <div className="portal_aluno__lista">
+                {ABAS.map((v, i) =>
+                    isMobile ? (
+                        <div className="portal_aluno__opcao" key={v.id} id={i === 1 ? "nav-bar-portal" : undefined}>
+                            <label htmlFor={`opcoes-${i}`}>
+                                <i>
+                                    <FontAwesomeIcon icon={v.icon} />
+                                </i>
+                                <span>{v.nome}</span>
+                            </label>
+                            <input
+                                type="radio"
+                                name="opcoes"
+                                id={`opcoes-${i}`}
+                                defaultChecked={i === 0}
+                                onChange={() => {
+                                    onSelectOption(v.id);
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <div className="portal_aluno__opcao" key={v.id} id={i === 1 ? "nav-bar-portal" : undefined}>
+                            <label htmlFor={`opcoes-${i}`}>{v.nome}</label>
+                            <input
+                                type="radio"
+                                name="opcoes"
+                                id={`opcoes-${i}`}
+                                defaultChecked={i === 0}
+                                onChange={() => {
+                                    onSelectOption(v.id);
+                                }}
+                            />
+                        </div>
+                    ),
+                )}
             </div>
-        );
-    },
-);
+        </div>
+    );
+});
 
 // Visão Geral
 const jaViuVisaoGeral = () => {
@@ -350,11 +323,7 @@ const jaViuVisaoGeral = () => {
 const MensagemOfensiva = ({ ofensiva }: { ofensiva: number }) => {
     return (
         <div className="visao_geral_portal__frequencia-mensagem">
-            <span
-                className={
-                    ofensiva === 0 ? "ice" : ofensiva <= 2 ? "seed" : "fire"
-                }
-            >
+            <span className={ofensiva === 0 ? "ice" : ofensiva <= 2 ? "seed" : "fire"}>
                 {ofensiva === 0 ? (
                     <i>
                         <FontAwesomeIcon icon={faSnowflake} />
@@ -422,18 +391,12 @@ const Ofensiva = ({ dadosMemo }: { dadosMemo: any }) => {
                         </p>
 
                         <div className="visao_geral_portal__data-container">
-                            <motion.div
-                                className="visao_geral_portal__data-icon"
-                                variants={frequenciaLottieVariants}
-                            >
-                                {dadosMemo.ofensivas.includes(
-                                    v.data.toLocaleDateString("pt-BR"),
-                                ) ? (
+                            <motion.div className="visao_geral_portal__data-icon" variants={frequenciaLottieVariants}>
+                                {dadosMemo.ofensivas.includes(v.data.toLocaleDateString("pt-BR")) ? (
                                     <motion.span>
                                         <DotLottieReact
                                             src={
-                                                v.status?.status ===
-                                                "Falta Justificada"
+                                                v.status?.status === "Falta Justificada"
                                                     ? "/shield.lottie"
                                                     : "/fire.lottie"
                                             }
@@ -444,12 +407,9 @@ const Ofensiva = ({ dadosMemo }: { dadosMemo: any }) => {
                                     </motion.span>
                                 ) : (
                                     <motion.i>
-                                        {v.status?.status === "Falta" ||
-                                        v.status?.status ===
-                                            "Falta Justificada" ? (
+                                        {v.status?.status === "Falta" || v.status?.status === "Falta Justificada" ? (
                                             <FontAwesomeIcon icon={faXmark} />
-                                        ) : v.status?.status === "Atrasado" ||
-                                          v.status?.status === "Presente" ? (
+                                        ) : v.status?.status === "Atrasado" || v.status?.status === "Presente" ? (
                                             <FontAwesomeIcon icon={faCheck} />
                                         ) : (
                                             <FontAwesomeIcon icon={faClock} />
@@ -471,13 +431,7 @@ const Ofensiva = ({ dadosMemo }: { dadosMemo: any }) => {
         </div>
     );
 };
-const Card = ({
-    dados,
-    title,
-}: {
-    dados: any;
-    title: "Presença" | "Bíblia" | "Revista";
-}) => {
+const Card = ({ dados, title }: { dados: any; title: "Presença" | "Bíblia" | "Revista" }) => {
     const [isDetalhes, setIsDetalhes] = useState(false);
     const detalhes = dados.licao_atual.detalhes_aluno;
     const valores =
@@ -503,23 +457,15 @@ const Card = ({
             : [
                   {
                       name: "Não Trouxe",
-                      value:
-                          title === "Revista"
-                              ? detalhes?.nao_trouxe_revista
-                              : detalhes?.nao_trouxe_biblia,
+                      value: title === "Revista" ? detalhes?.nao_trouxe_revista : detalhes?.nao_trouxe_biblia,
                   },
                   {
                       name: "Trouxe",
-                      value:
-                          title === "Revista"
-                              ? detalhes?.trouxe_revista
-                              : detalhes?.trouxe_biblia,
+                      value: title === "Revista" ? detalhes?.trouxe_revista : detalhes?.trouxe_biblia,
                   },
               ];
     return (
-        <div
-            className={`visao_geral_portal__card ${!isDetalhes ? "visao_geral_portal__card--gap" : ""}`}
-        >
+        <div className={`visao_geral_portal__card ${!isDetalhes ? "visao_geral_portal__card--gap" : ""}`}>
             <div className="visao_geral_portal__card-header">
                 <h2>
                     <i>
@@ -620,10 +566,7 @@ const Detalhes = ({ dadosMemo }: { dadosMemo: any }) => {
                             onChange={() => setIsTimeLine(true)}
                         />
                     </div>
-                    <div
-                        className="visao_geral_portal__detalhes-opt"
-                        id="visao-geral-detalhes-tipo"
-                    >
+                    <div className="visao_geral_portal__detalhes-opt" id="visao-geral-detalhes-tipo">
                         <label htmlFor="table-opt">
                             <i>
                                 <FontAwesomeIcon icon={faTableList} />
@@ -665,79 +608,49 @@ const Detalhes = ({ dadosMemo }: { dadosMemo: any }) => {
                                             !v.status?.status
                                                 ? "sem-registro"
                                                 : opt === "Presença"
-                                                  ? v.status.status.replace(
-                                                        " ",
-                                                        "-",
-                                                    )
+                                                  ? v.status.status.replace(" ", "-")
                                                   : v.status[escolha]
                                                     ? "trouxe"
                                                     : "nao-trouxe"
                                         }`}
                                     >
                                         <div className="visao_geral_portal__time-line__aula">
-                                            <span>
-                                                Aula:{" "}
-                                                {dadosMemo.dias.length - i}
-                                            </span>
-                                            <p>
-                                                {v.data.toLocaleDateString(
-                                                    "pt-BR",
-                                                )}
-                                            </p>
+                                            <span>Aula: {dadosMemo.dias.length - i}</span>
+                                            <p>{v.data.toLocaleDateString("pt-BR")}</p>
                                         </div>
 
                                         <div className="visao_geral_portal__time-line__ponto">
                                             {opt === "Presença" ? (
                                                 <i>
                                                     {!v.status?.status ? (
-                                                        <FontAwesomeIcon
-                                                            icon={faClock}
-                                                        />
-                                                    ) : v.status.status ===
-                                                          "Presente" ||
-                                                      v.status.status ===
-                                                          "Atrasado" ? (
-                                                        <FontAwesomeIcon
-                                                            icon={faCheck}
-                                                        />
+                                                        <FontAwesomeIcon icon={faClock} />
+                                                    ) : v.status.status === "Presente" ||
+                                                      v.status.status === "Atrasado" ? (
+                                                        <FontAwesomeIcon icon={faCheck} />
                                                     ) : (
-                                                        <FontAwesomeIcon
-                                                            icon={faXmark}
-                                                        />
+                                                        <FontAwesomeIcon icon={faXmark} />
                                                     )}
                                                 </i>
                                             ) : (
                                                 <i>
                                                     {!v.status?.status ? (
-                                                        <FontAwesomeIcon
-                                                            icon={faClock}
-                                                        />
+                                                        <FontAwesomeIcon icon={faClock} />
                                                     ) : v.status[escolha] ? (
-                                                        <FontAwesomeIcon
-                                                            icon={faCheck}
-                                                        />
+                                                        <FontAwesomeIcon icon={faCheck} />
                                                     ) : (
-                                                        <FontAwesomeIcon
-                                                            icon={faXmark}
-                                                        />
+                                                        <FontAwesomeIcon icon={faXmark} />
                                                     )}
                                                 </i>
                                             )}
                                         </div>
 
-                                        <div
-                                            className={`visao_geral_portal__time-line__status`}
-                                        >
+                                        <div className={`visao_geral_portal__time-line__status`}>
                                             {!v.status?.status ? (
                                                 <p>Sem registro</p>
                                             ) : opt === "Presença" ? (
                                                 <p>{v.status.status}</p>
                                             ) : (
-                                                <p>
-                                                    {v.status[escolha]
-                                                        ? `Trouxe ${opt}`
-                                                        : `Não Trouxe ${opt}`}
-                                                </p>
+                                                <p>{v.status[escolha] ? `Trouxe ${opt}` : `Não Trouxe ${opt}`}</p>
                                             )}
                                         </div>
                                     </div>
@@ -750,9 +663,7 @@ const Detalhes = ({ dadosMemo }: { dadosMemo: any }) => {
                                                 height: "2.5rem",
                                             }}
                                             viewport={{
-                                                margin: isMobile
-                                                    ? "-60px"
-                                                    : "-50px",
+                                                margin: isMobile ? "-60px" : "-50px",
                                                 amount: 0.5,
                                             }}
                                         ></motion.div>
@@ -764,15 +675,10 @@ const Detalhes = ({ dadosMemo }: { dadosMemo: any }) => {
                     <ul className="visao_geral_portal__table">
                         {dadosMemo.dias.map((v: any, i: any) => {
                             return (
-                                <li
-                                    key={v.data.toDateString()}
-                                    className="visao_geral_portal__table__item"
-                                >
+                                <li key={v.data.toDateString()} className="visao_geral_portal__table__item">
                                     <div className="visao_geral_portal__table__data">
                                         <span>Aula: {i + 1}</span>
-                                        <p>
-                                            {v.data.toLocaleDateString("pt-BR")}
-                                        </p>
+                                        <p>{v.data.toLocaleDateString("pt-BR")}</p>
                                     </div>
 
                                     <motion.div
@@ -789,9 +695,7 @@ const Detalhes = ({ dadosMemo }: { dadosMemo: any }) => {
                                     ></motion.div>
 
                                     {!v.status?.status ? (
-                                        <p className="visao_geral_portal__table__sem-registro">
-                                            Sem registro
-                                        </p>
+                                        <p className="visao_geral_portal__table__sem-registro">Sem registro</p>
                                     ) : opt === "Presença" ? (
                                         <p
                                             className={`visao_geral_portal__table__status ${v.status.status.replace(" ", "-")}`}
@@ -801,14 +705,10 @@ const Detalhes = ({ dadosMemo }: { dadosMemo: any }) => {
                                     ) : (
                                         <p
                                             className={`visao_geral_portal__table__status ${
-                                                v.status[escolha]
-                                                    ? "trouxe"
-                                                    : "nao-trouxe"
+                                                v.status[escolha] ? "trouxe" : "nao-trouxe"
                                             }`}
                                         >
-                                            {v.status[escolha]
-                                                ? `Trouxe ${opt}`
-                                                : `Não Trouxe ${opt}`}
+                                            {v.status[escolha] ? `Trouxe ${opt}` : `Não Trouxe ${opt}`}
                                         </p>
                                     )}
                                 </li>
@@ -824,10 +724,7 @@ const PortalVisaoGeral = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     const [showCoach, setShowCoach] = useState(false);
     const dadosMemo = useMemo(() => {
         const seteDias = 1000 * 60 * 60 * 24 * 7;
-        const diff =
-            (dados.licao_atual.data_fim - dados.licao_atual.data_inicio) /
-                seteDias +
-            1;
+        const diff = (dados.licao_atual.data_fim - dados.licao_atual.data_inicio) / seteDias + 1;
         const dias = Array.from({ length: diff }).map((_, i) => {
             const dataInicio = new Date(dados.licao_atual.data_inicio);
             dataInicio.setDate(dataInicio.getDate() + 7 * i);
@@ -841,8 +738,7 @@ const PortalVisaoGeral = ({ dados }: { dados: ResponseGetPortalAluno }) => {
 
         let ofensivas: any[] = [];
         dias.filter((v) => v?.status).forEach((v) => {
-            if (v.status.status !== "Falta")
-                ofensivas.push(v.data.toLocaleDateString("pt-BR"));
+            if (v.status.status !== "Falta") ofensivas.push(v.data.toLocaleDateString("pt-BR"));
             else ofensivas = [];
         });
 
@@ -859,18 +755,12 @@ const PortalVisaoGeral = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const jaViu = JSON.parse(
-            localStorage.getItem("ja-viu-visao-geral-coach") || "false",
-        );
+        const jaViu = JSON.parse(localStorage.getItem("ja-viu-visao-geral-coach") || "false");
         if (!jaViu) setShowCoach(true);
     }, []);
     return (
         <div className="visao_geral_portal">
-            <CoachMark
-                isOpen={showCoach}
-                refs={COACH_VISAO}
-                onClose={jaViuVisaoGeral}
-            />
+            <CoachMark isOpen={showCoach} refs={COACH_VISAO} onClose={jaViuVisaoGeral} />
 
             {dadosMemo.dias.length ? (
                 <>
@@ -946,12 +836,8 @@ const Trimestre = ({
         >
             <div className="historico_portal__time-line__trimestres-ponto"></div>
 
-            <div
-                className={`historico_portal__time-line__trimestres-info ${isMod2 ? "direita" : "esquerda"}`}
-            >
-                {isMod2 && (
-                    <div className="historico_portal__time-line__trimestres-linha"></div>
-                )}
+            <div className={`historico_portal__time-line__trimestres-info ${isMod2 ? "direita" : "esquerda"}`}>
+                {isMod2 && <div className="historico_portal__time-line__trimestres-linha"></div>}
                 <button
                     key={trimestre.licaoId}
                     onClick={() => {
@@ -959,14 +845,10 @@ const Trimestre = ({
                     }}
                     id={indice === 0 ? "trimestre-coach" : undefined}
                 >
-                    <span className="historico_portal__time-line__trimestres-titulo">
-                        {trimestre.titulo}
-                    </span>
+                    <span className="historico_portal__time-line__trimestres-titulo">{trimestre.titulo}</span>
                     <span className="historico_portal__time-line__trimestres-trimestre">{`${trimestre.trimestre}º Trimestre de ${trimestre.ano}`}</span>
                 </button>
-                {!isMod2 && (
-                    <div className="historico_portal__time-line__trimestres-linha"></div>
-                )}
+                {!isMod2 && <div className="historico_portal__time-line__trimestres-linha"></div>}
             </div>
         </motion.div>
     );
@@ -1001,16 +883,8 @@ const Ano = React.memo(
                         className={`historico_portal__time-line__ano-ponto`}
                         initial={{ rotate: 0 }}
                         animate={isOpen ? { rotate: 45 } : { rotate: 0 }}
-                        whileHover={
-                            isOpen
-                                ? { scale: 1.09, backgroundColor: "#ef4444" }
-                                : { scale: 1.09 }
-                        }
-                        whileTap={
-                            isOpen
-                                ? { scale: 1, backgroundColor: "#ef4444" }
-                                : { scale: 1 }
-                        }
+                        whileHover={isOpen ? { scale: 1.09, backgroundColor: "#ef4444" } : { scale: 1.09 }}
+                        whileTap={isOpen ? { scale: 1, backgroundColor: "#ef4444" } : { scale: 1 }}
                         onTap={() => setIsOpen((v) => !v)}
                     >
                         <i id={indice === 0 ? "ano-coach" : undefined}>
@@ -1056,8 +930,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [showCoach, setShowCoach] = useState(false);
     const [currentYear, setCurrentYear] = useState<string | null>(null);
-    const [currentDados, setCurrentDados] =
-        useState<ResponseGetPortalAluno | null>(null);
+    const [currentDados, setCurrentDados] = useState<ResponseGetPortalAluno | null>(null);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
         title: string;
@@ -1077,8 +950,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                 const anoLista = anosMap.get(v.ano) || [];
                 const item = {
                     ...v,
-                    trimestre:
-                        Math.floor(new Date(v.data_inicio).getMonth() / 3) + 1,
+                    trimestre: Math.floor(new Date(v.data_inicio).getMonth() / 3) + 1,
                 };
                 anoLista.push(item);
 
@@ -1092,9 +964,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                 nome: String(v),
                 id: String(v),
             }));
-        const trimestres = Array.from(anosMap.entries()).sort(
-            (a, b) => b[0] - a[0],
-        );
+        const trimestres = Array.from(anosMap.entries()).sort((a, b) => b[0] - a[0]);
 
         return { anos, trimestres };
     }, [dados]);
@@ -1111,9 +981,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                 licaoId,
                 igrejaHash,
                 alunoHash,
-                dataNascimento: new Timestamp(seconds, nanoseconds)
-                    .toDate()
-                    .toLocaleDateString("pt-BR"),
+                dataNascimento: new Timestamp(seconds, nanoseconds).toDate().toLocaleDateString("pt-BR"),
             });
             const response = data as ResponseGetPortalAluno;
             setCurrentDados(response);
@@ -1134,17 +1002,14 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     }, []);
 
     useEffect(() => {
-        if (!currentYear)
-            setCurrentYear(dadosMemo.anos?.[0] ? dadosMemo.anos[0].id : null);
+        if (!currentYear) setCurrentYear(dadosMemo.anos?.[0] ? dadosMemo.anos[0].id : null);
         else {
             const el = document.getElementById(`ano${currentYear}`);
             if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
     }, [currentYear]);
     useEffect(() => {
-        const jaViu = JSON.parse(
-            localStorage.getItem("ja-viu-historico-coach") || "false",
-        );
+        const jaViu = JSON.parse(localStorage.getItem("ja-viu-historico-coach") || "false");
         if (!jaViu && dadosMemo?.anos?.length) {
             setShowCoach(true);
         }
@@ -1156,8 +1021,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                 refs={[
                     {
                         id: "ano-coach",
-                        mensagem:
-                            "Você pode clicar aqui para expandir os trimestres.",
+                        mensagem: "Você pode clicar aqui para expandir os trimestres.",
                     },
                     {
                         id: "trimestre-coach",
@@ -1169,8 +1033,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                     },
                     {
                         id: "historico-dropdown-coach",
-                        mensagem:
-                            "Use o filtro para navegar e visualizar um ano específico.",
+                        mensagem: "Use o filtro para navegar e visualizar um ano específico.",
                     },
                 ]}
                 onClose={jaViuHistorico}
@@ -1198,10 +1061,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                         <div className="historico_portal__title">
                             <h2>Histórico</h2>
 
-                            <div
-                                className="historico_portal__dropdown"
-                                id="historico-dropdown-coach"
-                            >
+                            <div className="historico_portal__dropdown" id="historico-dropdown-coach">
                                 <p>Ano</p>
                                 <Dropdown
                                     current={currentYear}
@@ -1215,18 +1075,16 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
 
                         {dadosMemo.trimestres.length ? (
                             <div className="historico_portal__time-line">
-                                {dadosMemo.trimestres.map(
-                                    ([ano, trimestres], i) => (
-                                        <Ano
-                                            ano={ano}
-                                            indice={i}
-                                            trimestres={trimestres}
-                                            key={ano}
-                                            open={i === 0}
-                                            onSelected={getDados}
-                                        />
-                                    ),
-                                )}
+                                {dadosMemo.trimestres.map(([ano, trimestres], i) => (
+                                    <Ano
+                                        ano={ano}
+                                        indice={i}
+                                        trimestres={trimestres}
+                                        key={ano}
+                                        open={i === 0}
+                                        onSelected={getDados}
+                                    />
+                                ))}
                             </div>
                         ) : (
                             <div className="visao_geral_portal__vazio">
@@ -1252,15 +1110,8 @@ const RARIDADES = [
     { nome: "Lendária", id: "lendaria" },
     { nome: "Única", id: "unica" },
 ];
-const TrofeuModal = ({
-    conquista,
-    onClose,
-}: {
-    conquista: ConquistaInterface;
-    onClose: () => void;
-}) => {
-    const { raridade, multiplicador, titulo, descricao, tipo, detalhes, icon } =
-        conquista;
+const TrofeuModal = ({ conquista, onClose }: { conquista: ConquistaInterface; onClose: () => void }) => {
+    const { raridade, multiplicador, titulo, descricao, tipo, detalhes, icon } = conquista;
     return (
         <div className="trofeus_portal__modal-overlay" onClick={onClose}>
             <motion.div
@@ -1282,8 +1133,7 @@ const TrofeuModal = ({
                         <i>
                             {raridade === "unica" ? (
                                 <FontAwesomeIcon icon={faGem} />
-                            ) : raridade === "lendaria" ||
-                              raridade === "epica" ? (
+                            ) : raridade === "lendaria" || raridade === "epica" ? (
                                 <FontAwesomeIcon icon={faCrown} />
                             ) : (
                                 <FontAwesomeIcon icon={faMedal} />
@@ -1318,11 +1168,7 @@ const TrofeuModal = ({
 
                     <div className={`trofeus_portal__modal__tipo ${tipo}`}>
                         <i>
-                            {tipo === "manual" ? (
-                                <FontAwesomeIcon icon={faGear} />
-                            ) : (
-                                <FontAwesomeIcon icon={faBolt} />
-                            )}
+                            {tipo === "manual" ? <FontAwesomeIcon icon={faGear} /> : <FontAwesomeIcon icon={faBolt} />}
                         </i>
                         <p>{tipo}</p>
                     </div>
@@ -1333,24 +1179,13 @@ const TrofeuModal = ({
 
                     <div className="trofeus_portal__modal__detalhes">
                         {Object.values(detalhes).map((v) => (
-                            <div
-                                key={v.licaoId}
-                                className="trofeus_portal__modal__detalhe"
-                            >
+                            <div key={v.licaoId} className="trofeus_portal__modal__detalhe">
                                 <div className="trofeus_portal__modal__data">
                                     <i>
-                                        <FontAwesomeIcon
-                                            icon={faCalendarDays}
-                                        />
+                                        <FontAwesomeIcon icon={faCalendarDays} />
                                     </i>
-                                    <data
-                                        value={new Date(
-                                            v.data,
-                                        ).toLocaleDateString("pt-BR")}
-                                    >
-                                        {new Date(v.data).toLocaleDateString(
-                                            "pt-BR",
-                                        )}
+                                    <data value={new Date(v.data).toLocaleDateString("pt-BR")}>
+                                        {new Date(v.data).toLocaleDateString("pt-BR")}
                                     </data>
                                 </div>
 
@@ -1374,8 +1209,7 @@ const TrofeuModal = ({
 const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     const [filtro, setFiltro] = useState("");
     const [showCoach, setShowCoach] = useState(false);
-    const [currentTrofeu, setCurrentTrofeu] =
-        useState<ConquistaInterface | null>(null);
+    const [currentTrofeu, setCurrentTrofeu] = useState<ConquistaInterface | null>(null);
 
     const fecharTrofeu = useCallback(() => {
         setCurrentTrofeu(null);
@@ -1413,9 +1247,7 @@ const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     }, [dados]);
 
     useEffect(() => {
-        const jaViu = JSON.parse(
-            localStorage.getItem("ja-viu-trofeus-coach") || "false",
-        );
+        const jaViu = JSON.parse(localStorage.getItem("ja-viu-trofeus-coach") || "false");
         if (dadosMemo.conquistas.length && !jaViu) {
             setShowCoach(true);
         }
@@ -1445,9 +1277,7 @@ const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                 <div className="trofeus_portal__body">
                     <div className="trofeus_portal__cards">
                         <div className={`trofeus_portal__cards-infos`}>
-                            <div
-                                className={`trofeus_portal__card licoes-total`}
-                            >
+                            <div className={`trofeus_portal__card licoes-total`}>
                                 <p>
                                     <i>
                                         <FontAwesomeIcon icon={faBookmark} />
@@ -1456,9 +1286,7 @@ const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                                 </p>
                                 <span>Total de revistas</span>
                             </div>
-                            <div
-                                className={`trofeus_portal__card trofeus-total`}
-                            >
+                            <div className={`trofeus_portal__card trofeus-total`}>
                                 <p>
                                     <i>
                                         <FontAwesomeIcon icon={faTrophy} />
@@ -1498,10 +1326,7 @@ const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                                 <p>Filtrar:</p>
                                 <Dropdown
                                     lista={RARIDADES}
-                                    current={
-                                        RARIDADES.find((v) => v.id === filtro)
-                                            ?.nome || ""
-                                    }
+                                    current={RARIDADES.find((v) => v.id === filtro)?.nome || ""}
                                     isAll
                                     onSelect={(v) => setFiltro(v?.id!)}
                                     selectId={filtro}
@@ -1510,56 +1335,36 @@ const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
                         </div>
                         <div className="trofeus_portal__grid">
                             {filtro
-                                ? dadosMemo.raridadesObj[filtro].map(
-                                      (v: any) => (
-                                          <div
-                                              key={v.titulo}
-                                              className={`trofeus_portal__item ${v.raridade}`}
-                                              onClick={() =>
-                                                  setCurrentTrofeu(v)
-                                              }
-                                          >
-                                              <i>
-                                                  <FontAwesomeIcon
-                                                      icon={
-                                                          TROFEUS?.[v.icon] ||
-                                                          faTrophy
-                                                      }
-                                                  />
-                                              </i>
+                                ? dadosMemo.raridadesObj[filtro].map((v: any) => (
+                                      <div
+                                          key={v.titulo}
+                                          className={`trofeus_portal__item ${v.raridade}`}
+                                          onClick={() => setCurrentTrofeu(v)}
+                                      >
+                                          <i>
+                                              <FontAwesomeIcon icon={TROFEUS?.[v.icon] || faTrophy} />
+                                          </i>
 
-                                              <p>{v.titulo}</p>
+                                          <p>{v.titulo}</p>
 
-                                              <span>{v.multiplicador}</span>
-                                          </div>
-                                      ),
-                                  )
+                                          <span>{v.multiplicador}</span>
+                                      </div>
+                                  ))
                                 : dadosMemo.conquistas.map((v, i) => (
                                       <div
                                           key={v.titulo}
                                           className={`trofeus_portal__item ${v.raridade}`}
                                           onClick={() => setCurrentTrofeu(v)}
-                                          id={
-                                              i === 0
-                                                  ? "trofeu-coach"
-                                                  : undefined
-                                          }
+                                          id={i === 0 ? "trofeu-coach" : undefined}
                                       >
                                           <i>
-                                              <FontAwesomeIcon
-                                                  icon={
-                                                      TROFEUS?.[v.icon] ||
-                                                      faTrophy
-                                                  }
-                                              />
+                                              <FontAwesomeIcon icon={TROFEUS?.[v.icon] || faTrophy} />
                                           </i>
                                           <p>{v.titulo}</p>
                                           <span>x{v.multiplicador}</span>
                                       </div>
                                   ))}
-                            {(filtro &&
-                                !dadosMemo.raridadesObj[filtro].length) ||
-                            !dadosMemo.conquistas.length ? (
+                            {(filtro && !dadosMemo.raridadesObj[filtro].length) || !dadosMemo.conquistas.length ? (
                                 <div className="trofeus_portal__vazio">
                                     <p>Não foi encontrado nenhum troféu</p>
                                 </div>
@@ -1572,30 +1377,15 @@ const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
             </div>
 
             <AnimatePresence mode="wait">
-                {!!currentTrofeu && (
-                    <TrofeuModal
-                        conquista={currentTrofeu}
-                        onClose={fecharTrofeu}
-                    />
-                )}
+                {!!currentTrofeu && <TrofeuModal conquista={currentTrofeu} onClose={fecharTrofeu} />}
             </AnimatePresence>
         </>
     );
 };
 
 const PortalAlunoDados = React.memo(
-    ({
-        dados,
-        alunoId,
-        sair,
-    }: {
-        dados: ResponseGetPortalAluno;
-        alunoId?: string;
-        sair: () => void;
-    }) => {
-        const [currentOpt, setCurrentOpt] = useState<
-            "visao-geral" | "conquistas" | "historia"
-        >("visao-geral");
+    ({ dados, alunoId, sair }: { dados: ResponseGetPortalAluno; alunoId?: string; sair: () => void }) => {
+        const [currentOpt, setCurrentOpt] = useState<"visao-geral" | "conquistas" | "historia">("visao-geral");
         const { user } = useAuthContext();
         const navigate = useNavigate();
         const selectOption = useCallback((currentOpt: string) => {
@@ -1615,10 +1405,7 @@ const PortalAlunoDados = React.memo(
                             transition={{ delay: 0.3 }}
                         >
                             <div className="portal_aluno__logo">
-                                <img
-                                    src="/logo-atualizada.svg"
-                                    alt="Logo Dominicando"
-                                />
+                                <img src="/logo-atualizada.svg" alt="Logo Dominicando" />
                             </div>
 
                             <p>Olá, {dados.nome}</p>
@@ -1629,28 +1416,19 @@ const PortalAlunoDados = React.memo(
                         <div className="portal_aluno__actions">
                             {user && (
                                 <div className="portal_aluno__ir_para_usuario">
-                                    <button
-                                        onClick={() => navigate("/dashboard")}
-                                    >
+                                    <button onClick={() => navigate("/dashboard")}>
                                         <i>
-                                            <FontAwesomeIcon
-                                                icon={faChartSimple}
-                                            />
+                                            <FontAwesomeIcon icon={faChartSimple} />
                                         </i>
                                         <span>Gestão EBD</span>
                                     </button>
                                 </div>
                             )}
 
-                            <div
-                                className="portal_aluno__sair"
-                                id="botao-sair-coach"
-                            >
+                            <div className="portal_aluno__sair" id="botao-sair-coach">
                                 <button onClick={sair}>
                                     <i>
-                                        <FontAwesomeIcon
-                                            icon={faRightFromBracket}
-                                        />
+                                        <FontAwesomeIcon icon={faRightFromBracket} />
                                     </i>
                                 </button>
                             </div>
@@ -1670,13 +1448,7 @@ const PortalAlunoDados = React.memo(
         );
     },
 );
-const PortalAlunoLogin = ({
-    alunoId,
-    onLogin,
-}: {
-    alunoId?: string;
-    onLogin: (v: any) => void;
-}) => {
+const PortalAlunoLogin = ({ alunoId, onLogin }: { alunoId?: string; onLogin: (v: any) => void }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
@@ -1705,9 +1477,7 @@ const PortalAlunoLogin = ({
         setIsLoading(true);
 
         try {
-            const dataNascimento = new Date(
-                `${v.ano}-${v.mes}-${v.dia}T12:00:00`,
-            ).toLocaleDateString("pt-BR");
+            const dataNascimento = new Date(`${v.ano}-${v.mes}-${v.dia}T12:00:00`).toLocaleDateString("pt-BR");
 
             const { data } = await getPortalAluno({
                 dataNascimento,
@@ -1716,14 +1486,8 @@ const PortalAlunoLogin = ({
             });
 
             if (v.manterConectado) {
-                localStorage.setItem(
-                    `data-${igrejaHash}-${alunoHash}`,
-                    dataNascimento,
-                );
-                localStorage.setItem(
-                    "login-portal-aluno",
-                    JSON.stringify({ igrejaHash, alunoHash }),
-                );
+                localStorage.setItem(`data-${igrejaHash}-${alunoHash}`, dataNascimento);
+                localStorage.setItem("login-portal-aluno", JSON.stringify({ igrejaHash, alunoHash }));
             }
 
             onLogin(data);
@@ -1765,9 +1529,7 @@ const PortalAlunoLogin = ({
                     setIsLoading(false);
                 });
         } else {
-            const data = localStorage.getItem(
-                `data-${igrejaHash}-${alunoHash}`,
-            );
+            const data = localStorage.getItem(`data-${igrejaHash}-${alunoHash}`);
             if (data) {
                 getPortalAluno({ dataNascimento: data, alunoHash, igrejaHash })
                     .then(({ data }) => {
@@ -1782,9 +1544,7 @@ const PortalAlunoLogin = ({
                             onCancel: () => setMensagem(null),
                             cancelText: "Cancelar",
                             confirmText: "Ok",
-                            icon: (
-                                <FontAwesomeIcon icon={faTriangleExclamation} />
-                            ),
+                            icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
                         });
                     })
                     .finally(() => {
@@ -1793,7 +1553,7 @@ const PortalAlunoLogin = ({
             } else setIsLoading(false);
         }
     }, [alunoId]);
-    if (isLoading) return <Loading />;
+    if (isLoading) return <LoadingVideo isOpen />;
     return (
         <>
             <motion.div
@@ -1806,36 +1566,25 @@ const PortalAlunoLogin = ({
                 <h1>Sua Data de Nascimento</h1>
 
                 <FormProvider {...methods}>
-                    <form
-                        onSubmit={handleSubmit(onSubmit)}
-                        className="portal_aluno__form"
-                    >
+                    <form onSubmit={handleSubmit(onSubmit)} className="portal_aluno__form">
                         <div className="portal_aluno__inputs">
                             <div className="portal_aluno__data">
-                                <motion.div
-                                    className="portal_aluno__input"
-                                    variants={inputVariants}
-                                >
+                                <motion.div className="portal_aluno__input" variants={inputVariants}>
                                     <motion.input
-                                        className={
-                                            errors.dia?.message ? "error" : ""
-                                        }
+                                        className={errors.dia?.message ? "error" : ""}
                                         type="text"
                                         inputMode="numeric"
                                         placeholder="DD"
                                         {...register("dia", {
                                             onChange: (v) => {
                                                 const value = v.target.value;
-                                                if (value.length === 2)
-                                                    setFocus("mes");
+                                                if (value.length === 2) setFocus("mes");
                                             },
                                             maxLength: 2,
                                             required: "A data é obrigatória",
                                             validate: (v) => {
                                                 const value = Number(v);
-                                                return !isNaN(value) &&
-                                                    value > 0 &&
-                                                    value <= 31
+                                                return !isNaN(value) && value > 0 && value <= 31
                                                     ? true
                                                     : "Valor Inválido";
                                             },
@@ -1846,30 +1595,22 @@ const PortalAlunoLogin = ({
 
                                 <p>/</p>
 
-                                <motion.div
-                                    className="portal_aluno__input"
-                                    variants={inputVariants}
-                                >
+                                <motion.div className="portal_aluno__input" variants={inputVariants}>
                                     <motion.input
-                                        className={
-                                            errors.mes?.message ? "error" : ""
-                                        }
+                                        className={errors.mes?.message ? "error" : ""}
                                         type="text"
                                         inputMode="numeric"
                                         placeholder="MM"
                                         {...register("mes", {
                                             onChange: (v) => {
                                                 const value = v.target.value;
-                                                if (value.length === 2)
-                                                    setFocus("ano");
+                                                if (value.length === 2) setFocus("ano");
                                             },
                                             maxLength: 2,
                                             required: "A data é obrigatória",
                                             validate: (v) => {
                                                 const value = Number(v);
-                                                return !isNaN(value) &&
-                                                    value > 0 &&
-                                                    value <= 12
+                                                return !isNaN(value) && value > 0 && value <= 12
                                                     ? true
                                                     : "Valor Inválido";
                                             },
@@ -1880,14 +1621,9 @@ const PortalAlunoLogin = ({
 
                                 <p>/</p>
 
-                                <motion.div
-                                    className="portal_aluno__input"
-                                    variants={inputVariants}
-                                >
+                                <motion.div className="portal_aluno__input" variants={inputVariants}>
                                     <motion.input
-                                        className={
-                                            errors.ano?.message ? "error" : ""
-                                        }
+                                        className={errors.ano?.message ? "error" : ""}
                                         type="text"
                                         inputMode="numeric"
                                         placeholder="AAAA"
@@ -1897,15 +1633,12 @@ const PortalAlunoLogin = ({
                                             onChange: (v) => {
                                                 const value = v.target.value;
 
-                                                if (value.length === 4)
-                                                    setFocus("manterConectado");
+                                                if (value.length === 4) setFocus("manterConectado");
                                             },
                                             validate: (v) => {
                                                 const value = Number(v);
 
-                                                return !isNaN(value) &&
-                                                    value.toString().length ===
-                                                        4
+                                                return !isNaN(value) && value.toString().length === 4
                                                     ? true
                                                     : "Valor Inválido";
                                             },
@@ -1916,26 +1649,13 @@ const PortalAlunoLogin = ({
                             </div>
 
                             <div className="portal_aluno__manter">
-                                <input
-                                    type="checkbox"
-                                    id="manter-conectado"
-                                    {...register("manterConectado")}
-                                />
-                                <label htmlFor="manter-conectado">
-                                    Manter-me conectado
-                                </label>
+                                <input type="checkbox" id="manter-conectado" {...register("manterConectado")} />
+                                <label htmlFor="manter-conectado">Manter-me conectado</label>
                             </div>
                         </div>
 
-                        <motion.div
-                            className="portal_aluno__buttons"
-                            variants={inputVariants}
-                        >
-                            <motion.button
-                                type="submit"
-                                whileFocus={{ scale: 1.1 }}
-                                whileTap={{ scale: 1 }}
-                            >
+                        <motion.div className="portal_aluno__buttons" variants={inputVariants}>
+                            <motion.button type="submit" whileFocus={{ scale: 1.1 }} whileTap={{ scale: 1 }}>
                                 <span>Acessar Portal</span>
                                 <i>
                                     <FontAwesomeIcon icon={faRightToBracket} />
@@ -1975,11 +1695,7 @@ function PortalAluno({ alunoId }: { alunoId?: string }) {
             {!response ? (
                 <PortalAlunoLogin onLogin={getDados} alunoId={alunoId} />
             ) : (
-                <PortalAlunoDados
-                    dados={response}
-                    alunoId={alunoId}
-                    sair={sairPortal}
-                />
+                <PortalAlunoDados dados={response} alunoId={alunoId} sair={sairPortal} />
             )}
         </div>
     );

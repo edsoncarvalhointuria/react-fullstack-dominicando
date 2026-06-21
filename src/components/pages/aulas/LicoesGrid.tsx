@@ -1,11 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
-import {
-    faCalendarDay,
-    faCaretLeft,
-    faCaretRight,
-    faMagnifyingGlass,
-} from "@fortawesome/free-solid-svg-icons";
+import { faCalendarDay, faCaretLeft, faCaretRight, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import LicaoCard from "../../ui/LicaoCard";
 import "./licoes-grid.scss";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -32,9 +27,7 @@ function LicoesGrid({
     limite: number;
 }) {
     const TOTAL_ITENS = 6;
-    const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(
-        null,
-    );
+    const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(null);
     const [newTrimestre, setNewTrimestre] = useState(false);
     const [editLicao, setEditLicao] = useState<LicaoInterface | null>(null);
     const [paginaAtual, setPaginaAtual] = useState(1);
@@ -45,27 +38,20 @@ function LicoesGrid({
             i = i.filter(
                 (v) =>
                     v.titulo.toLocaleLowerCase().includes(pesquisa) ||
-                    `${v?.numero_trimestre || 1} trimestre de ${v.data_inicio
-                        .toDate()
-                        .getFullYear()}`.includes(pesquisa) ||
-                    v.data_inicio
-                        .toDate()
-                        .toLocaleDateString("pt-BR")
-                        .includes(pesquisa) ||
-                    v.data_fim
-                        .toDate()
-                        .toLocaleDateString("pt-BR")
-                        .includes(pesquisa) ||
+                    `${v?.numero_trimestre || 1} trimestre de ${v.data_inicio.toDate().getFullYear()}`.includes(
+                        pesquisa,
+                    ) ||
+                    v.data_inicio.toDate().toLocaleDateString("pt-BR").includes(pesquisa) ||
+                    v.data_fim.toDate().toLocaleDateString("pt-BR").includes(pesquisa) ||
                     v.id === pesquisa,
             );
 
-        return i;
-    }, [pesquisa]);
-    const itensPaginados = useMemo(() => {
         const indice = (paginaAtual - 1) * TOTAL_ITENS;
         const ultimoIndice = indice + TOTAL_ITENS;
-        return itensMemo.slice(indice, ultimoIndice);
-    }, [itensMemo, paginaAtual]);
+        const totalPaginas = Math.ceil(i.length / TOTAL_ITENS);
+
+        return { lista: i.slice(indice, ultimoIndice), totalPaginas };
+    }, [pesquisa, revistas, paginaAtual]);
 
     const onSelectLicao = useCallback(
         (licaoId: string) => {
@@ -78,7 +64,6 @@ function LicoesGrid({
         [revistas],
     );
 
-    const totalPaginas = Math.ceil(itensMemo.length / TOTAL_ITENS);
     useEffect(() => {
         const popstate = () => {
             setNewTrimestre(false);
@@ -109,10 +94,7 @@ function LicoesGrid({
                             <motion.button
                                 onTap={() => {
                                     setNewTrimestre(true);
-                                    window.history.pushState(
-                                        { modal: true },
-                                        "",
-                                    );
+                                    window.history.pushState({ modal: true }, "");
                                 }}
                             >
                                 <FontAwesomeIcon icon={faCalendarDay} />
@@ -120,24 +102,19 @@ function LicoesGrid({
                             </motion.button>
                         </div>
 
-                        <SearchInput
-                            onSearch={(texto: string) => setPesquisa(texto)}
-                            texto="Ano, Trimestre, Nome"
-                        />
+                        <SearchInput onSearch={setPesquisa} texto="Ano, Trimestre, Nome" />
                     </div>
                 </div>
                 <div className="licoes-grid__grid">
                     <AnimatePresence>
-                        {itensPaginados.length > 0 ? (
+                        {itensMemo.lista.length > 0 ? (
                             <>
-                                {itensPaginados.map((v) => (
+                                {itensMemo.lista.map((v) => (
                                     <LicaoCard
-                                        dataInicio={v.data_inicio
-                                            .toDate()
-                                            .toLocaleDateString("pt-BR", {
-                                                month: "2-digit",
-                                                year: "numeric",
-                                            })}
+                                        dataInicio={v.data_inicio.toDate().toLocaleDateString("pt-BR", {
+                                            month: "2-digit",
+                                            year: "numeric",
+                                        })}
                                         isAtivo={v.ativo}
                                         licaoId={v.id}
                                         numeroAulas={v.numero_aulas}
@@ -151,18 +128,10 @@ function LicoesGrid({
                                 ))}
 
                                 {revistas.length >= limite && (
-                                    <motion.button
-                                        className="licao-card__more"
-                                        onTap={onUpdateLimit}
-                                    >
-                                        <p>
-                                            Clique aqui para carregar lições
-                                            mais antigas.
-                                        </p>
+                                    <motion.button className="licao-card__more" onTap={onUpdateLimit}>
+                                        <p>Clique aqui para carregar lições mais antigas.</p>
                                         <i>
-                                            <FontAwesomeIcon
-                                                icon={faMagnifyingGlass}
-                                            />
+                                            <FontAwesomeIcon icon={faMagnifyingGlass} />
                                         </i>
                                     </motion.button>
                                 )}
@@ -177,9 +146,7 @@ function LicoesGrid({
                                 <p>Nenhuma lição encontrada</p>
 
                                 <div className="licoes-grid__header--novo-trimestre">
-                                    <button
-                                        onClick={() => setNewTrimestre(true)}
-                                    >
+                                    <button onClick={() => setNewTrimestre(true)}>
                                         <FontAwesomeIcon icon={faCalendarDay} />
                                         <span>Iniciar um novo trimestre</span>
                                     </button>
@@ -188,20 +155,17 @@ function LicoesGrid({
                         )}
                     </AnimatePresence>
                 </div>
-                {totalPaginas > 1 && (
+                {itensMemo.totalPaginas > 1 && (
                     <div className="licoes-grid__paginacao">
-                        <motion.button
-                            onTap={() => setPaginaAtual((p) => p - 1)}
-                            disabled={paginaAtual === 1}
-                        >
+                        <motion.button onTap={() => setPaginaAtual((p) => p - 1)} disabled={paginaAtual === 1}>
                             <FontAwesomeIcon icon={faCaretLeft} />
                         </motion.button>
                         <span>
-                            {paginaAtual} de {totalPaginas}
+                            {paginaAtual} de {itensMemo.totalPaginas}
                         </span>
                         <motion.button
                             onTap={() => setPaginaAtual((p) => p + 1)}
-                            disabled={paginaAtual >= totalPaginas}
+                            disabled={paginaAtual >= itensMemo.totalPaginas}
                         >
                             <FontAwesomeIcon icon={faCaretRight} />
                         </motion.button>
@@ -223,11 +187,7 @@ function LicoesGrid({
                     )}
                 </AnimatePresence>
                 {currentLicao && (
-                    <LicaoModal
-                        licao={currentLicao}
-                        closeModal={setCurrentLicao}
-                        editLicao={setEditLicao}
-                    />
+                    <LicaoModal licao={currentLicao} closeModal={setCurrentLicao} editLicao={setEditLicao} />
                 )}
             </motion.div>
         </AnimatePresence>

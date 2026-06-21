@@ -166,14 +166,7 @@
                 background-color: white;
                 transform-origin: bottom left;
 
-                clip-path: polygon(
-                    14% 44%,
-                    0 65%,
-                    50% 100%,
-                    100% 16%,
-                    80% 0%,
-                    43% 62%
-                );
+                clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
                 transform: scale(0);
                 transition: 120ms transform ease-in-out;
             }
@@ -217,8 +210,7 @@
             align-items: center;
             justify-content: center;
             gap: 1.5rem;
-            box-shadow: 0 10px 25px
-                color.scale(v.$cor-primaria-itens, $alpha: -70%);
+            box-shadow: 0 10px 25px color.scale(v.$cor-primaria-itens, $alpha: -70%);
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -242,14 +234,12 @@
 
             &:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 15px 30px
-                    color.scale(v.$cor-primaria-itens, $alpha: -60%);
+                box-shadow: 0 15px 30px color.scale(v.$cor-primaria-itens, $alpha: -60%);
             }
 
             &:active {
                 transform: translateY(1px);
-                box-shadow: 0 5px 15px
-                    color.scale(v.$cor-primaria-itens, $alpha: -80%);
+                box-shadow: 0 5px 15px color.scale(v.$cor-primaria-itens, $alpha: -80%);
             }
 
             i {
@@ -484,15 +474,12 @@
             // box-shadow: 0 8px 15px
             //     color.scale(v.$cor-primaria-itens, $alpha: -80%);
             @media all and (min-width: 30em) {
-                border-bottom: 3px solid
-                    color.scale(v.$cor-primaria-itens, $alpha: -85%);
+                border-bottom: 3px solid color.scale(v.$cor-primaria-itens, $alpha: -85%);
             }
 
             i {
                 transform: scale(1.15);
-                filter: drop-shadow(
-                    0 0 4px color.scale(v.$cor-primaria-itens, $alpha: -50%)
-                );
+                filter: drop-shadow(0 0 4px color.scale(v.$cor-primaria-itens, $alpha: -50%));
             }
         }
     }
@@ -917,8 +904,7 @@
             &:has(input:checked) label {
                 background: v.$cor-primaria-itens;
                 color: white;
-                box-shadow: 0 4px 12px
-                    color.scale(v.$cor-primaria-itens, $alpha: -70%);
+                box-shadow: 0 4px 12px color.scale(v.$cor-primaria-itens, $alpha: -70%);
                 transform: translateY(-2px);
             }
         }
@@ -1209,8 +1195,12 @@
     &__voltar {
         width: 100%;
         margin-bottom: 2.5rem;
+        position: sticky;
+        top: 8rem;
+        z-index: 2000;
         @media all and (max-width: 30em) {
             // margin: 2.5rem;
+            top: 3rem;
             padding: 2.5rem;
             padding-bottom: 0;
             margin-bottom: 0;
@@ -1231,6 +1221,11 @@
             transition: all 0.2s ease;
             margin-left: -1.5rem;
 
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            // box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
             i {
                 font-size: 1.6rem;
                 transition: transform 0.2s ease;
@@ -1243,10 +1238,6 @@
                 i {
                     transform: translateX(-4px);
                 }
-            }
-
-            &:active {
-                transform: scale(0.98);
             }
         }
     }
@@ -1369,8 +1360,7 @@
                 background: v.$cor-primaria-itens;
                 color: white;
                 border: 4px solid white;
-                box-shadow: 0 6px 15px
-                    color.scale(v.$cor-primaria-itens, $alpha: -60%);
+                box-shadow: 0 6px 15px color.scale(v.$cor-primaria-itens, $alpha: -60%);
                 display: flex;
                 align-items: center;
                 justify-content: center;

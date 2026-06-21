@@ -1,9 +1,4 @@
-import {
-    AnimatePresence,
-    motion,
-    Reorder,
-    useDragControls,
-} from "framer-motion";
+import { AnimatePresence, motion, Reorder, useDragControls } from "framer-motion";
 import {
     Controller,
     FormProvider,
@@ -16,13 +11,7 @@ import {
 } from "react-hook-form";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import "./pedidos-formulario.scss";
-import React, {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    type ReactNode,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Dropdown from "../../ui/Dropdown";
 import {
     faBookOpen,
@@ -39,26 +28,13 @@ import {
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    collection,
-    doc,
-    documentId,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { collection, doc, documentId, getDoc, getDocs, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
 import { useAuthContext } from "../../../context/AuthContext";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import Loading from "../../layout/loading/Loading";
-import type {
-    PedidosEstrutura,
-    PedidosInterface,
-    RevistaType,
-    TextType,
-} from "../../../interfaces/PedidosInterface";
+import type { PedidosEstrutura, PedidosInterface, RevistaType, TextType } from "../../../interfaces/PedidosInterface";
 import RevistaView from "./RevistaView";
 import TextView from "./TextView";
 
@@ -78,11 +54,7 @@ interface Form {
 }
 type Type = "revista" | "text";
 
-const functions = getFunctions();
-const salvarFormularioPedido = httpsCallable(
-    functions,
-    "salvarFormularioPedido",
-);
+const salvarFormularioPedido = httpsCallable(functions, "salvarFormularioPedido");
 
 const revistaType = {
     tipo: "revista",
@@ -174,9 +146,7 @@ const InputTitulo = () => {
                     <input
                         id="data-inicio-form"
                         type="date"
-                        className={
-                            dataInicio.fieldState.error ? "input-error" : ""
-                        }
+                        className={dataInicio.fieldState.error ? "input-error" : ""}
                         {...dataInicio.field}
                     />
                     <ErrorForm field={dataInicio.fieldState.error} />
@@ -186,9 +156,7 @@ const InputTitulo = () => {
                     <input
                         type="date"
                         id="data-fim-form"
-                        className={
-                            dataFim.fieldState.error ? "input-error" : ""
-                        }
+                        className={dataFim.fieldState.error ? "input-error" : ""}
                         {...dataFim.field}
                     />
                     <ErrorForm field={dataFim.fieldState.error} />
@@ -196,165 +164,130 @@ const InputTitulo = () => {
             </div>
 
             <div className="pedidos-formulario__input pedidos-formulario__input-desc">
-                <input
-                    type="text"
-                    id="desc-formulario"
-                    {...register("descricao")}
-                    placeholder="descrição"
-                />
+                <input type="text" id="desc-formulario" {...register("descricao")} placeholder="descrição" />
             </div>
         </div>
     );
 };
-const InputRevista = React.memo(
-    ({ rotulos, isSelected, onDelete, secao, campo }: any) => {
-        const { register, control } = useFormContext();
-        const keyRegister = `estrutura.${secao}.campos.${campo}`;
-        const tipoRevista = useController({
-            control,
-            name: `${keyRegister}.tipoRevista`,
-            rules: { required: "É necessário escrever o tipo de revista" },
-        });
-        const precoUnitario = useController({
-            control,
-            name: `${keyRegister}.preco_unitario`,
-            rules: {
-                required: "É necessário incluir o preço da revista",
-            },
-        });
+const InputRevista = React.memo(({ rotulos, isSelected, onDelete, secao, campo }: any) => {
+    const { register, control } = useFormContext();
+    const keyRegister = `estrutura.${secao}.campos.${campo}`;
+    const tipoRevista = useController({
+        control,
+        name: `${keyRegister}.tipoRevista`,
+        rules: { required: "É necessário escrever o tipo de revista" },
+    });
+    const precoUnitario = useController({
+        control,
+        name: `${keyRegister}.preco_unitario`,
+        rules: {
+            required: "É necessário incluir o preço da revista",
+        },
+    });
 
-        const rotuloId = useController({
-            control,
-            name: `${keyRegister}.rotuloId`,
-        });
+    const rotuloId = useController({
+        control,
+        name: `${keyRegister}.rotuloId`,
+    });
 
-        return (
-            <>
-                <div
-                    className={`pedidos-formulario__revista ${isSelected ? "active" : "desactive"}`}
-                >
+    return (
+        <>
+            <div className={`pedidos-formulario__revista ${isSelected ? "active" : "desactive"}`}>
+                <div className="pedidos-formulario__input">
+                    <label>Rótulo</label>
+
+                    <Controller
+                        control={control}
+                        name={`${keyRegister}.rotuloId`}
+                        rules={{
+                            required: "É necessário selecionar um rótulo para a revista",
+                        }}
+                        render={({ field, fieldState }) => (
+                            <Dropdown
+                                lista={rotulos}
+                                current={rotulos.find((v: any) => v.id === field?.value)?.nome}
+                                selectId={field?.value}
+                                onSelect={(v: any) => field.onChange(v.id)}
+                                isAll={false}
+                                isErro={!!fieldState.error}
+                            />
+                        )}
+                    />
+
+                    <ErrorForm field={rotuloId.fieldState.error} />
+                </div>
+
+                <div className="pedidos-formulario__group">
                     <div className="pedidos-formulario__input">
-                        <label>Rótulo</label>
-
-                        <Controller
-                            control={control}
-                            name={`${keyRegister}.rotuloId`}
-                            rules={{
-                                required:
-                                    "É necessário selecionar um rótulo para a revista",
-                            }}
-                            render={({ field, fieldState }) => (
-                                <Dropdown
-                                    lista={rotulos}
-                                    current={
-                                        rotulos.find(
-                                            (v: any) => v.id === field?.value,
-                                        )?.nome
-                                    }
-                                    selectId={field?.value}
-                                    onSelect={(v: any) => field.onChange(v.id)}
-                                    isAll={false}
-                                    isErro={!!fieldState.error}
-                                />
-                            )}
+                        <label htmlFor="tipo-revista">Tipo de Revista</label>
+                        <input
+                            type="text"
+                            id="tipo-revista"
+                            className={tipoRevista.fieldState.error ? "input-error" : ""}
+                            placeholder="Aluno, Professor, Visual, etc..."
+                            {...tipoRevista.field}
                         />
 
-                        <ErrorForm field={rotuloId.fieldState.error} />
+                        <ErrorForm field={tipoRevista.fieldState.error} />
                     </div>
+                    <div className="pedidos-formulario__input">
+                        <label htmlFor="preco-revista">Preço Unitário</label>
+                        <input
+                            type="number"
+                            id="preco-revista"
+                            placeholder="R$"
+                            step={0.01}
+                            className={precoUnitario.fieldState.error ? "input-error" : ""}
+                            {...precoUnitario.field}
+                            onBlur={(v) => {
+                                precoUnitario.field.onBlur();
 
-                    <div className="pedidos-formulario__group">
-                        <div className="pedidos-formulario__input">
-                            <label htmlFor="tipo-revista">
-                                Tipo de Revista
-                            </label>
-                            <input
-                                type="text"
-                                id="tipo-revista"
-                                className={
-                                    tipoRevista.fieldState.error
-                                        ? "input-error"
-                                        : ""
-                                }
-                                placeholder="Aluno, Professor, Visual, etc..."
-                                {...tipoRevista.field}
-                            />
+                                const value = v.target.value;
+                                const convert = Number(value.replace(",", "."));
 
-                            <ErrorForm field={tipoRevista.fieldState.error} />
-                        </div>
-                        <div className="pedidos-formulario__input">
-                            <label htmlFor="preco-revista">
-                                Preço Unitário
-                            </label>
-                            <input
-                                type="number"
-                                id="preco-revista"
-                                placeholder="R$"
-                                step={0.01}
-                                className={
-                                    precoUnitario.fieldState.error
-                                        ? "input-error"
-                                        : ""
-                                }
-                                {...precoUnitario.field}
-                                onBlur={(v) => {
-                                    precoUnitario.field.onBlur();
+                                if (Number.isNaN(convert)) precoUnitario.field.onChange(0);
+                                else precoUnitario.field.onChange(convert);
+                            }}
+                        />
 
-                                    const value = v.target.value;
-                                    const convert = Number(
-                                        value.replace(",", "."),
-                                    );
-
-                                    if (Number.isNaN(convert))
-                                        precoUnitario.field.onChange(0);
-                                    else precoUnitario.field.onChange(convert);
-                                }}
-                            />
-
-                            <ErrorForm field={precoUnitario.fieldState.error} />
-                        </div>
-                    </div>
-
-                    <div className="pedidos-formulario__opcoes">
-                        <div className="pedidos-formulario__input-obrigatorio">
-                            <p>Obrigatório</p>
-                            <label htmlFor="obrigatorio"></label>
-                            <input
-                                type="checkbox"
-                                id="obrigatorio"
-                                {...register(`${keyRegister}.obrigatorio`)}
-                            />
-                        </div>
-                        <motion.button
-                            type="button"
-                            className="pedidos-formulario__deletar"
-                            whileTap={{ scale: 0.9 }}
-                            onTap={() => onDelete(campo)}
-                        >
-                            <span>
-                                <FontAwesomeIcon icon={faTrash} />
-                            </span>
-                        </motion.button>
+                        <ErrorForm field={precoUnitario.fieldState.error} />
                     </div>
                 </div>
 
-                {!isSelected && (
-                    <RevistaView
-                        preco={precoUnitario.field.value}
-                        rotulo={rotulos.find(
-                            (v: any) => v.id === rotuloId.field.value,
-                        )}
-                        tipoRevista={tipoRevista.field.value}
-                        onInvalid={
-                            !!rotuloId.fieldState.error ||
-                            !!tipoRevista.fieldState.error ||
-                            !!precoUnitario.fieldState.error
-                        }
-                    />
-                )}
-            </>
-        );
-    },
-);
+                <div className="pedidos-formulario__opcoes">
+                    <div className="pedidos-formulario__input-obrigatorio">
+                        <p>Obrigatório</p>
+                        <label htmlFor="obrigatorio"></label>
+                        <input type="checkbox" id="obrigatorio" {...register(`${keyRegister}.obrigatorio`)} />
+                    </div>
+                    <motion.button
+                        type="button"
+                        className="pedidos-formulario__deletar"
+                        whileTap={{ scale: 0.9 }}
+                        onTap={() => onDelete(campo)}
+                    >
+                        <span>
+                            <FontAwesomeIcon icon={faTrash} />
+                        </span>
+                    </motion.button>
+                </div>
+            </div>
+
+            {!isSelected && (
+                <RevistaView
+                    preco={precoUnitario.field.value}
+                    rotulo={rotulos.find((v: any) => v.id === rotuloId.field.value)}
+                    tipoRevista={tipoRevista.field.value}
+                    onInvalid={
+                        !!rotuloId.fieldState.error ||
+                        !!tipoRevista.fieldState.error ||
+                        !!precoUnitario.fieldState.error
+                    }
+                />
+            )}
+        </>
+    );
+});
 const InputText = React.memo(
     ({
         isSelected,
@@ -378,9 +311,7 @@ const InputText = React.memo(
         const isErro = fieldState.error;
         return (
             <>
-                <div
-                    className={`pedidos-formulario__text ${isSelected ? "active" : "desactive"}`}
-                >
+                <div className={`pedidos-formulario__text ${isSelected ? "active" : "desactive"}`}>
                     <div className="pedidos-formulario__input">
                         <label htmlFor="titulo-text">Título</label>
                         <input
@@ -398,11 +329,7 @@ const InputText = React.memo(
                         <div className="pedidos-formulario__input-obrigatorio">
                             <p>Obrigatório</p>
                             <label htmlFor="obrigatorio"></label>
-                            <input
-                                type="checkbox"
-                                id="obrigatorio"
-                                {...register(`${keyRegister}.obrigatorio`)}
-                            />
+                            <input type="checkbox" id="obrigatorio" {...register(`${keyRegister}.obrigatorio`)} />
                         </div>
                         <motion.button
                             type="button"
@@ -417,9 +344,7 @@ const InputText = React.memo(
                     </div>
                 </div>
 
-                {!isSelected && (
-                    <TextView onInvalid={!!isErro} titulo={field.value} />
-                )}
+                {!isSelected && <TextView onInvalid={!!isErro} titulo={field.value} />}
             </>
         );
     },
@@ -436,15 +361,7 @@ const InputSecaoTitulo = ({ register, index }: any) => {
         </div>
     );
 };
-const CardDrag = ({
-    value,
-    onClick,
-    children,
-}: {
-    value: any;
-    onClick: () => void;
-    children: ReactNode;
-}) => {
+const CardDrag = ({ value, onClick, children }: { value: any; onClick: () => void; children: ReactNode }) => {
     const controls = useDragControls();
     return (
         <Reorder.Item
@@ -467,15 +384,7 @@ const CardDrag = ({
     );
 };
 const InputSalvarModelo = React.memo(
-    ({
-        onClose,
-        control,
-        onSalvarModelo,
-    }: {
-        onClose: () => void;
-        control: any;
-        onSalvarModelo: () => void;
-    }) => {
+    ({ onClose, control, onSalvarModelo }: { onClose: () => void; control: any; onSalvarModelo: () => void }) => {
         const nomeModelo = useController({
             control,
             name: "nomeModelo",
@@ -508,14 +417,8 @@ const InputSalvarModelo = React.memo(
 
                     <div className="pedidos-formulario__salvar-modelo__body">
                         <div className="pedidos-formulario__salvar-modelo__input">
-                            <label htmlFor="titulo-modelo">
-                                Nome do Modelo
-                            </label>
-                            <input
-                                type="text"
-                                id="titulo-modelo"
-                                {...nomeModelo.field}
-                            />
+                            <label htmlFor="titulo-modelo">Nome do Modelo</label>
+                            <input type="text" id="titulo-modelo" {...nomeModelo.field} />
 
                             <ErrorForm field={nomeModelo.fieldState.error} />
                         </div>
@@ -524,11 +427,7 @@ const InputSalvarModelo = React.memo(
                             <button type="button" onClick={onClose}>
                                 Cancelar
                             </button>
-                            <motion.button
-                                type="submit"
-                                disabled={!nomeModelo.field.value}
-                                onTap={onSalvarModelo}
-                            >
+                            <motion.button type="submit" disabled={!nomeModelo.field.value} onTap={onSalvarModelo}>
                                 Salvar Modelo
                             </motion.button>
                         </div>
@@ -580,20 +479,12 @@ const SecaoCampos = React.memo(
             <>
                 <Reorder.Group values={fields} axis="y" onReorder={replace}>
                     {fields.map((v: any, i) => (
-                        <CardDrag
-                            key={v.idKey}
-                            value={v}
-                            onClick={addCurrentSelect(null)}
-                        >
+                        <CardDrag key={v.idKey} value={v} onClick={addCurrentSelect(null)}>
                             <div onClick={addCurrentSelect(i)}>
                                 <>
                                     {v.tipo === "text" ? (
                                         <InputText
-                                            isSelected={
-                                                isCurrentSecao
-                                                    ? currentSelect === i
-                                                    : false
-                                            }
+                                            isSelected={isCurrentSecao ? currentSelect === i : false}
                                             onDelete={deletar}
                                             secao={secao}
                                             campo={i}
@@ -601,11 +492,7 @@ const SecaoCampos = React.memo(
                                     ) : (
                                         <InputRevista
                                             rotulos={rotulos}
-                                            isSelected={
-                                                isCurrentSecao
-                                                    ? currentSelect === i
-                                                    : false
-                                            }
+                                            isSelected={isCurrentSecao ? currentSelect === i : false}
                                             onDelete={deletar}
                                             secao={secao}
                                             campo={i}
@@ -696,11 +583,7 @@ const SecaoItem = React.memo(
         );
     },
 );
-const BotaoAdicionar = ({
-    onAdd,
-}: {
-    onAdd: (type: "secao" | "text" | "revista") => void;
-}) => {
+const BotaoAdicionar = ({ onAdd }: { onAdd: (type: "secao" | "text" | "revista") => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const opcoes = [
         {
@@ -741,10 +624,7 @@ const BotaoAdicionar = ({
                 )}
             </AnimatePresence>
 
-            <motion.button
-                onTap={() => setIsOpen((v) => !v)}
-                whileHover={{ scale: 0.9 }}
-            >
+            <motion.button onTap={() => setIsOpen((v) => !v)} whileHover={{ scale: 0.9 }}>
                 <FontAwesomeIcon icon={faCirclePlus} />
             </motion.button>
         </div>
@@ -753,9 +633,7 @@ const BotaoAdicionar = ({
 
 function PedidosFormulario() {
     const [rotulos, setRotulos] = useState<RotulosClassesInterface[]>([]);
-    const [currentSecaoSelect, setCurrentSecaoSelect] = useState<number | null>(
-        null,
-    );
+    const [currentSecaoSelect, setCurrentSecaoSelect] = useState<number | null>(null);
     const [isModelo, setIsModelo] = useState(false);
     const [salvarModelo, setSalvarModelo] = useState(false);
     const [mensagem, setMensagem] = useState<{
@@ -774,7 +652,7 @@ function PedidosFormulario() {
     const navigate = useNavigate();
 
     const methods = useForm<Form>({ defaultValues: { tipo: "formulario" } });
-    const { handleSubmit, register, control, reset, setValue } = methods;
+    const { handleSubmit, register, control, setValue } = methods;
     const { append, fields, swap, remove } = useFieldArray({
         control,
         name: "estrutura",
@@ -789,6 +667,7 @@ function PedidosFormulario() {
     const swapUp = useCallback((i: number) => {
         swap(i, i - 1);
     }, []);
+
     const swapDown = useCallback((i: number) => {
         swap(i, i + 1);
     }, []);
@@ -833,10 +712,7 @@ function PedidosFormulario() {
     useEffect(() => {
         const getRotulos = async () => {
             const rotulosCll = collection(db, "rotulos_classes");
-            const q = query(
-                rotulosCll,
-                where("ministerioId", "==", user?.ministerioId),
-            );
+            const q = query(rotulosCll, where("ministerioId", "==", user?.ministerioId));
             const rotulosDocs = await getDocs(q);
 
             if (rotulosDocs.empty) return setRotulos([]);
@@ -848,14 +724,8 @@ function PedidosFormulario() {
                         ...v.data(),
                     } as RotulosClassesInterface;
                     const name = data.nome;
-                    const idadeMinima =
-                        data.idade_minima !== null
-                            ? `${data.idade_minima}`
-                            : "";
-                    const idadeMaxima =
-                        data.idade_maxima !== null
-                            ? `${data.idade_maxima}`
-                            : "";
+                    const idadeMinima = data.idade_minima !== null ? `${data.idade_minima}` : "";
+                    const idadeMaxima = data.idade_maxima !== null ? `${data.idade_maxima}` : "";
                     const nome = `${data?.nome}${idadeMinima || idadeMaxima ? ` (${idadeMinima} - ${idadeMaxima || "N/A"} anos)` : ""}`;
 
                     return { ...data, nome, name };
@@ -902,13 +772,7 @@ function PedidosFormulario() {
 
             if (pedidos.tipo === "modelo") setIsModelo(true);
 
-            const estruturaCll = doc(
-                db,
-                "pedidos",
-                modeloId!,
-                "estrutura",
-                "dados",
-            );
+            const estruturaCll = doc(db, "pedidos", modeloId!, "estrutura", "dados");
             const estruturaDocs = await getDoc(estruturaCll);
 
             if (!estruturaDocs.exists()) {
@@ -918,22 +782,17 @@ function PedidosFormulario() {
 
             const { estrutura } = estruturaDocs.data() as PedidosEstrutura;
 
-            const dataInicio = pedidos.data_inicio
-                .toDate()
-                .toLocaleDateString("pt-BR")
-                .split("/");
-            const dataFim = pedidos.data_fim
-                .toDate()
-                .toLocaleDateString("pt-BR")
-                .split("/");
+            const dataInicio = pedidos.data_inicio.toDate().toLocaleDateString("pt-BR").split("/");
+            const dataFim = pedidos.data_fim.toDate().toLocaleDateString("pt-BR").split("/");
 
-            reset({
+            const obj: Partial<Form> = {
                 ...pedidos,
                 estrutura,
                 data_inicio: `${dataInicio[2]}-${dataInicio[1]}-${dataInicio[0]}`,
                 data_fim: `${dataFim[2]}-${dataFim[1]}-${dataFim[0]}`,
                 tipo: "formulario",
-            });
+            };
+            Object.entries(obj).forEach(([key, value]) => setValue(key as any, value));
         };
 
         getRotulos().finally(() => setIsLoading(false));
@@ -1021,11 +880,7 @@ function PedidosFormulario() {
                 <BotaoAdicionar
                     onAdd={(type) => {
                         const model: any =
-                            type === "revista"
-                                ? newCampo("revista")
-                                : type === "text"
-                                  ? newCampo("text")
-                                  : undefined;
+                            type === "revista" ? newCampo("revista") : type === "text" ? newCampo("text") : undefined;
 
                         if (fields.length === 0 || type === "secao") {
                             append({

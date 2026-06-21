@@ -3,19 +3,12 @@ import "./cadastro-classe-modal.scss";
 import { motion } from "framer-motion";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { useDataContext } from "../../context/DataContext";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../utils/firebase";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { db, functions } from "../../utils/firebase";
 import { faChalkboardUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Dropdown from "./Dropdown";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import { useAuthContext } from "../../context/AuthContext";
@@ -27,7 +20,6 @@ interface Form {
     idade_minima?: number;
     idade_maxima?: number;
 }
-const functions = getFunctions();
 const salvarClasse = httpsCallable(functions, "salvarClasse");
 
 function CadastroClasseModal({
@@ -62,12 +54,8 @@ function CadastroClasseModal({
     const { user } = useAuthContext();
 
     const onSubmit = (dados: Form) => {
-        dados.idade_minima = Number.isNaN(dados.idade_minima)
-            ? undefined
-            : dados.idade_minima;
-        dados.idade_maxima = Number.isNaN(dados.idade_maxima)
-            ? undefined
-            : dados.idade_maxima;
+        dados.idade_minima = Number.isNaN(dados.idade_minima) ? undefined : dados.idade_minima;
+        dados.idade_maxima = Number.isNaN(dados.idade_maxima) ? undefined : dados.idade_maxima;
         setIsEnviando(true);
         const envio = { dados, classeId };
         salvarClasse(envio)
@@ -97,10 +85,7 @@ function CadastroClasseModal({
         };
         const getRotulos = async () => {
             const coll = collection(db, "rotulos_classes");
-            const q = query(
-                coll,
-                where("ministerioId", "==", user?.ministerioId),
-            );
+            const q = query(coll, where("ministerioId", "==", user?.ministerioId));
             const docs = await getDocs(q);
 
             const rotulos = docs.docs
@@ -109,9 +94,7 @@ function CadastroClasseModal({
                         id: v.id,
                         ...v.data(),
                     } as RotulosClassesInterface;
-                    const comIdade =
-                        typeof r?.idade_minima === "number" ||
-                        typeof r?.idade_maxima === "number";
+                    const comIdade = typeof r?.idade_minima === "number" || typeof r?.idade_maxima === "number";
                     const idadeMinima = `${r.idade_minima}`;
                     const idadeMaxima = ` - ${r.idade_maxima ? `${r.idade_maxima} anos` : "N/A anos"}`;
 
@@ -125,9 +108,7 @@ function CadastroClasseModal({
                     return a.idade_minima - b.idade_minima;
                 });
 
-            return rotulos.length > 0
-                ? rotulos
-                : [{ id: "id-outro", nome: "OUTRO" } as any];
+            return rotulos.length > 0 ? rotulos : [{ id: "id-outro", nome: "OUTRO" } as any];
         };
         if (classeId)
             getClasse(classeId)
@@ -172,15 +153,9 @@ function CadastroClasseModal({
                     <div className="classe-modal__header">
                         <h2>
                             <FontAwesomeIcon icon={faChalkboardUser} />
-                            {classeId
-                                ? "Editar Classe"
-                                : "Cadastrar Nova Classe"}
+                            {classeId ? "Editar Classe" : "Cadastrar Nova Classe"}
                         </h2>
-                        <button
-                            className="classe-modal__close-btn"
-                            onClick={onCancel}
-                            title="Fechar"
-                        >
+                        <button className="classe-modal__close-btn" onClick={onCancel} title="Fechar">
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
@@ -188,11 +163,7 @@ function CadastroClasseModal({
                     <FormProvider {...methods}>
                         <form onSubmit={handleSubmit(onSubmit)}>
                             <div className="classe-modal__body">
-                                <div
-                                    className={`classe-modal__input-group ${
-                                        errors.rotuloId && "input-error"
-                                    }`}
-                                >
+                                <div className={`classe-modal__input-group ${errors.rotuloId && "input-error"}`}>
                                     <label htmlFor="igreja-classe">
                                         Rótulo <span>*</span>
                                     </label>
@@ -205,45 +176,25 @@ function CadastroClasseModal({
                                         render={({ field }) => (
                                             <Dropdown
                                                 lista={rotulos}
-                                                current={
-                                                    rotulos.find(
-                                                        (v) =>
-                                                            field.value ===
-                                                            v.id,
-                                                    )?.nome || ""
-                                                }
+                                                current={rotulos.find((v) => field.value === v.id)?.nome || ""}
                                                 isAll={false}
                                                 isErro={!!errors.rotuloId}
                                                 isLoading={isLoadingRotulos}
                                                 selectId={field.value}
                                                 onSelect={(response) => {
-                                                    field.onChange(
-                                                        response?.id || null,
-                                                    );
-                                                    setValue(
-                                                        "idade_minima",
-                                                        response?.idade_minima,
-                                                    );
-                                                    setValue(
-                                                        "idade_maxima",
-                                                        response?.idade_maxima,
-                                                    );
+                                                    field.onChange(response?.id || null);
+                                                    setValue("idade_minima", response?.idade_minima);
+                                                    setValue("idade_maxima", response?.idade_maxima);
                                                 }}
                                             />
                                         )}
                                     />
                                     {errors.rotuloId && (
-                                        <p className="classe-modal__input-erro">
-                                            {errors.rotuloId.message}
-                                        </p>
+                                        <p className="classe-modal__input-erro">{errors.rotuloId.message}</p>
                                     )}
                                 </div>
 
-                                <div
-                                    className={`classe-modal__input-group ${
-                                        errors.igrejaId && "input-error"
-                                    }`}
-                                >
+                                <div className={`classe-modal__input-group ${errors.igrejaId && "input-error"}`}>
                                     <label htmlFor="igreja-classe">
                                         Igreja <span>*</span>
                                     </label>
@@ -256,27 +207,15 @@ function CadastroClasseModal({
                                         render={({ field }) => (
                                             <Dropdown
                                                 lista={igrejas}
-                                                current={
-                                                    igrejas.find(
-                                                        (v) =>
-                                                            v.id ===
-                                                            field.value,
-                                                    )?.nome || null
-                                                }
+                                                current={igrejas.find((v) => v.id === field.value)?.nome || null}
                                                 isAll={false}
                                                 isErro={!!errors.igrejaId}
-                                                onSelect={(response) =>
-                                                    field.onChange(
-                                                        response?.id || null,
-                                                    )
-                                                }
+                                                onSelect={(response) => field.onChange(response?.id || null)}
                                             />
                                         )}
                                     />
                                     {errors.igrejaId && (
-                                        <p className="classe-modal__input-erro">
-                                            {errors.igrejaId.message}
-                                        </p>
+                                        <p className="classe-modal__input-erro">{errors.igrejaId.message}</p>
                                     )}
                                 </div>
 
@@ -289,87 +228,57 @@ function CadastroClasseModal({
                                         id="nome-classe"
                                         type="text"
                                         {...register("nome", {
-                                            required:
-                                                "O nome da classe é obrigatório.",
+                                            required: "O nome da classe é obrigatório.",
                                             minLength: {
                                                 value: 3,
-                                                message:
-                                                    "O nome deve ter pelo menos 3 caracteres.",
+                                                message: "O nome deve ter pelo menos 3 caracteres.",
                                             },
                                         })}
                                     />
-                                    {errors.nome && (
-                                        <p className="classe-modal__input-erro">
-                                            {errors.nome.message}
-                                        </p>
-                                    )}
+                                    {errors.nome && <p className="classe-modal__input-erro">{errors.nome.message}</p>}
                                 </div>
 
                                 <div className="classe-modal__inputs">
                                     <div className="classe-modal__input-group">
                                         <label htmlFor="idade-minima-classe">
-                                            Idade Mínima{" "}
-                                            {idade_maxima ? (
-                                                <span> *</span>
-                                            ) : (
-                                                <i>(não obrigatório)</i>
-                                            )}
+                                            Idade Mínima {idade_maxima ? <span> *</span> : <i>(não obrigatório)</i>}
                                         </label>
                                         <input
-                                            className={
-                                                errors.idade_minima &&
-                                                "input-error"
-                                            }
+                                            className={errors.idade_minima && "input-error"}
                                             id="idade-minima-classe"
                                             type="number"
                                             {...register("idade_minima", {
                                                 min: {
                                                     value: 0,
-                                                    message:
-                                                        "Idade mínima inválida",
+                                                    message: "Idade mínima inválida",
                                                 },
                                                 valueAsNumber: true,
-                                                required: idade_maxima
-                                                    ? "Idade mínima é obrigatória"
-                                                    : false,
+                                                required: idade_maxima ? "Idade mínima é obrigatória" : false,
                                             })}
                                         />
                                         {errors.idade_minima && (
-                                            <p className="classe-modal__input-erro">
-                                                {errors.idade_minima.message}
-                                            </p>
+                                            <p className="classe-modal__input-erro">{errors.idade_minima.message}</p>
                                         )}
                                     </div>
 
                                     <div className="classe-modal__input-group">
                                         <label htmlFor="idade-maxima-classe">
-                                            Idade Máxima{" "}
-                                            {!idade_maxima ? (
-                                                <i>(não obrigatório)</i>
-                                            ) : (
-                                                <></>
-                                            )}
+                                            Idade Máxima {!idade_maxima ? <i>(não obrigatório)</i> : <></>}
                                         </label>
                                         <input
-                                            className={
-                                                errors.idade_maxima &&
-                                                "input-error"
-                                            }
+                                            className={errors.idade_maxima && "input-error"}
                                             id="idade-maxima-classe"
                                             type="number"
                                             {...register("idade_maxima", {
                                                 min: {
                                                     value: idade_minima || 0,
-                                                    message:
-                                                        "Idade máxima inválida",
+                                                    message: "Idade máxima inválida",
                                                 },
                                                 valueAsNumber: true,
                                             })}
                                         />
                                         {errors.idade_maxima && (
-                                            <p className="classe-modal__input-erro">
-                                                {errors.idade_maxima.message}
-                                            </p>
+                                            <p className="classe-modal__input-erro">{errors.idade_maxima.message}</p>
                                         )}
                                     </div>
                                 </div>
@@ -384,14 +293,8 @@ function CadastroClasseModal({
                                 >
                                     Cancelar
                                 </button>
-                                <button
-                                    type="submit"
-                                    className="button-primary"
-                                    disabled={isEnviando}
-                                >
-                                    {classeId
-                                        ? "Salvar Alterações"
-                                        : "Criar Classe"}
+                                <button type="submit" className="button-primary" disabled={isEnviando}>
+                                    {classeId ? "Salvar Alterações" : "Criar Classe"}
                                 </button>
                             </div>
                         </form>

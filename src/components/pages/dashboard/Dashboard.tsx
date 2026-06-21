@@ -15,22 +15,14 @@ import {
     faSackDollar,
 } from "@fortawesome/free-solid-svg-icons";
 import React, { useEffect, useRef, useState } from "react";
-import {
-    collection,
-    getDocs,
-    limit,
-    orderBy,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
 import { useAuthContext } from "../../../context/AuthContext";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { useDataContext } from "../../../context/DataContext";
 import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
 import { ROLES } from "../../../roles/Roles";
 
-const functions = getFunctions();
 const getDashboard = httpsCallable(functions, "getDashboard");
 
 interface StateCharts {
@@ -50,6 +42,15 @@ interface StateCharts {
     };
 }
 
+const DashboardButton = ({ buscar, disable }: { buscar: () => void; disable: boolean }) => {
+    return (
+        <div className="dashboard-page__filter-button">
+            <motion.button whileTap={{ scale: 0.99 }} whileHover={{ scale: 1.1 }} onTap={buscar} disabled={disable}>
+                Pesquisar
+            </motion.button>
+        </div>
+    );
+};
 const ChartMembros = React.memo(
     ({
         value,
@@ -85,9 +86,7 @@ const ChartMembros = React.memo(
 
         return (
             <DashboardCard
-                value={`${(
-                    (totalMatriculados / totalMembrosCadastrados) * 100 || 0
-                ).toFixed(1)}%`}
+                value={`${((totalMatriculados / totalMembrosCadastrados) * 100 || 0).toFixed(1)}%`}
                 title="Total Membros Matriculados"
                 icon={<FontAwesomeIcon icon={faAddressCard} />}
                 datas={data}
@@ -97,14 +96,11 @@ const ChartMembros = React.memo(
     },
 );
 function Dashboard() {
-    const [options, setOptions] = useState<
-        ClasseInterface[] | IgrejaInterface[]
-    >([]);
+    const [options, setOptions] = useState<ClasseInterface[] | IgrejaInterface[]>([]);
     const [currentOption, setCurrentOption] = useState<{
         id: string;
         nome: string;
     } | null>(null);
-    const [disable, setDisable] = useState(false);
     const [charts, setCharts] = useState<StateCharts | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [inicio, setInicio] = useState(true);
@@ -156,15 +152,16 @@ function Dashboard() {
 
         // Pegando data
         const licoesCollection = collection(db, "licoes");
-        let q = query(
-            licoesCollection,
-            !isSuperAdmin.current
-                ? where("igrejaId", "==", user.igrejaId)
-                : where("ministerioId", "==", user.ministerioId),
+        const condicoes = [
+            where("ministerioId", "==", user.ministerioId),
             where("ativo", "==", true),
             orderBy("data_inicio", "desc"),
             limit(1),
-        );
+        ];
+
+        if (!isSuperAdmin.current) condicoes.push(where("igrejaId", "==", user.igrejaId));
+        if (!isAdmin.current) condicoes.push(where("classeId", "==", user.classeId));
+        const q = query(licoesCollection, ...condicoes);
         const licoes = await getDocs(q);
         const value = licoes.docs[0]?.data();
         let inicio = new Date().toISOString().split("T")[0];
@@ -183,25 +180,16 @@ function Dashboard() {
     const sum = (array: DashboardInterface[]) => {
         return array?.reduce(
             (total, obj) =>
-                total +
-                Object.values(obj).reduce(
-                    (sum, acc) => (typeof acc === "number" ? sum + acc : sum),
-                    0,
-                ),
+                total + Object.values(obj).reduce((sum, acc) => (typeof acc === "number" ? sum + acc : sum), 0),
             0,
         );
     };
     const buscar = () => {
         setInicio(false);
-        setDisable(true);
         setIsLoading(true);
         setCurrentOption(null);
-        buscarDadosFirestone(
-            $dataInicio.current!.value,
-            $dataFim.current!.value,
-        ).finally(() => {
+        buscarDadosFirestone($dataInicio.current!.value, $dataFim.current!.value).finally(() => {
             setIsLoading(false);
-            setDisable(false);
         });
     };
 
@@ -217,21 +205,15 @@ function Dashboard() {
             if (chartsRef.current) {
                 const obj: any = {};
                 for (const key in chartsRef.current) {
-                    if (key !== "total_membros_matriculados")
-                        obj[key] = filtrarDados(
-                            (chartsRef.current as any)[key],
-                        );
+                    if (key !== "total_membros_matriculados") obj[key] = filtrarDados((chartsRef.current as any)[key]);
                 }
 
                 if (!isSecretario.current) {
-                    obj["total_membros_matriculados"] = chartsRef.current[
-                        "total_membros_matriculados"
-                    ][currentOption.id]
+                    obj["total_membros_matriculados"] = chartsRef.current["total_membros_matriculados"][
+                        currentOption.id
+                    ]
                         ? {
-                              [currentOption.id]:
-                                  chartsRef.current[
-                                      "total_membros_matriculados"
-                                  ][currentOption.id],
+                              [currentOption.id]: chartsRef.current["total_membros_matriculados"][currentOption.id],
                           }
                         : null;
                 }
@@ -241,8 +223,7 @@ function Dashboard() {
         } else setCharts(chartsRef.current);
     }, [currentOption]);
     useEffect(() => {
-        if (options.length === 1)
-            setCurrentOption({ id: options[0].id, nome: options[0].nome });
+        if (options.length === 1) setCurrentOption({ id: options[0].id, nome: options[0].nome });
     }, [options]);
     useEffect(() => {
         if (classes.length) {
@@ -250,21 +231,18 @@ function Dashboard() {
             if (isSuperAdmin.current) setOptions(igrejas);
             if (isAdmin.current) setOptions(classes);
         }
-    }, [classes, igrejas]);
+    }, [classes]);
 
     return (
         <motion.section className="dashboard-page">
-            <h1 className="dashboard-page__title">
-                Relatório Geral Trimestral
-            </h1>
+            <h1 className="dashboard-page__title">Relatório Geral Trimestral</h1>
 
             <div className="dashboard-page__filters">
                 <div className="dashboard-page__filters-container">
                     {options.length > 0 && (
                         <div className="dashboard-page__filter-group">
                             <p>
-                                {user?.role === ROLES.SUPER_ADMIN ||
-                                user?.role === ROLES.PASTOR_PRESIDENTE
+                                {user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.PASTOR_PRESIDENTE
                                     ? "Igreja"
                                     : "Classe"}
                             </p>
@@ -280,34 +258,16 @@ function Dashboard() {
 
                     <div className="dashboard-page__filter-group">
                         <label htmlFor="inicio-input">Início</label>
-                        <input
-                            ref={$dataInicio}
-                            type="date"
-                            name="inicio-input"
-                            id="inicio-input"
-                        />
+                        <input ref={$dataInicio} type="date" name="inicio-input" id="inicio-input" />
                     </div>
 
                     <div className="dashboard-page__filter-group">
                         <label htmlFor="fim-input">Fim</label>
-                        <input
-                            ref={$dataFim}
-                            type="date"
-                            name="fim-input"
-                            id="fim-input"
-                        />
+                        <input ref={$dataFim} type="date" name="fim-input" id="fim-input" />
                     </div>
                 </div>
-                <div className="dashboard-page__filter-button">
-                    <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        whileHover={{ y: -5 }}
-                        onTap={buscar}
-                        disabled={disable}
-                    >
-                        Pesquisar
-                    </motion.button>
-                </div>
+
+                <DashboardButton buscar={buscar} disable={isLoading} />
             </div>
 
             <div className="dashboard-page__grid">
@@ -320,28 +280,15 @@ function Dashboard() {
                             </span>
                         </div>
 
-                        <div className="dashboard-page__filter-button">
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                whileHover={{ y: -5 }}
-                                onTap={buscar}
-                                disabled={disable}
-                            >
-                                Pesquisar
-                            </motion.button>
-                        </div>
+                        <DashboardButton buscar={buscar} disable={isLoading} />
                     </div>
                 ) : isLoading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                        <DashboardCardSkeleton key={i + "skeleton"} />
-                    ))
+                    Array.from({ length: 6 }).map((_, i) => <DashboardCardSkeleton key={i + "skeleton"} />)
                 ) : (
                     <>
                         <DashboardCard
                             withIndex={!isSecretario.current}
-                            value={sum(
-                                charts?.total_ofertas || [],
-                            ).toLocaleString("pt-BR", {
+                            value={sum(charts?.total_ofertas || []).toLocaleString("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",
                             })}
@@ -353,9 +300,7 @@ function Dashboard() {
 
                         <DashboardCard
                             withIndex={!isSecretario.current}
-                            value={sum(
-                                charts?.total_missoes || [],
-                            ).toLocaleString("pt-BR", {
+                            value={sum(charts?.total_missoes || []).toLocaleString("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",
                             })}
@@ -368,8 +313,7 @@ function Dashboard() {
                         <DashboardCard
                             withIndex={!isSecretario.current}
                             value={Math.floor(
-                                sum(charts?.total_presentes || []) /
-                                    (charts?.total_presentes || []).length,
+                                sum(charts?.total_presentes || []) / (charts?.total_presentes || []).length,
                             ).toString()}
                             title="Total Presentes"
                             icon={<FontAwesomeIcon icon={faListCheck} />}
@@ -379,8 +323,7 @@ function Dashboard() {
                         <DashboardCard
                             withIndex={!isSecretario.current}
                             value={Math.floor(
-                                sum(charts?.total_ausentes || []) /
-                                    (charts?.total_ausentes || []).length,
+                                sum(charts?.total_ausentes || []) / (charts?.total_ausentes || []).length,
                             ).toString()}
                             title="Total Ausentes"
                             icon={<FontAwesomeIcon icon={faGhost} />}
@@ -390,26 +333,19 @@ function Dashboard() {
 
                         <DashboardCard
                             withIndex={!isSecretario.current}
-                            value={sum(
-                                charts?.total_matriculados || [],
-                            ).toString()}
+                            value={sum(charts?.total_matriculados || []).toString()}
                             title="Total Matriculados"
                             icon={<FontAwesomeIcon icon={faClipboardCheck} />}
                             datas={charts?.total_matriculados || []}
                             chartType="bar"
                         />
 
-                        {!isSecretario.current && (
-                            <ChartMembros
-                                value={charts?.total_membros_matriculados || {}}
-                            />
-                        )}
+                        {!isSecretario.current && <ChartMembros value={charts?.total_membros_matriculados || {}} />}
 
                         <DashboardCard
                             withIndex={!isSecretario.current}
                             value={Math.floor(
-                                sum(charts?.total_licoes || []) /
-                                    (charts?.total_licoes || []).length,
+                                sum(charts?.total_licoes || []) / (charts?.total_licoes || []).length,
                             ).toString()}
                             title="Total Revistas"
                             icon={<FontAwesomeIcon icon={faBook} />}
@@ -420,8 +356,7 @@ function Dashboard() {
                         <DashboardCard
                             withIndex={!isSecretario.current}
                             value={Math.floor(
-                                sum(charts?.total_biblias || []) /
-                                    (charts?.total_biblias || []).length,
+                                sum(charts?.total_biblias || []) / (charts?.total_biblias || []).length,
                             ).toString()}
                             title="Total Bíblias"
                             icon={<FontAwesomeIcon icon={faBookBible} />}

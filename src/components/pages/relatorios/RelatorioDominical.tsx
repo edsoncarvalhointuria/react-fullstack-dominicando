@@ -5,48 +5,36 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import Loading from "../../layout/loading/Loading";
 import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faBan,
-    faCalendarDay,
-    faDownload,
-    faFloppyDisk,
-    faGripLines,
-    faUndo,
-} from "@fortawesome/free-solid-svg-icons";
+import { faBan, faCalendarDay, faDownload, faFloppyDisk, faGripLines, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import "./relatorio-dominical.scss";
 import useDebounce from "../../../hooks/useDebounce";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import RelatorioLeitura from "./RelatorioLeitura";
 import type { ResponseGetRelatorioDominical } from "../../../interfaces/ResponseGetRelatorioDominical";
 import CadastroIgrejaModal from "../../ui/CadastroIgrejaModal";
 import RelatorioLeituraDownload from "./RelatorioLeituraDownload";
+import { functions } from "../../../utils/firebase";
 
-const functions = getFunctions();
 const getRelatorioDominical = httpsCallable(functions, "getRelatorioDominical");
 
 function RelatorioDominical() {
     const [isLoading, setIsLoading] = useState(true);
     const [domingo, setDomingo] = useState<Date | null>(null);
-    const [registros, setRegistros] =
-        useState<ResponseGetRelatorioDominical | null>(null);
+    const [registros, setRegistros] = useState<ResponseGetRelatorioDominical | null>(null);
 
     const [showRelatorio, setShowRelatorio] = useState(false);
     const [downloadRelatorio, setDownloadRelatorio] = useState(false);
     const [filaClasses, setFilaClasses] = useState<ClasseInterface[]>([]);
-    const [classesExcluidas, setClassesExcluidas] = useState<ClasseInterface[]>(
-        []
-    );
+    const [classesExcluidas, setClassesExcluidas] = useState<ClasseInterface[]>([]);
 
-    const { isSuperAdmin, user, isSecretario } = useAuthContext();
+    const { isSuperAdmin, user } = useAuthContext();
     const { igrejas, isLoadingData, classes, refetchData } = useDataContext();
     let { igrejaId } = useParams();
     const navigate = useNavigate();
     const domingoDebounce = useDebounce(domingo, 1000);
 
     const excluirClasse = (classe: ClasseInterface) => {
-        console.log("executando");
-
         setFilaClasses((v) => v.filter((c) => c.id !== classe.id));
         setClassesExcluidas((v) => [...v, classe]);
     };
@@ -61,25 +49,11 @@ function RelatorioDominical() {
             setIsLoading(true);
             getRelatorioDominical({
                 data: domingoDebounce.toISOString().split("T")[0],
-                classes: classes
-                    .filter((v) => v.igrejaId === igrejaId)
-                    .map((v) => v.id),
                 igrejaId,
             })
                 .then((data) => {
                     const datas = data.data as ResponseGetRelatorioDominical;
-                    if (isSecretario.current)
-                        setFilaClasses(
-                            datas.classes_relatorio.filter(
-                                (v) => v.id === user?.classeId
-                            )
-                        );
-                    else
-                        setFilaClasses(
-                            datas.classes_relatorio.sort((a, b) =>
-                                a.nome.localeCompare(b.nome)
-                            )
-                        );
+                    setFilaClasses(datas.classes_relatorio.sort((a, b) => a.nome.localeCompare(b.nome)));
                     setRegistros(datas);
                 })
                 .catch((err) => console.log("deu esse erro", err))
@@ -108,10 +82,8 @@ function RelatorioDominical() {
     }, []);
 
     // Admin e secretarios
-    if (!isSuperAdmin.current && igrejaId)
-        return <Navigate to="/relatorios/dominical" />;
-    else if (!isSuperAdmin.current && !igrejaId && igrejas.length)
-        igrejaId = user!.igrejaId!;
+    if (!isSuperAdmin.current && igrejaId) return <Navigate to="/relatorios/dominical" />;
+    else if (!isSuperAdmin.current && !igrejaId && igrejas.length) igrejaId = user!.igrejaId!;
 
     // Super Admins
     if (isSuperAdmin.current && !igrejaId && igrejas.length)
@@ -119,25 +91,20 @@ function RelatorioDominical() {
             <SelectionGrid
                 opcoes={igrejas}
                 titulo="Igreja"
-                onSelect={(id: string) => navigate(id)}
-                renderAddModal={(onClose: () => void) => (
+                onSelect={navigate}
+                renderAddModal={(onClose) => (
                     <CadastroIgrejaModal
-                        onCancel={() => onClose()}
+                        onCancel={onClose}
                         onSave={() => {
                             refetchData();
                         }}
                     />
                 )}
+                sort={false}
             />
         );
-    else if (
-        isSuperAdmin.current &&
-        igrejaId &&
-        igrejas.length &&
-        !igrejas.find((v) => v.id === igrejaId)
-    )
+    else if (isSuperAdmin.current && igrejaId && igrejas.length && !igrejas.find((v) => v.id === igrejaId))
         return <Navigate to="/relatorios/dominical" />;
-
     if (isLoadingData || isLoading) return <Loading />;
     return (
         <>
@@ -165,28 +132,17 @@ function RelatorioDominical() {
                             type="date"
                             name="relatorio-dominical-data"
                             id="relatorio-dominical-data"
-                            defaultValue={
-                                domingo
-                                    ? domingo.toISOString().split("T")[0]
-                                    : ""
-                            }
+                            defaultValue={domingo ? domingo.toISOString().split("T")[0] : ""}
                             onChange={(evt) => {
                                 const input = evt?.currentTarget;
 
                                 if (input) {
-                                    const value = new Date(
-                                        input.value + "T00:00:00"
-                                    );
+                                    const value = new Date(input.value + "T00:00:00");
 
                                     if (value.getDay() === 0) {
                                         setDomingo(value);
-                                        input.classList.remove(
-                                            "relatorio-dominical__input--erro"
-                                        );
-                                    } else
-                                        input.classList.add(
-                                            "relatorio-dominical__input--erro"
-                                        );
+                                        input.classList.remove("relatorio-dominical__input--erro");
+                                    } else input.classList.add("relatorio-dominical__input--erro");
                                 }
                             }}
                         />
@@ -214,26 +170,14 @@ function RelatorioDominical() {
                             )}
                         </div>
 
-                        <Reorder.Group
-                            values={filaClasses}
-                            onReorder={setFilaClasses}
-                            axis="y"
-                        >
+                        <Reorder.Group values={filaClasses} onReorder={setFilaClasses} axis="y">
                             {filaClasses.length ? (
                                 <>
                                     {filaClasses.map((v, i) => (
-                                        <Reorder.Item
-                                            key={v.id}
-                                            value={v}
-                                            className="relatorio-dominical__lista"
-                                        >
+                                        <Reorder.Item key={v.id} value={v} className="relatorio-dominical__lista">
                                             <div className="relatorio-dominical__lista-item">
-                                                <p className="relatorio-dominical__lista-item--number">
-                                                    {i + 1}.
-                                                </p>
-                                                <p className="relatorio-dominical__lista-item--nome">
-                                                    {v.nome}
-                                                </p>
+                                                <p className="relatorio-dominical__lista-item--number">{i + 1}.</p>
+                                                <p className="relatorio-dominical__lista-item--nome">{v.nome}</p>
 
                                                 {filaClasses.length > 1 && (
                                                     <span
@@ -258,9 +202,7 @@ function RelatorioDominical() {
 
                                     <li className="relatorio-dominical__lista">
                                         <div className="relatorio-dominical__lista-item relatorio-dominical__lista-item--fixo">
-                                            <p className="relatorio-dominical__lista-item--nome">
-                                                Totais Gerais
-                                            </p>
+                                            <p className="relatorio-dominical__lista-item--nome">Totais Gerais</p>
                                         </div>
                                     </li>
                                     <li className="relatorio-dominical__lista">
@@ -279,21 +221,16 @@ function RelatorioDominical() {
                         </Reorder.Group>
 
                         {filaClasses.length > 0 && (
-                            <motion.div whileTap={{ scale: 0.85 }}>
-                                <motion.button
-                                    title="Iniciar Leitura"
-                                    className="relatorio-dominical__iniciar-leitura"
-                                    onTap={() => {
-                                        setShowRelatorio(true);
-                                        window.history.pushState(
-                                            { modal: true },
-                                            ""
-                                        );
-                                    }}
-                                >
-                                    Iniciar Leitura
-                                </motion.button>
-                            </motion.div>
+                            <motion.button
+                                title="Iniciar Leitura"
+                                className="relatorio-dominical__iniciar-leitura"
+                                onTap={() => {
+                                    setShowRelatorio(true);
+                                    window.history.pushState({ modal: true }, "");
+                                }}
+                            >
+                                Iniciar Leitura
+                            </motion.button>
                         )}
                     </div>
 
@@ -310,21 +247,10 @@ function RelatorioDominical() {
                                 <motion.ul layout className=" ">
                                     {classesExcluidas.length > 0 ? (
                                         classesExcluidas.map((v, i) => (
-                                            <motion.li
-                                                className="relatorio-dominical__lista"
-                                                key={v.id}
-                                            >
-                                                <p className="relatorio-dominical__lista-item--number">
-                                                    {i + 1}.
-                                                </p>
-                                                <p className="relatorio-dominical__lista-item--nome">
-                                                    {v.nome}
-                                                </p>
-                                                <span
-                                                    onClick={() =>
-                                                        restaurarClasse(v)
-                                                    }
-                                                >
+                                            <motion.li className="relatorio-dominical__lista" key={v.id}>
+                                                <p className="relatorio-dominical__lista-item--number">{i + 1}.</p>
+                                                <p className="relatorio-dominical__lista-item--nome">{v.nome}</p>
+                                                <span onClick={() => restaurarClasse(v)}>
                                                     <FontAwesomeIcon
                                                         icon={faUndo}
                                                         className="relatorio-dominical__lista-item--restaurar"
@@ -334,8 +260,7 @@ function RelatorioDominical() {
                                         ))
                                     ) : (
                                         <p className="relatorio-dominical__sem-resultados">
-                                            Nenhuma classe disponivel para esta
-                                            data.
+                                            Nenhuma classe disponivel para esta data.
                                         </p>
                                     )}
                                 </motion.ul>
@@ -355,12 +280,14 @@ function RelatorioDominical() {
                     />
                 )}
                 {domingo && registros && downloadRelatorio && (
-                    <RelatorioLeituraDownload
-                        dados={registros}
-                        domingo={domingo}
-                        fila={filaClasses}
-                        onSair={() => setDownloadRelatorio(false)}
-                    />
+                    <div style={{ height: 0, overflow: "hidden" }}>
+                        <RelatorioLeituraDownload
+                            dados={registros}
+                            domingo={domingo}
+                            fila={filaClasses}
+                            onSair={() => setDownloadRelatorio(false)}
+                        />
+                    </div>
                 )}
             </AnimatePresence>
         </>

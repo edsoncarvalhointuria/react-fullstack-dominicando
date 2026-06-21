@@ -13,11 +13,16 @@
         z-index: 101;
         gap: 5rem;
 
-        @media all and (max-width: 1030px) {
-            gap: 3rem;
+        &:hover {
+            z-index: 102;
+        }
+
+        @media all and (max-width: 1065px) {
+            gap: 2rem;
         }
 
         &__img {
+            display: inline-block;
             user-select: none;
             // max-width: 18rem;
             max-width: 6.5rem;
@@ -42,8 +47,12 @@
 
         &__img {
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
             width: 7rem;
             z-index: 15;
+            img {
+                user-select: none;
+            }
         }
 
         &__hamburguer {
@@ -147,10 +156,7 @@
         width: 100%;
         justify-content: space-between;
         align-items: center;
-        gap: 5rem;
-        @media all and (max-width: 1030px) {
-            gap: 3rem;
-        }
+        gap: 1rem;
 
         &__notificacoes {
             position: relative;
@@ -201,8 +207,8 @@
             display: flex;
             gap: 4rem;
             align-items: center;
-            @media all and (max-width: 1030px) {
-                gap: 3rem;
+            @media all and (max-width: 1065px) {
+                gap: 2rem;
             }
 
             li {
@@ -619,10 +625,7 @@
             &.refresh {
                 &:hover {
                     color: v.$cor-secundaria-texto;
-                    background-color: color.scale(
-                        v.$cor-secundaria-texto,
-                        $alpha: -90%
-                    );
+                    background-color: color.scale(v.$cor-secundaria-texto, $alpha: -90%);
                 }
             }
         }
@@ -776,10 +779,7 @@
             &.refresh {
                 &:hover {
                     color: v.$cor-secundaria-texto;
-                    background-color: color.scale(
-                        v.$cor-secundaria-texto,
-                        $alpha: -100%
-                    );
+                    background-color: color.scale(v.$cor-secundaria-texto, $alpha: -100%);
                 }
             }
 

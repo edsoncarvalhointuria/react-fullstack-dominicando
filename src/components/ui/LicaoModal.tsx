@@ -6,7 +6,6 @@ import {
     faBookmark,
     faCircleCheck,
     faCircleXmark,
-    faTimeline,
     faPenToSquare,
     faXmark,
     faPencil,
@@ -14,19 +13,15 @@ import {
     faSquarePen,
     faChartSimple,
     faCaretLeft,
+    faHandPointer,
 } from "@fortawesome/free-solid-svg-icons";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    Timestamp,
-} from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, getDocsFromCache, query, Timestamp, where } from "firebase/firestore";
 import { db } from "../../utils/firebase";
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PanoramaLicao from "./PanoramaLicao";
 import type { CacheLicaoInterface } from "../../interfaces/CacheLicaoInterface";
+import { houveAtualizacaoIgreja, salvarSistemaLocalStorageIgreja } from "../../utils/getSistema";
 
 interface AulaDocument {
     id: string;
@@ -48,13 +43,7 @@ const variantsMenu: Variants = {
     exit: { opacity: 0, y: 10 },
 };
 
-const Configuracoes = ({
-    onEditLicao,
-    onGetPanorama,
-}: {
-    onEditLicao: () => void;
-    onGetPanorama: () => void;
-}) => {
+const Configuracoes = ({ onEditLicao, onGetPanorama }: { onEditLicao: () => void; onGetPanorama: () => void }) => {
     return (
         <motion.div
             className="licao-modal__header-options"
@@ -66,10 +55,7 @@ const Configuracoes = ({
                 <FontAwesomeIcon icon={faSquarePen} />
                 <p>Editar Revista</p>
             </div>
-            <motion.div
-                className="licao-modal__header-option"
-                onTap={onGetPanorama}
-            >
+            <motion.div className="licao-modal__header-option" onTap={onGetPanorama}>
                 <FontAwesomeIcon icon={faChartSimple} />
                 <p>Panorama Lição</p>
             </motion.div>
@@ -86,14 +72,11 @@ function LicaoModal({
     closeModal: React.Dispatch<React.SetStateAction<LicaoInterface | null>>;
     editLicao: React.Dispatch<React.SetStateAction<LicaoInterface | null>>;
 }) {
-    const [aulasMap, setAulasMap] = useState<Map<number, AulaDocument>>(
-        new Map(),
-    );
+    const [aulasMap, setAulasMap] = useState<Map<number, AulaDocument>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
     const [openConfig, setOpenConfig] = useState(false);
     const [isPanorama, setIsPanorama] = useState(false);
-    const [panoramaDados, setPanoramaDados] =
-        useState<CacheLicaoInterface | null>(null);
+    const [panoramaDados, setPanoramaDados] = useState<CacheLicaoInterface | null>(null);
     const [loadingPanorama, setLoadingPanorama] = useState(false);
     const navigate = useNavigate();
 
@@ -107,11 +90,7 @@ function LicaoModal({
         setLoadingPanorama(true);
         setIsPanorama(true);
         if (!panoramaDados) {
-            const cacheDoc = doc(
-                db,
-                "cache_licao",
-                `${licao.igrejaId}_${licao.id}`,
-            );
+            const cacheDoc = doc(db, "cache_licao", `${licao.igrejaId}_${licao.id}`);
 
             try {
                 const cacheSnap = await getDoc(cacheDoc);
@@ -124,36 +103,30 @@ function LicaoModal({
         }
     };
     const goToAula = (aula: string | number) => {
-        navigate(
-            `/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${aula}`,
-        );
+        navigate(`/aulas/${licao.igrejaId}/${licao.classeId}/${licao.id}/${aula}`);
     };
 
     const aulasDoTrimestre = useMemo(() => {
         const dataInicio = licao.data_inicio.toDate();
 
-        const listaAulas = Array.from({ length: licao.numero_aulas }).map(
-            (_, i) => {
-                const numeroAula = i + 1;
-                const dataAula = new Date(dataInicio);
-                dataAula.setDate(dataAula.getDate() + i * 7);
+        const listaAulas = Array.from({ length: licao.numero_aulas }).map((_, i) => {
+            const numeroAula = i + 1;
+            const dataAula = new Date(dataInicio);
+            dataAula.setDate(dataAula.getDate() + i * 7);
 
-                return {
-                    numero: numeroAula,
-                    data: dataAula,
-                    aulaRegistrada: aulasMap.get(numeroAula) || null,
-                };
-            },
-        );
+            return {
+                numero: numeroAula,
+                data: dataAula,
+                aulaRegistrada: aulasMap.get(numeroAula) || null,
+            };
+        });
 
         return listaAulas;
     }, [licao, aulasMap]);
 
     const proximaAula = useMemo(() => {
         const domingo = getDomingo().toLocaleDateString("pt-BR");
-        const aula = aulasDoTrimestre.find(
-            (v) => v.data.toLocaleDateString("pt-BR") === domingo,
-        );
+        const aula = aulasDoTrimestre.find((v) => v.data.toLocaleDateString("pt-BR") === domingo);
 
         return aula;
     }, [aulasDoTrimestre]);
@@ -162,14 +135,26 @@ function LicaoModal({
         const getAulas = async () => {
             setIsLoading(true);
             try {
-                const aulasCollection = collection(
-                    db,
-                    "licoes",
-                    licao.id,
+                const aulasCollection = collection(db, "licoes", licao.id, "aulas");
+                const q = query(aulasCollection, where("realizada", "==", true));
+
+                const houveAtualizacao = await houveAtualizacaoIgreja(
+                    licao.ministerioId,
+                    licao.igrejaId,
+                    licao.classeId,
                     "aulas",
                 );
-                const aulasSnapshot = await getDocs(aulasCollection);
-                const aulas = aulasSnapshot.docs.map((doc) => ({
+
+                let docs;
+                if (houveAtualizacao.houveAtualizacao) docs = await getDocs(q);
+                else {
+                    docs = await getDocsFromCache(q);
+                    if (docs.empty) docs = await getDocs(q);
+                }
+
+                salvarSistemaLocalStorageIgreja(houveAtualizacao);
+
+                const aulas = docs.docs.map((doc) => ({
                     id: doc.id,
                     ...(doc.data() as Omit<AulaDocument, "id">),
                 }));
@@ -183,10 +168,7 @@ function LicaoModal({
         getAulas();
     }, [licao]);
     return (
-        <div
-            className="licao-modal__overlay"
-            onClick={() => window.history.back()}
-        >
+        <div className="licao-modal__overlay" onClick={() => window.history.back()}>
             <motion.div
                 className={`licao-modal ${isPanorama ? "licao-modal--panorama" : ""}`}
                 layoutId={licao.id}
@@ -198,18 +180,12 @@ function LicaoModal({
                     } ${!proximaAula ? "licao-modal__header--sem-domingo" : ""}`}
                 >
                     <div className="licao-modal__header-config">
-                        <div
-                            className={`licao-modal__header--close`}
-                            onClick={() => window.history.back()}
-                        >
+                        <div className={`licao-modal__header--close`} onClick={() => window.history.back()}>
                             <FontAwesomeIcon icon={faXmark} />
                         </div>
                         {!isPanorama && (
                             <>
-                                <motion.div
-                                    className="licao-modal__header--config"
-                                    onTap={getPanorama}
-                                >
+                                <motion.div className="licao-modal__header--config" onTap={getPanorama}>
                                     <FontAwesomeIcon icon={faChartSimple} />
                                 </motion.div>
 
@@ -241,9 +217,7 @@ function LicaoModal({
                         animate="visible"
                         layout
                         exit="exit"
-                        className={`licao-modal__header-infos ${
-                            isPanorama && "licao-modal__header-infos--panorama"
-                        }`}
+                        className={`licao-modal__header-infos ${isPanorama && "licao-modal__header-infos--panorama"}`}
                     >
                         {isPanorama ? (
                             <motion.span
@@ -262,10 +236,7 @@ function LicaoModal({
                             </motion.span>
                         ) : (
                             <>
-                                <div
-                                    key={"licao-modal-titulo"}
-                                    className="licao-modal__header--title"
-                                >
+                                <div key={"licao-modal-titulo"} className="licao-modal__header--title">
                                     <FontAwesomeIcon icon={faBookmark} />
                                     <h3>{licao.titulo}</h3>
                                 </div>
@@ -283,35 +254,25 @@ function LicaoModal({
                                     >
                                         <motion.button
                                             whileHover={{
-                                                y: -2,
-                                                boxShadow:
-                                                    "0 5px 20px rgba(59, 130, 246, 0.3)",
+                                                scale: 1.02,
+                                                boxShadow: "0 5px 20px rgba(59, 130, 246, 0.3)",
                                             }}
-                                            whileTap={{ scale: 0.9 }}
-                                            onTap={() =>
-                                                goToAula(proximaAula?.numero)
-                                            }
+                                            whileTap={{ scale: 0.99 }}
+                                            transition={{ ease: "backOut", duration: 0.7 }}
+                                            onTap={() => goToAula(proximaAula?.numero)}
                                         >
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faTimeline}
-                                                />
+                                                <FontAwesomeIcon icon={faHandPointer} />
                                             </span>
                                             <span>
-                                                Fazer chamada:{" "}
-                                                <strong>
-                                                    Aula {proximaAula.numero}
-                                                </strong>
+                                                Fazer Chamada: <strong>Aula {proximaAula.numero}</strong>
                                                 {" - "}
-                                                {proximaAula?.data.toLocaleDateString(
-                                                    "pt-BR",
-                                                    {
-                                                        weekday: "long",
-                                                        day: "2-digit",
-                                                        month: "long",
-                                                        year: "numeric",
-                                                    },
-                                                )}
+                                                {proximaAula?.data.toLocaleDateString("pt-BR", {
+                                                    weekday: "long",
+                                                    day: "2-digit",
+                                                    month: "long",
+                                                    year: "numeric",
+                                                })}
                                             </span>
                                         </motion.button>
                                     </motion.div>
@@ -338,60 +299,38 @@ function LicaoModal({
                                     {aulasDoTrimestre.map((aula) => (
                                         <li
                                             key={aula.numero}
-                                            onClick={() =>
-                                                goToAula(aula.numero)
-                                            }
-                                            className={
-                                                aula.aulaRegistrada?.realizada
-                                                    ? "preenchida"
-                                                    : "pendente"
-                                            }
+                                            onClick={() => goToAula(aula.numero)}
+                                            className={aula.aulaRegistrada?.realizada ? "preenchida" : "pendente"}
                                         >
                                             <div className="licao-modal__registros-infos">
                                                 <p>Lição {aula.numero}</p>
-                                                <data
-                                                    value={aula.data.toLocaleDateString(
-                                                        "pt-BR",
-                                                    )}
-                                                >
-                                                    {aula.data.toLocaleDateString(
-                                                        "pt-BR",
-                                                    )}
+                                                <data value={aula.data.toLocaleDateString("pt-BR")}>
+                                                    {aula.data.toLocaleDateString("pt-BR")}
                                                 </data>
                                             </div>
 
                                             <div className="licao-modal__registros--status">
-                                                {aula.aulaRegistrada
-                                                    ?.realizada ? (
+                                                {aula.aulaRegistrada?.realizada ? (
                                                     <p className="status-concluido">
-                                                        <FontAwesomeIcon
-                                                            icon={faCircleCheck}
-                                                        />
+                                                        <FontAwesomeIcon icon={faCircleCheck} />
                                                         <span>Realizada</span>
                                                     </p>
                                                 ) : (
                                                     <p className="status-pendente">
-                                                        <FontAwesomeIcon
-                                                            icon={faCircleXmark}
-                                                        />
+                                                        <FontAwesomeIcon icon={faCircleXmark} />
                                                         <span>Pendente</span>
                                                     </p>
                                                 )}
                                             </div>
 
                                             <div className="licao-modal__registros--acao">
-                                                {aula?.aulaRegistrada
-                                                    ?.realizada ? (
+                                                {aula?.aulaRegistrada?.realizada ? (
                                                     <button title="Ver/Editar Chamada">
-                                                        <FontAwesomeIcon
-                                                            icon={faPenToSquare}
-                                                        />
+                                                        <FontAwesomeIcon icon={faPenToSquare} />
                                                     </button>
                                                 ) : (
                                                     <button title="Fazer Chamada">
-                                                        <FontAwesomeIcon
-                                                            icon={faPencil}
-                                                        />
+                                                        <FontAwesomeIcon icon={faPencil} />
                                                     </button>
                                                 )}
                                             </div>

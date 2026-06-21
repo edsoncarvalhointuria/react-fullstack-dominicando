@@ -16,17 +16,14 @@ import "./pedidos.scss";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuthContext } from "../../../context/AuthContext";
-import {
-    collection,
-    getDocs,
-    limit,
-    query,
-    where,
-    orderBy,
-} from "firebase/firestore";
+import { collection, getDocs, limit, query, where, orderBy, getDocsFromCache } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import type { PedidosInterface } from "../../../interfaces/PedidosInterface";
 import Loading from "../../layout/loading/Loading";
+import { houveAtualizacaoMinisterio, salvarSistemaLocalStorageMinisterio } from "../../../utils/getSistema";
+import VazioDefault from "../../ui/VazioDefault";
+
+const LIMITE_DE_REVISTAS = 15;
 
 const FormularioCard = ({
     title,
@@ -91,16 +88,20 @@ const NovoFormularioModal = ({ onClose }: { onClose: () => void }) => {
     useEffect(() => {
         const getModelos = async () => {
             const modelosCll = collection(db, "pedidos");
-            const q = query(
-                modelosCll,
-                where("ministerioId", "==", user?.ministerioId),
-                where("tipo", "==", "modelo"),
-            );
-            const modeloDocs = await getDocs(q);
+            const q = query(modelosCll, where("ministerioId", "==", user?.ministerioId), where("tipo", "==", "modelo"));
 
-            const modelos = modeloDocs.docs.map(
-                (v) => ({ id: v.id, ...v.data() }) as PedidosInterface,
-            );
+            const houveAtualizacao = await houveAtualizacaoMinisterio(user?.ministerioId!, "pedidos");
+
+            let docs;
+            if (houveAtualizacao.houveAtualizacao) docs = await getDocs(q);
+            else {
+                docs = await getDocsFromCache(q);
+                if (docs.empty) docs = await getDocs(q);
+            }
+
+            salvarSistemaLocalStorageMinisterio(houveAtualizacao);
+
+            const modelos = docs.docs.map((v) => ({ id: v.id, ...v.data() }) as PedidosInterface);
             setModelos(modelos);
         };
 
@@ -125,11 +126,7 @@ const NovoFormularioModal = ({ onClose }: { onClose: () => void }) => {
                             <span>Novo Formulário</span>
                         </h3>
 
-                        <button
-                            title="fechar"
-                            onClick={onClose}
-                            className="novo-formulario__close"
-                        >
+                        <button title="fechar" onClick={onClose} className="novo-formulario__close">
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
@@ -167,7 +164,7 @@ function Pedidos() {
     const [novoForm, setNovoForm] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [pedidos, setPedidos] = useState<PedidosInterface[]>([]);
-    const [limite, setLimite] = useState(15);
+    const [limite, setLimite] = useState(LIMITE_DE_REVISTAS);
 
     const navigate = useNavigate();
     const [params, _] = useSearchParams();
@@ -178,20 +175,10 @@ function Pedidos() {
             .filter(
                 (v) =>
                     v.titulo.toLowerCase().includes(pesquisa) ||
-                    v.data_inicio
-                        .toDate()
-                        .toLocaleDateString("pt-BR")
-                        .includes(pesquisa) ||
-                    v.data_fim
-                        .toDate()
-                        .toLocaleDateString("pt-BR")
-                        .includes(pesquisa),
+                    v.data_inicio.toDate().toLocaleDateString("pt-BR").includes(pesquisa) ||
+                    v.data_fim.toDate().toLocaleDateString("pt-BR").includes(pesquisa),
             )
-            .sort(
-                (a, b) =>
-                    b.data_fim.toDate().getTime() -
-                    a.data_fim.toDate().getTime(),
-            );
+            .sort((a, b) => b.data_fim.toDate().getTime() - a.data_fim.toDate().getTime());
     }, [pesquisa, pedidos]);
 
     const { isSecretario, isSuperAdmin, user, isAdmin } = useAuthContext();
@@ -207,11 +194,16 @@ function Pedidos() {
                 limit(limite),
             );
 
-            const pedidosDocs = await getDocs(q);
+            const houveAtualizacao = await houveAtualizacaoMinisterio(user?.ministerioId!, "pedidos");
 
-            const p = pedidosDocs.docs.map(
-                (v) => ({ id: v.id, ...v.data() }) as PedidosInterface,
-            );
+            let docs;
+            if (houveAtualizacao.houveAtualizacao) docs = await getDocs(q);
+            else {
+                docs = await getDocsFromCache(q);
+                if (docs.empty || limite > LIMITE_DE_REVISTAS) docs = await getDocs(q);
+            }
+
+            const p = docs.docs.map((v) => ({ id: v.id, ...v.data() }) as PedidosInterface);
 
             setPedidos(p);
         };
@@ -236,10 +228,7 @@ function Pedidos() {
             }
         };
 
-        if (
-            isSuperAdmin.current ||
-            (params.get("redirect") && params.get("redirect") === "false")
-        ) {
+        if (isSuperAdmin.current || (params.get("redirect") && params.get("redirect") === "false")) {
             getModelos().finally(() => setIsLoading(false));
         } else if (isAdmin.current) {
             getUltimoForm();
@@ -272,10 +261,7 @@ function Pedidos() {
 
                 <div className="pedidos__body">
                     <div className="pedidos__pesquisa">
-                        <SearchInput
-                            onSearch={(v) => setPesquisa(v)}
-                            texto="formulários"
-                        />
+                        <SearchInput onSearch={setPesquisa} texto="formulários" />
                     </div>
                     {pedidosMemo.length ? (
                         <>
@@ -283,16 +269,10 @@ function Pedidos() {
                                 {pedidosMemo.map((v) => (
                                     <FormularioCard
                                         key={v.id}
-                                        dataFim={v.data_fim
-                                            .toDate()
-                                            .toLocaleDateString("pt-BR")}
-                                        dataInicio={v.data_inicio
-                                            .toDate()
-                                            .toLocaleDateString("pt-BR")}
+                                        dataFim={v.data_fim.toDate().toLocaleDateString("pt-BR")}
+                                        dataInicio={v.data_inicio.toDate().toLocaleDateString("pt-BR")}
                                         id={v.id!}
-                                        isActive={
-                                            new Date() <= v.data_fim.toDate()
-                                        }
+                                        isActive={new Date() <= v.data_fim.toDate()}
                                         title={v.titulo}
                                     />
                                 ))}
@@ -308,20 +288,12 @@ function Pedidos() {
                             </div>
                         </>
                     ) : (
-                        <div className="classes-page__vazio">
-                            <p className="classes-page__vazio--mensagem">
-                                Sem resultados
-                            </p>
-                        </div>
+                        <VazioDefault mensagem="Sem Resultado" />
                     )}
                 </div>
             </div>
 
-            <AnimatePresence>
-                {novoForm && (
-                    <NovoFormularioModal onClose={() => setNovoForm(false)} />
-                )}
-            </AnimatePresence>
+            <AnimatePresence>{novoForm && <NovoFormularioModal onClose={() => setNovoForm(false)} />}</AnimatePresence>
         </>
     );
 }

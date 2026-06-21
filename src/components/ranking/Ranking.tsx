@@ -1,26 +1,18 @@
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import type {
-    ChamadaChacheLicao,
-    DetalhesAlunoCacheLicao,
-} from "../../interfaces/CacheLicaoInterface";
+import type { ChamadaChacheLicao, DetalhesAlunoCacheLicao } from "../../interfaces/CacheLicaoInterface";
 import { AcordeaoAluno, Detalhes } from "../ui/PanoramaLicao";
 import SearchInput from "../ui/SearchInput";
 import { AnimatePresence, motion } from "framer-motion";
 import { Timestamp } from "firebase/firestore";
 import AlertModal from "../ui/AlertModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faAward,
-    faMedal,
-    faStar,
-    faTriangleExclamation,
-} from "@fortawesome/free-solid-svg-icons";
+import { faAward, faMedal, faStar, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import Loading from "../layout/loading/Loading";
 import "./ranking.scss";
+import { functions } from "../../utils/firebase";
 
-const functions = getFunctions();
 const pegarRankingPublico = httpsCallable(functions, "pegarRankingPublico");
 
 interface RankingPublico {
@@ -33,74 +25,62 @@ interface RankingPublico {
     }[];
 }
 
-const RankingPodio = React.memo(
-    ({ position, list }: { position: 1 | 2 | 3; list: any[] }) => {
-        const [show, setShow] = useState(false);
-        const porcentagem =
-            position === 1 ? "90%" : position === 2 ? "65%" : "40%";
-        return (
+const RankingPodio = React.memo(({ position, list }: { position: 1 | 2 | 3; list: any[] }) => {
+    const [show, setShow] = useState(false);
+    const porcentagem = position === 1 ? "90%" : position === 2 ? "65%" : "40%";
+    return (
+        <motion.div
+            className={`ranking-podio posicao-${position}`}
+            onHoverStart={() => setShow(true)}
+            onHoverEnd={() => setShow(false)}
+            onTap={() => setShow((v) => !v)}
+        >
+            <div className="ranking-posicao">
+                <span>{position === 1 ? <FontAwesomeIcon icon={faMedal} /> : <FontAwesomeIcon icon={faAward} />}</span>
+
+                <p>{list.length === 1 ? list[0] : `${list.length}+`}</p>
+            </div>
             <motion.div
-                className={`ranking-podio posicao-${position}`}
-                onHoverStart={() => setShow(true)}
-                onHoverEnd={() => setShow(false)}
-                onTap={() => setShow((v) => !v)}
+                initial={{
+                    width: "10rem",
+                    height: 0,
+                }}
+                animate={{ height: porcentagem }}
+                transition={{ duration: 1 }}
+                className="ranking-barra"
             >
-                <div className="ranking-posicao">
-                    <span>
-                        {position === 1 ? (
-                            <FontAwesomeIcon icon={faMedal} />
-                        ) : (
-                            <FontAwesomeIcon icon={faAward} />
-                        )}
-                    </span>
-
-                    <p>{list.length === 1 ? list[0] : `${list.length}+`}</p>
-                </div>
-                <motion.div
-                    initial={{
-                        width: "10rem",
-                        height: 0,
-                    }}
-                    animate={{ height: porcentagem }}
-                    transition={{ duration: 1 }}
-                    className="ranking-barra"
-                >
-                    {position}
-                </motion.div>
-
-                <AnimatePresence>
-                    {show && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="ranking-podio__pessoas"
-                            style={{ bottom: list.length > 4 ? "-50%" : "" }}
-                        >
-                            <h3>
-                                Posição <span>{position}</span>
-                            </h3>
-
-                            <div className="ranking-podio__lista-pessoas">
-                                {list.map((v, i) => (
-                                    <div
-                                        className="ranking-podio__pessoa"
-                                        key={i}
-                                    >
-                                        <span>
-                                            <FontAwesomeIcon icon={faStar} />
-                                        </span>
-                                        <p>{v}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {position}
             </motion.div>
-        );
-    },
-);
+
+            <AnimatePresence>
+                {show && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="ranking-podio__pessoas"
+                        style={{ bottom: list.length > 4 ? "-50%" : "" }}
+                    >
+                        <h3>
+                            Posição <span>{position}</span>
+                        </h3>
+
+                        <div className="ranking-podio__lista-pessoas">
+                            {list.map((v, i) => (
+                                <div className="ranking-podio__pessoa" key={i}>
+                                    <span>
+                                        <FontAwesomeIcon icon={faStar} />
+                                    </span>
+                                    <p>{v}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+});
 
 function Ranking() {
     const [isLoading, setIsLoading] = useState(true);
@@ -113,9 +93,7 @@ function Ranking() {
             aulaRegistrada: { realizada: any } | null;
         }[]
     >([]);
-    const [diasMap, setDiasMap] = useState<
-        Map<string, { chamada: ChamadaChacheLicao }>
-    >(new Map());
+    const [diasMap, setDiasMap] = useState<Map<string, { chamada: ChamadaChacheLicao }>>(new Map());
     const [detalhes, setDetalhes] = useState<any>(null);
     const [pesquisa, setPesquisa] = useState("");
     const [mensagem, setMensagem] = useState<{
@@ -151,9 +129,7 @@ function Ranking() {
         const alunosMap = new Map();
 
         alunos.forEach((v) => {
-            const porcentagem = (v as any)[
-                `porcentagem${opt === "chamada" ? "" : `_${opt}`}`
-            ];
+            const porcentagem = (v as any)[`porcentagem${opt === "chamada" ? "" : `_${opt}`}`];
 
             const lista = alunosMap.get(porcentagem) || [];
             alunosMap.set(porcentagem, [...lista, v.nome]);
@@ -172,9 +148,7 @@ function Ranking() {
 
     useEffect(() => {
         if (!igrejaId || !licaoId) return;
-        const cacheItem = JSON.parse(
-            localStorage.getItem("ranking_cache") || "null",
-        );
+        const cacheItem = JSON.parse(localStorage.getItem("ranking_cache") || "null");
 
         if (
             cacheItem &&
@@ -189,10 +163,7 @@ function Ranking() {
             setListaAulas(
                 ranking.lista_aulas.map((v) => ({
                     ...v,
-                    data: new Timestamp(
-                        (v.data as any)["_seconds"],
-                        (v.data as any)["_nanoseconds"],
-                    ).toDate(),
+                    data: new Timestamp((v.data as any)["_seconds"], (v.data as any)["_nanoseconds"]).toDate(),
                 })),
             );
 
@@ -211,10 +182,7 @@ function Ranking() {
             setListaAulas(
                 lista_aulas.map((v) => ({
                     ...v,
-                    data: new Timestamp(
-                        (v.data as any)["_seconds"],
-                        (v.data as any)["_nanoseconds"],
-                    ).toDate(),
+                    data: new Timestamp((v.data as any)["_seconds"], (v.data as any)["_nanoseconds"]).toDate(),
                 })),
             );
 
@@ -256,25 +224,13 @@ function Ranking() {
                         <div className="panorama-licao__lista-alunos">
                             <h2>Frequência Alunos</h2>
                             <div className="ranking-container">
-                                <RankingPodio
-                                    position={2}
-                                    list={posicoesMemo["2"]}
-                                />
-                                <RankingPodio
-                                    position={1}
-                                    list={posicoesMemo["1"]}
-                                />
-                                <RankingPodio
-                                    position={3}
-                                    list={posicoesMemo["3"]}
-                                />
+                                <RankingPodio position={2} list={posicoesMemo["2"]} />
+                                <RankingPodio position={1} list={posicoesMemo["1"]} />
+                                <RankingPodio position={3} list={posicoesMemo["3"]} />
                             </div>
                             <div className="panorama-licao__lista-alunos-header">
                                 <div className="panorama-licao__lista-alunos-header--container">
-                                    <SearchInput
-                                        onSearch={setPesquisa}
-                                        texto="Aluno"
-                                    />
+                                    <SearchInput onSearch={setPesquisa} texto="Aluno" />
                                 </div>
                             </div>
 
@@ -291,22 +247,12 @@ function Ranking() {
                                 </div>
 
                                 <div className="panorama-licao__opcoes-check">
-                                    <input
-                                        type="radio"
-                                        name="opcoes"
-                                        id="licao"
-                                        onChange={() => setOpt("revista")}
-                                    />
+                                    <input type="radio" name="opcoes" id="licao" onChange={() => setOpt("revista")} />
                                     <label htmlFor="licao">Lições</label>
                                 </div>
 
                                 <div className="panorama-licao__opcoes-check">
-                                    <input
-                                        type="radio"
-                                        name="opcoes"
-                                        id="biblia"
-                                        onChange={() => setOpt("biblia")}
-                                    />
+                                    <input type="radio" name="opcoes" id="biblia" onChange={() => setOpt("biblia")} />
                                     <label htmlFor="biblia">Bíblias</label>
                                 </div>
                             </div>
@@ -335,11 +281,7 @@ function Ranking() {
                         )}
                     </AnimatePresence>
 
-                    <AlertModal
-                        key={"mensagem-alert-modal-ranking"}
-                        isOpen={!!mensagem}
-                        {...mensagem!}
-                    />
+                    <AlertModal key={"mensagem-alert-modal-ranking"} isOpen={!!mensagem} {...mensagem!} />
                 </>
             )}
         </>

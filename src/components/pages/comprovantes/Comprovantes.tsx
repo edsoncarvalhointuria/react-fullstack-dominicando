@@ -8,34 +8,21 @@ import {
 import "./comprovastes.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useAuthContext } from "../../../context/AuthContext";
-import {
-    Controller,
-    FormProvider,
-    useForm,
-    type FieldError,
-} from "react-hook-form";
+import { Controller, FormProvider, useForm, type FieldError } from "react-hook-form";
 import { useEffect, useState, type ReactNode } from "react";
 import { useDataContext } from "../../../context/DataContext";
 import Dropdown from "../../ui/Dropdown";
 import { AnimatePresence, motion } from "framer-motion";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    limit,
-    orderBy,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { collection, doc, getDoc, getDocs, getDocsFromCache, limit, orderBy, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
 import type { AulaInterface } from "../../../interfaces/AulaInterface";
 import type { RegistroAulaInterface } from "../../../interfaces/RegistroAulaInterface";
 import useIsMobile from "../../../hooks/useIsMobile";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import AlertModal from "../../ui/AlertModal";
 import Loading from "../../layout/loading/Loading";
+import { houveAtualizacaoIgreja, salvarSistemaLocalStorageIgreja } from "../../../utils/getSistema";
 
 interface Form {
     igrejaId: string;
@@ -82,10 +69,7 @@ const ErroComponent = ({ Erro }: { Erro: FieldError | undefined }) => {
     return (
         <AnimatePresence>
             {Erro?.message && (
-                <div
-                    key={"erro-componente"}
-                    className="comprovantes-pix__input-erro"
-                >
+                <div key={"erro-componente"} className="comprovantes-pix__input-erro">
                     {Erro.message}
                 </div>
             )}
@@ -168,16 +152,10 @@ const Acordeao = ({ tipo, total, comprovantes, onBaixarZip }: any) => {
                                         }`}
                                         onClick={() => baixarImagem(v)}
                                     >
-                                        <img
-                                            src={v}
-                                            onLoad={() => setLoading(false)}
-                                            alt={`Comprovante ${i + 1}`}
-                                        />
+                                        <img src={v} onLoad={() => setLoading(false)} alt={`Comprovante ${i + 1}`} />
                                         <div className="imagem-card__overlay">
                                             <button title="Baixar Imagem">
-                                                <FontAwesomeIcon
-                                                    icon={faDownload}
-                                                />
+                                                <FontAwesomeIcon icon={faDownload} />
                                             </button>
                                             {/* <button title="Ver Imagem">
                                                 <FontAwesomeIcon
@@ -200,22 +178,13 @@ const Acordeao = ({ tipo, total, comprovantes, onBaixarZip }: any) => {
     );
 };
 
-const functions = getFunctions();
-const baixarTodosComprovantes = httpsCallable(
-    functions,
-    "baixarTodosComprovantes",
-);
+const baixarTodosComprovantes = httpsCallable(functions, "baixarTodosComprovantes");
 
 function Comprovantes() {
-    const [licoes, setLicoes] = useState<(LicaoInterface & { nome: string })[]>(
-        [],
-    );
-    const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(
-        null,
-    );
+    const [licoes, setLicoes] = useState<(LicaoInterface & { nome: string })[]>([]);
+    const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(null);
     const [aulas, setAulas] = useState<{ nome: any; id: any }[]>([]);
-    const [registroAula, setRegistroAula] =
-        useState<RegistroAulaInterface | null>(null);
+    const [registroAula, setRegistroAula] = useState<RegistroAulaInterface | null>(null);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
         title: string;
@@ -270,51 +239,54 @@ function Comprovantes() {
     };
 
     useEffect(() => {
-        if (currentLicao) {
-            const dataInicial = currentLicao.data_inicio.toDate();
-            setAulas(
-                Array.from({ length: currentLicao.numero_aulas }).map(
-                    (_, i) => {
-                        const data = new Date(
-                            dataInicial.toISOString().split("T")[0] +
-                                "T12:00:00",
-                        );
-                        data.setDate(data.getDate() + i * 7);
+        if (!currentLicao) return;
 
-                        return {
-                            nome: `${i + 1} - ${data.toLocaleDateString()}`,
-                            id: i + 1,
-                        };
-                    },
-                ),
-            );
-        }
+        const dataInicial = currentLicao.data_inicio.toDate();
+        setAulas(
+            Array.from({ length: currentLicao.numero_aulas }).map((_, i) => {
+                const data = new Date(dataInicial.toISOString().split("T")[0] + "T12:00:00");
+                data.setDate(data.getDate() + i * 7);
+
+                return {
+                    nome: `${i + 1} - ${data.toLocaleDateString()}`,
+                    id: i + 1,
+                };
+            }),
+        );
     }, [currentLicao]);
     useEffect(() => {
+        if (!classeId) return;
+
         const getLicoes = async (classeId: string) => {
             setIsLoadingLicoes(true);
             const licaoColl = collection(db, "licoes");
             const q = query(
                 licaoColl,
                 where("classeId", "==", classeId),
-                isSuperAdmin.current
-                    ? where("ministerioId", "==", user?.ministerioId)
-                    : where("igrejaId", "==", user?.igrejaId),
+                where("ministerioId", "==", user?.ministerioId!),
+                where("igrejaId", "==", igrejaId),
                 limit(10),
                 orderBy("data_inicio", "desc"),
             );
-            const licoesSnap = await getDocs(q);
 
-            if (licoesSnap.empty) return [];
+            const houveAtualizacao = await houveAtualizacaoIgreja(user?.ministerioId!, igrejaId, classeId, "licoes");
 
-            return licoesSnap.docs
+            let docs;
+            if (houveAtualizacao.houveAtualizacao) docs = await getDocs(q);
+            else {
+                docs = await getDocsFromCache(q);
+                if (docs.empty) docs = await getDocs(q);
+            }
+            salvarSistemaLocalStorageIgreja(houveAtualizacao);
+
+            if (docs.empty) return [];
+
+            return docs.docs
                 .map(
                     (v) =>
                         ({
                             id: v.id,
-                            nome: `${v.data().titulo} - ${
-                                v.data()?.numero_trimestre || 1
-                            }º Trimestre de ${v
+                            nome: `${v.data().titulo} - ${v.data()?.numero_trimestre || 1}º Trimestre de ${v
                                 .data()
                                 ?.data_inicio?.toDate()
                                 ?.getFullYear()}`,
@@ -323,18 +295,16 @@ function Comprovantes() {
                 )
                 .sort((a, b) => Number(b.ativo) - Number(a.ativo));
         };
-
-        if (classeId)
-            getLicoes(classeId)
-                .then((v) => setLicoes(v))
-                .catch((error) => console.log("deu esse erro", error))
-                .finally(() => setIsLoadingLicoes(false));
+        getLicoes(classeId)
+            .then((v) => setLicoes(v))
+            .catch((error) => console.log("deu esse erro", error))
+            .finally(() => setIsLoadingLicoes(false));
     }, [classeId]);
     useEffect(() => {
-        if (user) {
-            if (!isSuperAdmin.current) setValue("igrejaId", user.igrejaId!);
-            if (isSecretario.current) setValue("classeId", user?.classeId!);
-        }
+        if (!user) return;
+
+        if (!isSuperAdmin.current) setValue("igrejaId", user.igrejaId!);
+        if (isSecretario.current) setValue("classeId", user?.classeId!);
     }, [user]);
 
     if (isLoading) return <Loading />;
@@ -351,10 +321,7 @@ function Comprovantes() {
 
                     <div className="comprovantes-pix__filtros">
                         <FormProvider {...methods}>
-                            <form
-                                className="comprovantes-pix__form"
-                                onSubmit={handleSubmit(onSubmit)}
-                            >
+                            <form className="comprovantes-pix__form" onSubmit={handleSubmit(onSubmit)}>
                                 <div className="comprovantes-pix__inputs">
                                     {!isSecretario.current && (
                                         <>
@@ -365,53 +332,29 @@ function Comprovantes() {
                                                         control={control}
                                                         name="igrejaId"
                                                         rules={{
-                                                            required:
-                                                                "É necessário escolher uma igreja",
+                                                            required: "É necessário escolher uma igreja",
                                                         }}
                                                         render={({ field }) => (
                                                             <Dropdown
                                                                 current={
-                                                                    igrejas.find(
-                                                                        (v) =>
-                                                                            v.id ===
-                                                                            field.value,
-                                                                    )?.nome ||
+                                                                    igrejas.find((v) => v.id === field.value)?.nome ||
                                                                     null
                                                                 }
                                                                 lista={igrejas}
                                                                 isAll={false}
-                                                                selectId={
-                                                                    field.value
-                                                                }
-                                                                onSelect={(
-                                                                    v,
-                                                                ) => {
-                                                                    field.onChange(
-                                                                        v?.id,
-                                                                    );
-                                                                    setValue(
-                                                                        "classeId",
-                                                                        "",
-                                                                    );
-                                                                    setValue(
-                                                                        "licaoId",
-                                                                        "",
-                                                                    );
-                                                                    setValue(
-                                                                        "aula",
-                                                                        undefined,
-                                                                    );
+                                                                selectId={field.value}
+                                                                onSelect={(v) => {
+                                                                    field.onChange(v?.id);
+                                                                    setValue("classeId", "");
+                                                                    setValue("licaoId", "");
+                                                                    setValue("aula", undefined);
                                                                 }}
-                                                                isErro={
-                                                                    !!errors.igrejaId
-                                                                }
+                                                                isErro={!!errors.igrejaId}
                                                             />
                                                         )}
                                                     />
                                                 </div>
-                                                <ErroComponent
-                                                    Erro={errors.igrejaId}
-                                                />
+                                                <ErroComponent Erro={errors.igrejaId} />
                                             </div>
 
                                             <div className="comprovantes-pix__input-container">
@@ -421,53 +364,28 @@ function Comprovantes() {
                                                         control={control}
                                                         name="classeId"
                                                         rules={{
-                                                            required:
-                                                                "É necessário escolher uma classe",
+                                                            required: "É necessário escolher uma classe",
                                                         }}
                                                         render={({ field }) => (
                                                             <Dropdown
                                                                 current={
-                                                                    classes.find(
-                                                                        (v) =>
-                                                                            v.id ===
-                                                                            field.value,
-                                                                    )?.nome ||
+                                                                    classes.find((v) => v.id === field.value)?.nome ||
                                                                     null
                                                                 }
-                                                                lista={classes.filter(
-                                                                    (v) =>
-                                                                        v.igrejaId ===
-                                                                        igrejaId,
-                                                                )}
+                                                                lista={classes.filter((v) => v.igrejaId === igrejaId)}
                                                                 isAll={false}
-                                                                selectId={
-                                                                    field.value
-                                                                }
-                                                                onSelect={(
-                                                                    v,
-                                                                ) => {
-                                                                    field.onChange(
-                                                                        v?.id,
-                                                                    );
-                                                                    setValue(
-                                                                        "licaoId",
-                                                                        "",
-                                                                    );
-                                                                    setValue(
-                                                                        "aula",
-                                                                        undefined,
-                                                                    );
+                                                                selectId={field.value}
+                                                                onSelect={(v) => {
+                                                                    field.onChange(v?.id);
+                                                                    setValue("licaoId", "");
+                                                                    setValue("aula", undefined);
                                                                 }}
-                                                                isErro={
-                                                                    !!errors.classeId
-                                                                }
+                                                                isErro={!!errors.classeId}
                                                             />
                                                         )}
                                                     />
                                                 </div>
-                                                <ErroComponent
-                                                    Erro={errors.classeId}
-                                                />
+                                                <ErroComponent Erro={errors.classeId} />
                                             </div>
                                         </>
                                     )}
@@ -478,37 +396,23 @@ function Comprovantes() {
                                                 control={control}
                                                 name="licaoId"
                                                 rules={{
-                                                    required:
-                                                        "É necessário escolher uma lição",
+                                                    required: "É necessário escolher uma lição",
                                                 }}
                                                 render={({ field }) => (
                                                     <Dropdown
                                                         current={
-                                                            licoes.find(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    field.value,
-                                                            )?.titulo || null
+                                                            licoes.find((v) => v.id === field.value)?.titulo || null
                                                         }
                                                         lista={licoes}
                                                         isAll={false}
                                                         selectId={field.value}
                                                         onSelect={(v) => {
                                                             setCurrentLicao(v);
-                                                            field.onChange(
-                                                                v?.id,
-                                                            );
-                                                            setValue(
-                                                                "aula",
-                                                                undefined,
-                                                            );
+                                                            field.onChange(v?.id);
+                                                            setValue("aula", undefined);
                                                         }}
-                                                        isErro={
-                                                            !!errors.licaoId
-                                                        }
-                                                        isLoading={
-                                                            isLoadingLicoes
-                                                        }
+                                                        isErro={!!errors.licaoId}
+                                                        isLoading={isLoadingLicoes}
                                                     />
                                                 )}
                                             />
@@ -523,27 +427,16 @@ function Comprovantes() {
                                                 control={control}
                                                 name="aula"
                                                 rules={{
-                                                    required:
-                                                        "É necessário selecionar a aula",
+                                                    required: "É necessário selecionar a aula",
                                                 }}
                                                 render={({ field }) => (
                                                     <Dropdown
-                                                        current={
-                                                            aulas.find(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    field.value,
-                                                            )?.nome || null
-                                                        }
+                                                        current={aulas.find((v) => v.id === field.value)?.nome || null}
                                                         lista={aulas}
                                                         isAll={false}
-                                                        selectId={
-                                                            field.value as any
-                                                        }
+                                                        selectId={field.value as any}
                                                         onSelect={(v) => {
-                                                            field.onChange(
-                                                                v?.id,
-                                                            );
+                                                            field.onChange(v?.id);
                                                         }}
                                                         isErro={!!errors.aula}
                                                     />
@@ -555,10 +448,7 @@ function Comprovantes() {
                                 </div>
 
                                 <div className="comprovantes-pix__buttons">
-                                    <button
-                                        type="submit"
-                                        title="Buscar Comprovantes"
-                                    >
+                                    <button type="submit" title="Buscar Comprovantes">
                                         Buscar Comprovantes
                                     </button>
                                 </div>
@@ -579,9 +469,8 @@ function Comprovantes() {
                             <div className="comprovantes-pix__aviso">
                                 <FontAwesomeIcon icon={faExclamationTriangle} />
                                 <p>
-                                    Atenção: Todos os comprovantes são deletados
-                                    automaticamente <strong>90 dias</strong>{" "}
-                                    após serem anexados.
+                                    Atenção: Todos os comprovantes são deletados automaticamente{" "}
+                                    <strong>90 dias</strong> após serem anexados.
                                 </p>
                             </div>
                             <Acordeao
@@ -592,15 +481,11 @@ function Comprovantes() {
                                     setIsLoading(true);
                                     baixarTodosComprovantes({
                                         igrejaId,
-                                        dados:
-                                            registroAula?.imgsPixOfertas || [],
+                                        dados: registroAula?.imgsPixOfertas || [],
                                     })
                                         .then(({ data }) => {
                                             const { file } = data as any;
-                                            baixarZip(
-                                                `${tipo} - ${registroAula.id}`,
-                                                file,
-                                            );
+                                            baixarZip(`${tipo} - ${registroAula.id}`, file);
                                         })
                                         .catch((Error: any) =>
                                             setMensagem({
@@ -608,12 +493,9 @@ function Comprovantes() {
                                                 message: Error.message,
                                                 confirmText: "Ok",
                                                 cancelText: "Cancelar",
-                                                onCancel: () =>
-                                                    setMensagem(null),
-                                                onClose: () =>
-                                                    setMensagem(null),
-                                                onConfirm: () =>
-                                                    setMensagem(null),
+                                                onCancel: () => setMensagem(null),
+                                                onClose: () => setMensagem(null),
+                                                onConfirm: () => setMensagem(null),
                                             }),
                                         )
                                         .finally(() => setIsLoading(false));
@@ -627,15 +509,11 @@ function Comprovantes() {
                                     setIsLoading(true);
                                     baixarTodosComprovantes({
                                         igrejaId,
-                                        dados:
-                                            registroAula?.imgsPixMissoes || [],
+                                        dados: registroAula?.imgsPixMissoes || [],
                                     })
                                         .then(({ data }) => {
                                             const { file } = data as any;
-                                            baixarZip(
-                                                `${tipo} - ${registroAula.id}`,
-                                                file,
-                                            );
+                                            baixarZip(`${tipo} - ${registroAula.id}`, file);
                                         })
                                         .catch((Error: any) =>
                                             setMensagem({
@@ -643,12 +521,9 @@ function Comprovantes() {
                                                 message: Error.message,
                                                 confirmText: "Ok",
                                                 cancelText: "Cancelar",
-                                                onCancel: () =>
-                                                    setMensagem(null),
-                                                onClose: () =>
-                                                    setMensagem(null),
-                                                onConfirm: () =>
-                                                    setMensagem(null),
+                                                onCancel: () => setMensagem(null),
+                                                onClose: () => setMensagem(null),
+                                                onConfirm: () => setMensagem(null),
                                             }),
                                         )
                                         .finally(() => setIsLoading(false));

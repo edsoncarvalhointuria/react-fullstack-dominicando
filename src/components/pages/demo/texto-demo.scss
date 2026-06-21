@@ -1,0 +1,18 @@
+@use "@/styles/variables" as *;
+
+.texto-demo {
+    &__texto {
+        padding-left: 1rem;
+        display: flex;
+        font-size: 2rem;
+        font-weight: 700;
+        color: $cor-primaria-itens;
+        margin: 0;
+        letter-spacing: 0.05rem;
+        text-shadow: 0px 4px 12px rgba($cor-primaria-itens, 0.15);
+        user-select: none;
+        span {
+            display: inline-block;
+        }
+    }
+}

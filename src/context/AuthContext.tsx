@@ -9,16 +9,18 @@ import {
     getAuth,
     updatePassword,
     sendPasswordResetEmail,
+    // getIdTokenResult,
+    getIdToken,
 } from "firebase/auth";
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { createContext, useContext, useState } from "react";
-import { app, auth, db } from "../utils/firebase";
+import { app, auth, db, functions } from "../utils/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { ROLES } from "../roles/Roles";
-
 import type { AppUser } from "../interfaces/AppUser";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { useNavigate } from "react-router-dom";
+import type { UsuarioInterface } from "../interfaces/UsuarioInterface";
 
 export interface AuthType {
     user: AppUser | null;
@@ -36,7 +38,6 @@ export interface AuthType {
 const context = createContext({});
 export const useAuthContext = () => useContext(context) as AuthType;
 
-const functions = getFunctions();
 const salvarNotificacao = httpsCallable(functions, "salvarNotificacao");
 
 function AuthContext({ children }: { children: ReactNode }) {
@@ -89,10 +90,7 @@ function AuthContext({ children }: { children: ReactNode }) {
             if (!user) return;
 
             const currentUser = getAuth().currentUser;
-            const credencial = EmailAuthProvider.credential(
-                user.email!,
-                senhaAntiga,
-            );
+            const credencial = EmailAuthProvider.credential(user.email!, senhaAntiga);
             try {
                 await reauthenticateWithCredential(currentUser!, credencial);
 
@@ -129,15 +127,28 @@ function AuthContext({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
-        const unscrible = onAuthStateChanged(auth, async (currentUser) => {
+        let unscribeSnapShot: () => void | undefined;
+
+        const unscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
                 const usuarioDoc = doc(db, "usuarios", currentUser.uid || "");
 
-                const unsubscribeOnSnapshot = onSnapshot(
+                // const token = await getIdTokenResult(currentUser);
+                // console.log(currentUser);
+
+                // console.log(token);
+                // console.log(token.claims);
+
+                unscribeSnapShot = onSnapshot(
                     usuarioDoc,
                     (usuarioSnap) => {
                         if (usuarioSnap.exists()) {
-                            const usuario = usuarioSnap.data();
+                            const usuario = usuarioSnap.data() as UsuarioInterface;
+                            const horaLocalStorage = Number(localStorage.getItem("ultima_atualizacao")) || 0;
+                            if (usuario.atualizacao !== horaLocalStorage) {
+                                getIdToken(currentUser, true);
+                                localStorage.setItem("ultima_atualizacao", usuario.atualizacao.toString());
+                            }
 
                             const appUser: AppUser = {
                                 uid: currentUser.uid,
@@ -152,14 +163,11 @@ function AuthContext({ children }: { children: ReactNode }) {
                             };
 
                             isSuperAdmin.current =
-                                appUser.role === ROLES.PASTOR_PRESIDENTE ||
-                                appUser.role === ROLES.SUPER_ADMIN;
+                                appUser.role === ROLES.PASTOR_PRESIDENTE || appUser.role === ROLES.SUPER_ADMIN;
                             isAdmin.current =
-                                appUser.role === ROLES.PASTOR ||
-                                appUser.role === ROLES.SECRETARIO_CONGREGACAO;
+                                appUser.role === ROLES.PASTOR || appUser.role === ROLES.SECRETARIO_CONGREGACAO;
                             isSecretario.current =
-                                appUser.role === ROLES.PROFESSOR ||
-                                appUser.role === ROLES.SECRETARIO_CLASSE;
+                                appUser.role === ROLES.PROFESSOR || appUser.role === ROLES.SECRETARIO_CLASSE;
 
                             setUser(appUser);
                         } else {
@@ -167,25 +175,22 @@ function AuthContext({ children }: { children: ReactNode }) {
                         }
                     },
                     (error) => {
-                        console.error(
-                            "Erro no listener do perfil do usuário:",
-                            error,
-                        );
+                        console.error("Erro no listener do perfil do usuário:", error);
                         signOut(auth);
                     },
                 );
-                return () => unsubscribeOnSnapshot();
             } else {
-                const { igrejaHash, alunoHash } = JSON.parse(
-                    localStorage.getItem("login-portal-aluno") ?? "{}",
-                );
+                const { igrejaHash, alunoHash } = JSON.parse(localStorage.getItem("login-portal-aluno") ?? "{}");
                 if (igrejaHash && alunoHash) {
                     navigate(`portal-aluno/${igrejaHash}/${alunoHash}`);
                 }
             }
         });
 
-        return () => unscrible();
+        return () => {
+            unscribe();
+            if (unscribeSnapShot) unscribeSnapShot();
+        };
     }, []);
     return (
         <context.Provider

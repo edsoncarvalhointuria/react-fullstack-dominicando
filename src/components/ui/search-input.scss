@@ -20,7 +20,8 @@
         border-radius: 0.8rem;
         border: 1px solid #d1d5db;
         font-size: 1.6rem;
-        background-color: v.$cor-primaria-fundo;
+        background-color: v.$cor-secundaria-fundo;
+        font-family: inherit;
 
         &:focus {
             outline: none;

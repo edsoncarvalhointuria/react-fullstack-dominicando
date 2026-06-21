@@ -23,7 +23,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import type { MatriculasInterface } from "../../../interfaces/MatriculasInterface";
 import { AnimatePresence, motion } from "framer-motion";
-import React, { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import SearchInput from "../../ui/SearchInput";
 
 interface Props {
@@ -33,49 +33,45 @@ interface Props {
     podeMatricular: boolean;
 }
 
-const VarinhaMaginaModal = ({
-    semCadastro,
-    alterarItens,
-    alterarPresenca,
-    onClick,
-}: any) => {
-    const OPCOES_STATUS = [
-        { nome: "Tds. Presente", opcao: "Presente", icon: faCheck },
-        { nome: "Todos Atrasados", opcao: "Atrasado", icon: faClock },
-        { nome: "Todos c. Falta", opcao: "Falta", icon: faXmark },
-        {
-            nome: "Tds Falta Justificada",
-            opcao: "Falta Justificada",
-            icon: faMountainSun,
-        },
-    ];
-    const OPCOES_ITENS = [
-        {
-            nome: "Todos C. Revista",
-            item: "licao",
-            acao: "adicionar",
-            icon: faBookOpen,
-        },
-        {
-            nome: "Todos S. Revista",
-            item: "licao",
-            acao: "remover",
-            icon: faBookmark,
-        },
-        {
-            nome: "Todos Com Bíblia",
-            item: "biblia",
-            acao: "adicionar",
-            icon: faBookOpen,
-        },
-        {
-            nome: "Todos Sem Bíblia",
-            item: "biblia",
-            acao: "remover",
-            icon: faBookOpen,
-        },
-    ];
+const STATUS_CHAMADA = ["Presente", "Atrasado", "Falta", "Falta Justificada"];
+const OPCOES_STATUS = [
+    { nome: "Tds. Presente", opcao: "Presente", icon: faCheck },
+    { nome: "Todos Atrasados", opcao: "Atrasado", icon: faClock },
+    { nome: "Todos c. Falta", opcao: "Falta", icon: faXmark },
+    {
+        nome: "Tds Falta Justificada",
+        opcao: "Falta Justificada",
+        icon: faMountainSun,
+    },
+];
+const OPCOES_ITENS = [
+    {
+        nome: "Todos C. Revista",
+        item: "licao",
+        acao: "adicionar",
+        icon: faBookOpen,
+    },
+    {
+        nome: "Todos S. Revista",
+        item: "licao",
+        acao: "remover",
+        icon: faBookmark,
+    },
+    {
+        nome: "Todos Com Bíblia",
+        item: "biblia",
+        acao: "adicionar",
+        icon: faBookOpen,
+    },
+    {
+        nome: "Todos Sem Bíblia",
+        item: "biblia",
+        acao: "remover",
+        icon: faBookOpen,
+    },
+];
 
+const VarinhaMaginaModal = ({ semCadastro, alterarItens, alterarPresenca, onClick }: any) => {
     return (
         <motion.div
             key={"chamada-page-lista-actions"}
@@ -133,13 +129,8 @@ const BotoesChamada = ({
 }: {
     podeMatricular: boolean;
     onCadastradarAluno: () => void;
-    alterarPresenca: (
-        label: "Presente" | "Falta" | "Atrasado" | "Falta Justificada",
-    ) => void;
-    alterarItens: (
-        item: "biblia" | "licao",
-        acao: "remover" | "adicionar",
-    ) => void;
+    alterarPresenca: (label: "Presente" | "Falta" | "Atrasado" | "Falta Justificada") => void;
+    alterarItens: (item: "biblia" | "licao", acao: "remover" | "adicionar") => void;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -152,10 +143,7 @@ const BotoesChamada = ({
                     type="button"
                     onClick={() => setIsOpen((v) => !v)}
                 >
-                    <FontAwesomeIcon
-                        className="chamada-page__filtro__varinha"
-                        icon={faWandMagicSparkles}
-                    />
+                    <FontAwesomeIcon className="chamada-page__filtro__varinha" icon={faWandMagicSparkles} />
                 </button>
                 <AnimatePresence>
                     {isOpen && (
@@ -169,15 +157,8 @@ const BotoesChamada = ({
                 </AnimatePresence>
             </div>
             {podeMatricular && (
-                <button
-                    className="chamada-page__filtro__button-new"
-                    type="button"
-                    onClick={() => onCadastradarAluno()}
-                >
-                    <FontAwesomeIcon
-                        className="chamada-page__filtro__add-new"
-                        icon={faPlus}
-                    />
+                <button className="chamada-page__filtro__button-new" type="button" onClick={() => onCadastradarAluno()}>
+                    <FontAwesomeIcon className="chamada-page__filtro__add-new" icon={faPlus} />
 
                     <span>matricular aluno</span>
                 </button>
@@ -185,7 +166,8 @@ const BotoesChamada = ({
         </div>
     );
 };
-const AlunoChamada = React.memo(
+
+const AlunoChamada = memo(
     ({
         aluno,
         onEditAluno,
@@ -203,7 +185,6 @@ const AlunoChamada = React.memo(
         getValues: UseFormGetValues<any>;
         setValue: UseFormSetValue<any>;
     }) => {
-        const STATUS = ["Presente", "Atrasado", "Falta", "Falta Justificada"];
         const input = useController({
             control,
             name: `chamada.${aluno.alunoId}`,
@@ -212,24 +193,14 @@ const AlunoChamada = React.memo(
 
         const updateLicao = (id: string, remove: boolean) => {
             const licoes = getValues("licoesTrazidas");
-            setValue(
-                "licoesTrazidas",
-                remove ? licoes.filter((v: any) => v !== id) : [...licoes, id],
-            );
-            if (remove)
-                setValue("totalLicoes", (getValues("totalLicoes") || 1) - 1);
+            setValue("licoesTrazidas", remove ? licoes.filter((v: any) => v !== id) : [...licoes, id]);
+            if (remove) setValue("totalLicoes", (getValues("totalLicoes") || 1) - 1);
             else setValue("totalLicoes", (getValues("totalLicoes") || 0) + 1);
         };
         const updateBiblia = (id: string, remove: boolean) => {
             const biblias = getValues("bibliasTrazidas");
-            setValue(
-                "bibliasTrazidas",
-                remove
-                    ? biblias.filter((v: any) => v !== id)
-                    : [...biblias, id],
-            );
-            if (remove)
-                setValue("totalBiblias", (getValues("totalBiblias") || 1) - 1);
+            setValue("bibliasTrazidas", remove ? biblias.filter((v: any) => v !== id) : [...biblias, id]);
+            if (remove) setValue("totalBiblias", (getValues("totalBiblias") || 1) - 1);
             else setValue("totalBiblias", (getValues("totalBiblias") || 0) + 1);
         };
 
@@ -237,11 +208,7 @@ const AlunoChamada = React.memo(
             <li className="lista-chamada__aluno">
                 <div className="lista-chamada__aluno--header">
                     <div className="lista-chamada__infos">
-                        <button
-                            type="button"
-                            title="Editar Aluno"
-                            onClick={() => onEditAluno(aluno.alunoId)}
-                        >
+                        <button type="button" title="Editar Aluno" onClick={() => onEditAluno(aluno.alunoId)}>
                             <FontAwesomeIcon icon={faUserPen} />
                         </button>
                         <h3>{aluno.alunoNome}</h3>
@@ -250,17 +217,11 @@ const AlunoChamada = React.memo(
                         <p>Tem Revista?</p>
                         {aluno.possui_revista ? (
                             <span>
-                                <FontAwesomeIcon
-                                    className="com-revista"
-                                    icon={faSquareCheck}
-                                />
+                                <FontAwesomeIcon className="com-revista" icon={faSquareCheck} />
                             </span>
                         ) : (
                             <span>
-                                <FontAwesomeIcon
-                                    className="sem-revista"
-                                    icon={faSquareXmark}
-                                />
+                                <FontAwesomeIcon className="sem-revista" icon={faSquareXmark} />
                             </span>
                         )}
                     </div>
@@ -269,77 +230,39 @@ const AlunoChamada = React.memo(
                 <div className="lista-chamada__aluno--body">
                     <div className="lista-chamada__radios">
                         <p>Status:</p>
-                        {STATUS.map((status, i) => (
+                        {STATUS_CHAMADA.map((status, i) => (
                             <div key={status + i}>
                                 <input
                                     type="radio"
-                                    className={status
-                                        .toLowerCase()
-                                        .replace(/\s/g, "-")}
+                                    className={status.toLowerCase().replace(/\s/g, "-")}
                                     id={`${aluno.alunoId}-${status}`}
                                     {...input.field}
                                     checked={input.field.value === status}
                                     onChange={() => {
                                         input.field.onChange(status);
-                                        const licoesTrazidas =
-                                            getValues("licoesTrazidas");
-                                        const bibliasTrazidas =
-                                            getValues("bibliasTrazidas");
-                                        const isAusencia =
-                                            status === "Falta Justificada" ||
-                                            status === "Falta";
+                                        const licoesTrazidas = getValues("licoesTrazidas");
+                                        const bibliasTrazidas = getValues("bibliasTrazidas");
+                                        const isAusencia = status === "Falta Justificada" || status === "Falta";
 
                                         if (isAusencia) {
-                                            if (
-                                                licoesTrazidas.includes(
-                                                    aluno.alunoId,
-                                                )
-                                            )
-                                                updateLicao(
-                                                    aluno.alunoId,
-                                                    true,
-                                                );
-                                            if (
-                                                bibliasTrazidas.includes(
-                                                    aluno.alunoId,
-                                                )
-                                            )
-                                                updateBiblia(
-                                                    aluno.alunoId,
-                                                    true,
-                                                );
+                                            if (licoesTrazidas.includes(aluno.alunoId))
+                                                updateLicao(aluno.alunoId, true);
+                                            if (bibliasTrazidas.includes(aluno.alunoId))
+                                                updateBiblia(aluno.alunoId, true);
                                         } else {
-                                            if (
-                                                !bibliasTrazidas.includes(
-                                                    aluno.alunoId,
-                                                )
-                                            )
-                                                updateBiblia(
-                                                    aluno.alunoId,
-                                                    false,
-                                                );
-                                            if (
-                                                !licoesTrazidas.includes(
-                                                    aluno.alunoId,
-                                                ) &&
-                                                aluno.possui_revista
-                                            )
-                                                updateLicao(
-                                                    aluno.alunoId,
-                                                    false,
-                                                );
+                                            if (!bibliasTrazidas.includes(aluno.alunoId))
+                                                updateBiblia(aluno.alunoId, false);
+                                            if (!licoesTrazidas.includes(aluno.alunoId) && aluno.possui_revista)
+                                                updateLicao(aluno.alunoId, false);
                                         }
                                     }}
                                 />
-                                <label htmlFor={`${aluno.alunoId}-${status}`}>
-                                    {status}
-                                </label>
+                                <label htmlFor={`${aluno.alunoId}-${status}`}>{status}</label>
                             </div>
                         ))}
                     </div>
 
-                    {input.field.value === "Falta" ||
-                    input.field.value === "Falta Justificada" ? (
+                    {input.field.value === "Falta" || input.field.value === "Falta Justificada" ? (
                         <></>
                     ) : (
                         <div className="lista-chamada__checks">
@@ -350,11 +273,7 @@ const AlunoChamada = React.memo(
                                     value={aluno.alunoId}
                                     checked={isLicaoChecked}
                                     onChange={() => {
-                                        if (
-                                            getValues(
-                                                "licoesTrazidas",
-                                            )?.includes(aluno.alunoId)
-                                        ) {
+                                        if (getValues("licoesTrazidas")?.includes(aluno.alunoId)) {
                                             updateLicao(aluno.alunoId, true);
                                         } else {
                                             updateLicao(aluno.alunoId, false);
@@ -365,18 +284,14 @@ const AlunoChamada = React.memo(
                                     {isLicaoChecked ? (
                                         <>
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faCircleCheck}
-                                                />
+                                                <FontAwesomeIcon icon={faCircleCheck} />
                                             </span>
                                             Trouxe Lição
                                         </>
                                     ) : (
                                         <>
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faXmark}
-                                                />
+                                                <FontAwesomeIcon icon={faXmark} />
                                             </span>
                                             Não Trouxe Lição
                                         </>
@@ -391,11 +306,7 @@ const AlunoChamada = React.memo(
                                     value={aluno.alunoId}
                                     checked={isBibliaChecked}
                                     onChange={() => {
-                                        if (
-                                            getValues(
-                                                "bibliasTrazidas",
-                                            ).includes(aluno.alunoId)
-                                        ) {
+                                        if (getValues("bibliasTrazidas").includes(aluno.alunoId)) {
                                             updateBiblia(aluno.alunoId, true);
                                         } else {
                                             updateBiblia(aluno.alunoId, false);
@@ -406,18 +317,14 @@ const AlunoChamada = React.memo(
                                     {isBibliaChecked ? (
                                         <>
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faCircleCheck}
-                                                />
+                                                <FontAwesomeIcon icon={faCircleCheck} />
                                             </span>
                                             Trouxe Bíblia
                                         </>
                                     ) : (
                                         <>
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faXmark}
-                                                />
+                                                <FontAwesomeIcon icon={faXmark} />
                                             </span>
                                             Não Trouxe Bíblia
                                         </>
@@ -432,21 +339,12 @@ const AlunoChamada = React.memo(
     },
 );
 
-function ListaChamada({
-    matriculas,
-    onCadastradarAluno,
-    podeMatricular,
-    onEditAluno,
-}: Props) {
+function ListaChamada({ matriculas, onCadastradarAluno, podeMatricular, onEditAluno }: Props) {
     const [pesquisa, setPesquisa] = useState("");
 
     const matriculasMemo = useMemo(() => {
         return matriculas
-            .filter(
-                (v) =>
-                    v.alunoNome.toLowerCase().includes(pesquisa) ||
-                    v.alunoId.toLowerCase() === pesquisa,
-            )
+            .filter((v) => v.alunoNome.toLowerCase().includes(pesquisa) || v.alunoId.toLowerCase() === pesquisa)
             .sort((a, b) => a.alunoNome.localeCompare(b.alunoNome));
     }, [matriculas, pesquisa]);
 
@@ -454,13 +352,8 @@ function ListaChamada({
     const licoes = useWatch({ control, name: "licoesTrazidas" });
     const biblias = useWatch({ control, name: "bibliasTrazidas" });
 
-    const alterarPresenca = (
-        label: "Presente" | "Falta" | "Atrasado" | "Falta Justificada",
-    ) => {
-        const presentes = matriculas.reduce(
-            (prev, acc) => ({ [acc.alunoId]: label, ...prev }),
-            {},
-        );
+    const alterarPresenca = (label: "Presente" | "Falta" | "Atrasado" | "Falta Justificada") => {
+        const presentes = matriculas.reduce((prev, acc) => ({ [acc.alunoId]: label, ...prev }), {});
         setValue("chamada", presentes as any);
 
         if (label === "Falta" || label === "Falta Justificada") {
@@ -469,9 +362,7 @@ function ListaChamada({
             setValue("totalBiblias", 0);
             setValue("totalLicoes", 0);
         } else {
-            const idsRevista = matriculas
-                .filter((v) => v.possui_revista)
-                .map((v) => v.alunoId);
+            const idsRevista = matriculas.filter((v) => v.possui_revista).map((v) => v.alunoId);
             const idsBiblias = Object.keys(presentes);
 
             setValue("bibliasTrazidas", idsBiblias);
@@ -480,10 +371,7 @@ function ListaChamada({
             setValue("totalLicoes", idsRevista.length);
         }
     };
-    const alterarItens = (
-        item: "biblia" | "licao",
-        acao: "remover" | "adicionar",
-    ) => {
+    const alterarItens = (item: "biblia" | "licao", acao: "remover" | "adicionar") => {
         const chamada = getValues("chamada");
         const opcao = item === "biblia" ? "bibliasTrazidas" : "licoesTrazidas";
         const opcaoTotal = item === "biblia" ? "totalBiblias" : "totalLicoes";
@@ -494,11 +382,7 @@ function ListaChamada({
             const ids = matriculas
                 .filter((v) => (item === "licao" ? v.possui_revista : true))
                 .map((v) => v.alunoId)
-                .filter(
-                    (v) =>
-                        chamada[v] !== "Falta" &&
-                        chamada[v] !== "Falta Justificada",
-                );
+                .filter((v) => chamada[v] !== "Falta" && chamada[v] !== "Falta Justificada");
             setValue(opcao, ids);
             setValue(opcaoTotal, ids.length);
         }
@@ -507,7 +391,7 @@ function ListaChamada({
     return (
         <>
             <div className="chamada-page__filtro">
-                <SearchInput onSearch={(texto) => setPesquisa(texto)} />
+                <SearchInput onSearch={setPesquisa} />
 
                 <BotoesChamada
                     onCadastradarAluno={onCadastradarAluno}
@@ -535,4 +419,4 @@ function ListaChamada({
     );
 }
 
-export default React.memo(ListaChamada);
+export default memo(ListaChamada);

@@ -4,21 +4,9 @@ import { useDataContext } from "../../../context/DataContext";
 import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
 import { useNavigate, useParams } from "react-router-dom";
 import Loading from "../../layout/loading/Loading";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    limit,
-    orderBy,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
-import type {
-    AlunoInterface,
-    CacheAlunoInteface,
-} from "../../../interfaces/AlunoInterface";
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
+import type { AlunoInterface, CacheAlunoInteface } from "../../../interfaces/AlunoInterface";
 import type { CacheMatriculasInterface } from "../../../interfaces/MatriculasInterface";
 import SearchInput from "../../ui/SearchInput";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
@@ -33,14 +21,13 @@ import {
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion } from "framer-motion";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import CadastroAlunoModal from "../../ui/CadastroAlunoModal";
 import { PedidosRespostaShareModal } from "../pedidos/PedidosResposta";
 import "./gestao-portal.scss";
 import LoadingModal from "../../layout/loading/LoadingModal";
 import PortalAluno from "./PortalAluno";
 
-const functions = getFunctions();
 const getLinkPortalAluno = httpsCallable(functions, "getLinkPortalAluno");
 
 const Aluno = React.memo(
@@ -59,57 +46,32 @@ const Aluno = React.memo(
 
         return (
             <div className="gestao-portal__aluno">
-                <motion.div
-                    className="gestao-portal__aluno-header"
-                    onTap={() => setIsOpen((v) => !v)}
-                >
+                <motion.div className="gestao-portal__aluno-header" onTap={() => setIsOpen((v) => !v)}>
                     <h3>{aluno.nome_completo}</h3>
 
-                    <motion.p
-                        initial={{ rotate: 0 }}
-                        animate={isOpen ? { rotate: 180 } : { rotate: 0 }}
-                    >
+                    <motion.p initial={{ rotate: 0 }} animate={isOpen ? { rotate: 180 } : { rotate: 0 }}>
                         <FontAwesomeIcon icon={faAngleDown} />
                     </motion.p>
                 </motion.div>
 
                 <AnimatePresence>
                     {isOpen && (
-                        <motion.div
-                            initial={{ height: 0 }}
-                            animate={{ height: "auto" }}
-                            exit={{ height: 0 }}
-                        >
+                        <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}>
                             <div className="gestao-portal__aluno-body">
                                 <div className="gestao-portal__aluno-data">
                                     <div className="gestao-portal__aluno-data__desc">
                                         <h4>Data Nascimento:</h4>
-                                        <p>
-                                            {aluno.data_nascimento
-                                                .toDate()
-                                                .toLocaleDateString("pt-BR")}
-                                        </p>
-                                        <button
-                                            onClick={() =>
-                                                onEditAluno(aluno.id)
-                                            }
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faPenToSquare}
-                                            />
+                                        <p>{aluno.data_nascimento.toDate().toLocaleDateString("pt-BR")}</p>
+                                        <button onClick={() => onEditAluno(aluno.id)}>
+                                            <FontAwesomeIcon icon={faPenToSquare} />
                                         </button>
                                     </div>
 
                                     <div className="gestao-portal__aluno-data__info">
                                         <span>
-                                            <FontAwesomeIcon
-                                                icon={faCircleQuestion}
-                                            />
+                                            <FontAwesomeIcon icon={faCircleQuestion} />
                                         </span>
-                                        <p>
-                                            Essa data será usada no acesso. Se
-                                            estiver errada, ajuste.
-                                        </p>
+                                        <p>Essa data será usada no acesso. Se estiver errada, ajuste.</p>
                                     </div>
                                 </div>
 
@@ -146,25 +108,21 @@ const Aluno = React.memo(
     },
 );
 
-const AlunoPortal = React.memo(
-    ({ alunoId, onClose }: { alunoId: string; onClose: () => void }) => {
-        return (
-            <div className="gestao-portal__acesso">
-                <div className="gestao-portal__acesso--close">
-                    <button type="button" onClick={onClose}>
-                        <FontAwesomeIcon icon={faXmark} />
-                    </button>
-                </div>
-                <PortalAluno alunoId={alunoId} />
+const AlunoPortal = React.memo(({ alunoId, onClose }: { alunoId: string; onClose: () => void }) => {
+    return (
+        <div className="gestao-portal__acesso">
+            <div className="gestao-portal__acesso--close">
+                <button type="button" onClick={onClose}>
+                    <FontAwesomeIcon icon={faXmark} />
+                </button>
             </div>
-        );
-    },
-);
+            <PortalAluno alunoId={alunoId} />
+        </div>
+    );
+});
 
 const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
-    const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(
-        null,
-    );
+    const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(null);
     const [matriculados, setMatriculados] = useState<AlunoInterface[]>([]);
     const [alunos, setAlunos] = useState<AlunoInterface[]>([]);
     const [alunoId, setAlunoId] = useState("");
@@ -206,16 +164,12 @@ const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
     const alunosMemo = useMemo(() => {
         if (!pesquisa) return alunos;
 
-        return alunos.filter((v) =>
-            v.nome_completo.toLocaleLowerCase().includes(pesquisa),
-        );
+        return alunos.filter((v) => v.nome_completo.toLocaleLowerCase().includes(pesquisa));
     }, [alunos, pesquisa]);
     const matriculasMemo = useMemo(() => {
         if (!pesquisa) return matriculados;
 
-        return matriculados.filter((v) =>
-            v.nome_completo.toLocaleLowerCase().includes(pesquisa),
-        );
+        return matriculados.filter((v) => v.nome_completo.toLocaleLowerCase().includes(pesquisa));
     }, [matriculados, pesquisa]);
 
     useEffect(() => {
@@ -227,48 +181,42 @@ const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
 
             if (!alunosDocs.exists()) return [];
 
-            const alunos = Object.values(
-                (alunosDocs.data() as CacheAlunoInteface).lista,
-            );
+            const alunos = Object.values((alunosDocs.data() as CacheAlunoInteface).lista);
 
-            return alunos.sort((a, b) =>
-                a.nome_completo.localeCompare(b.nome_completo),
-            );
+            return alunos.sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
         };
         const getMatriculas = async () => {
-            if (!user?.classeId) return [];
+            try {
+                if (!user?.classeId) return [];
 
-            const licoesCollection = collection(db, "licoes");
-            const q = query(
-                licoesCollection,
-                where("ministerioId", "==", user!.ministerioId),
-                where("igrejaId", "==", igrejaId),
-                where("classeId", "==", user!.classeId),
-                orderBy("data_inicio", "desc"),
-                limit(1),
-            );
-            const licoesSnap = await getDocs(q);
+                const licoesCollection = collection(db, "licoes");
+                const q = query(
+                    licoesCollection,
+                    where("ministerioId", "==", user!.ministerioId),
+                    where("igrejaId", "==", igrejaId),
+                    where("classeId", "==", user!.classeId),
+                    orderBy("data_inicio", "desc"),
+                    limit(1),
+                );
+                const licoesSnap = await getDocs(q);
 
-            if (licoesSnap.empty) return [];
+                if (licoesSnap.empty) return [];
 
-            const licao = licoesSnap.docs[0].data() as LicaoInterface;
-            setCurrentLicao(licao);
-            const licaoId = licoesSnap.docs[0].id;
+                const licao = licoesSnap.docs[0].data() as LicaoInterface;
+                setCurrentLicao(licao);
+                const licaoId = licoesSnap.docs[0].id;
 
-            const matriculasDoc = doc(
-                db,
-                "cache_matriculas",
-                `${igrejaId}_${licaoId}`,
-            );
-            const matriculasSnap = await getDoc(matriculasDoc);
+                const matriculasDoc = doc(db, "cache_matriculas", `${igrejaId}_${licaoId}`);
+                const matriculasSnap = await getDoc(matriculasDoc);
 
-            if (!matriculasSnap.exists()) return [];
+                if (!matriculasSnap.exists()) return [];
 
-            const matriculas = (
-                matriculasSnap.data() as CacheMatriculasInterface
-            ).lista;
+                const matriculas = (matriculasSnap.data() as CacheMatriculasInterface).lista;
 
-            return Object.values(matriculas);
+                return Object.values(matriculas);
+            } catch {
+                return [];
+            }
         };
 
         Promise.all([getAlunos(), getMatriculas()])
@@ -286,20 +234,10 @@ const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
         <>
             {isLoading && (
                 <div className="gestao-portal__loading">
-                    <LoadingModal
-                        isEnviando={isLoading}
-                        mensagem="Carregando"
-                    />
+                    <LoadingModal isEnviando={isLoading} mensagem="Carregando" />
                 </div>
             )}
-            <div
-                className="gestao-portal"
-                style={
-                    alunoId
-                        ? { overflow: "hidden", maxHeight: "50dvh" }
-                        : undefined
-                }
-            >
+            <div className="gestao-portal" style={alunoId ? { overflow: "hidden", maxHeight: "50dvh" } : undefined}>
                 <div className="gestao-portal__header">
                     <h2>
                         <span>
@@ -308,10 +246,7 @@ const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
                         Gestão Portal Aluno
                     </h2>
 
-                    <SearchInput
-                        onSearch={(v) => setPesquisa(v)}
-                        texto="Aluno"
-                    />
+                    <SearchInput onSearch={setPesquisa} texto="Aluno" />
                 </div>
                 <div className="gestao-portal__body">
                     {matriculasMemo.length && currentLicao ? (
@@ -319,11 +254,8 @@ const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
                             <div className="gestao-portal__lista-alunos--matriculados">
                                 <h2>Alunos Matriculados</h2>
                                 <p>
-                                    {currentLicao.numero_trimestre}º Trimestre
-                                    de{" "}
-                                    {currentLicao.data_inicio
-                                        .toDate()
-                                        .getFullYear()}
+                                    {currentLicao.numero_trimestre}º Trimestre de{" "}
+                                    {currentLicao.data_inicio.toDate().getFullYear()}
                                     <span>{currentLicao.titulo}</span>
                                 </p>
                             </div>
@@ -362,9 +294,7 @@ const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
                         </div>
                     ) : (
                         <div className="gestao-portal__vazio">
-                            <h3>
-                                Não existem alunos cadastrados nessa igreja.
-                            </h3>
+                            <h3>Não existem alunos cadastrados nessa igreja.</h3>
                         </div>
                     )}
                 </div>
@@ -394,13 +324,7 @@ const ListaAlunos = ({ igrejaId }: { igrejaId: string }) => {
                     <></>
                 )}
             </AnimatePresence>
-            {alunoId && (
-                <AlunoPortal
-                    key={"aluno-portal-modal"}
-                    alunoId={alunoId}
-                    onClose={fecharPrevia}
-                />
-            )}
+            {alunoId && <AlunoPortal key={"aluno-portal-modal"} alunoId={alunoId} onClose={fecharPrevia} />}
         </>
     );
 };
@@ -421,6 +345,7 @@ function GestaoPortal() {
                     onSelect={(id) => navigate(`igreja/${id}`)}
                     opcoes={igrejas}
                     titulo="Igreja"
+                    sort={false}
                 />
             ) : (
                 <ListaAlunos igrejaId={igrejaId} />

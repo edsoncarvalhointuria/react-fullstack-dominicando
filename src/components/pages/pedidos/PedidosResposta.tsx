@@ -1,10 +1,4 @@
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
     PedidosEstrutura,
     PedidosInterface,
@@ -13,23 +7,10 @@ import type {
     TextType,
 } from "../../../interfaces/PedidosInterface";
 import { useAuthContext } from "../../../context/AuthContext";
-import {
-    Navigate,
-    useNavigate,
-    useParams,
-    useSearchParams,
-} from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { FormProvider, useForm, useWatch, type Control } from "react-hook-form";
-import {
-    collection,
-    doc,
-    documentId,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { collection, doc, documentId, getDoc, getDocs, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
 import Loading from "../../layout/loading/Loading";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -61,14 +42,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import RevistaView from "./RevistaView";
 import TextView from "./TextView";
-import {
-    animate,
-    AnimatePresence,
-    motion,
-    useMotionValue,
-    useTransform,
-} from "framer-motion";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { animate, AnimatePresence, motion, useMotionValue, useTransform } from "framer-motion";
+import { httpsCallable } from "firebase/functions";
 import "./pedidos-respostas.scss";
 import "./pedidos-formulario.scss";
 import { useDataContext } from "../../../context/DataContext";
@@ -78,9 +53,8 @@ import AlertModal from "../../ui/AlertModal";
 import LoadingModal from "../../layout/loading/LoadingModal";
 import type { CacheLicaoInterface } from "../../../interfaces/CacheLicaoInterface";
 import type { CacheUsuarioInteface } from "../../../interfaces/UsuarioInterface";
-import { ROLES } from "../../../roles/Roles";
+import { CoachMark } from "../portal_aluno/PortalAluno";
 
-const functions = getFunctions();
 const salvarRespostaPedido = httpsCallable(functions, "salvarRespostaPedido");
 
 interface SugestaoInterface {
@@ -167,9 +141,7 @@ const PedidosRespostaValoresDetalhes = React.memo(
                     </span>
                     <p>{titulo}</p>
                 </div>
-                <div
-                    className={`${classe}--valor ${!isDiferenca ? "" : diferenca ? "menor" : "maior"}`}
-                >
+                <div className={`${classe}--valor ${!isDiferenca ? "" : diferenca ? "menor" : "maior"}`}>
                     <p>
                         {valor.toLocaleString("pt-BR", {
                             currency: "BRL",
@@ -214,9 +186,7 @@ const PedidosRespostaValores = React.memo(
                 v.campos.forEach((v) => {
                     const revista = v as RevistaType;
 
-                    total +=
-                        revista.preco_unitario *
-                        (pedidos?.respostas?.[v.idKey] || 0);
+                    total += revista.preco_unitario * (pedidos?.respostas?.[v.idKey] || 0);
                 });
             });
 
@@ -228,12 +198,11 @@ const PedidosRespostaValores = React.memo(
                 className="pedidos-resposta__valores"
                 initial={{ position: "fixed", zIndex: 200, bottom: 0 }}
                 animate={
-                    isOpen
-                        ? { top: 0, height: "100%", bottom: "auto" }
-                        : { bottom: 0, height: "5rem", top: "auto" }
+                    isOpen ? { top: 0, height: "100%", bottom: "auto" } : { bottom: 0, height: "5rem", top: "auto" }
                 }
             >
                 <motion.div
+                    id="pedidos-valores"
                     className={`pedidos-resposta__valores__total ${totalMemo < totalArrecadado ? "menor" : "maior"}`}
                     onTap={() => setIsOpen((v) => !v)}
                 >
@@ -262,46 +231,28 @@ const PedidosRespostaValores = React.memo(
                 </motion.div>
 
                 {isOpen && (
-                    <div
-                        key={"detalhes-infos"}
-                        className="pedidos-resposta__valores__detalhes"
-                    >
+                    <div key={"detalhes-infos"} className="pedidos-resposta__valores__detalhes">
                         <h3>Total Pedido</h3>
                         <div className="pedidos-resposta__valores__detalhes-secoes">
                             {estruturaMemo?.map((v, i) => {
                                 return (
-                                    <div
-                                        key={i}
-                                        className="pedidos-resposta__valores__detalhes-secao"
-                                    >
+                                    <div key={i} className="pedidos-resposta__valores__detalhes-secao">
                                         <h4>{v?.titulo}</h4>
 
                                         <div className="pedidos-resposta__valores__detalhes-infos">
                                             {v.campos.map((c) => {
-                                                const revista =
-                                                    c as RevistaType;
+                                                const revista = c as RevistaType;
 
-                                                const qtd =
-                                                    pedidos?.respostas?.[
-                                                        revista.idKey
-                                                    ] || 0;
+                                                const qtd = pedidos?.respostas?.[revista.idKey] || 0;
 
                                                 return (
                                                     <PedidosRespostaValoresItem
-                                                        precoUnitario={
-                                                            revista.preco_unitario
-                                                        }
+                                                        precoUnitario={revista.preco_unitario}
                                                         qtd={qtd}
                                                         rotuloNome={
-                                                            rotulos.find(
-                                                                (r) =>
-                                                                    r.id ===
-                                                                    revista.rotuloId,
-                                                            )?.name || ""
+                                                            rotulos.find((r) => r.id === revista.rotuloId)?.name || ""
                                                         }
-                                                        tipoRevista={
-                                                            revista.tipoRevista
-                                                        }
+                                                        tipoRevista={revista.tipoRevista}
                                                         key={c.idKey}
                                                     />
                                                 );
@@ -381,9 +332,7 @@ const PedidosRespostaIgreja = React.memo(
                         <div className="pedidos-resumo__secao-input__igreja-preco">
                             <p>
                                 {(
-                                    (igreja.estrutura?.[item.idKey]
-                                        .resposta as number) *
-                                    item.preco_unitario
+                                    (igreja.estrutura?.[item.idKey].resposta as number) * item.preco_unitario
                                 ).toLocaleString("pt-BR", {
                                     currency: "BRL",
                                     style: "currency",
@@ -426,23 +375,14 @@ const PedidosRespostaInput = React.memo(
         const Title = ({ titulo }: { titulo: string }) => {
             return (
                 <div className="pedidos-resumo__secao-input__title">
-                    <motion.span
-                        animate={{ rotate: isOpen ? 0 : -90 }}
-                        initial={{ rotate: 0 }}
-                    >
+                    <motion.span animate={{ rotate: isOpen ? 0 : -90 }} initial={{ rotate: 0 }}>
                         <FontAwesomeIcon icon={faAngleDown} />
                     </motion.span>
                     <h4>{titulo}</h4>
                 </div>
             );
         };
-        const InpValor = ({
-            icon,
-            titulo,
-        }: {
-            icon: any;
-            titulo: string | number;
-        }) => {
+        const InpValor = ({ icon, titulo }: { icon: any; titulo: string | number }) => {
             return (
                 <div className="pedidos-resumo__secao-input__valor">
                     <span>
@@ -455,18 +395,13 @@ const PedidosRespostaInput = React.memo(
 
         const igrejaInputMemo = useMemo(() => {
             if (!currentIgreja) return respostasMap?.get(item.idKey) || [];
-            const i = respostasMap
-                ?.get(item.idKey)
-                ?.find((v) => v.igrejaId === currentIgreja.id);
+            const i = respostasMap?.get(item.idKey)?.find((v) => v.igrejaId === currentIgreja.id);
             return i ? [i] : [];
         }, [currentIgreja, respostasMap]);
 
         return (
             <div className="pedidos-resumo__secao-input">
-                <motion.div
-                    className="pedidos-resumo__secao-input__infos"
-                    onTap={() => setIsOpen((v) => !v)}
-                >
+                <motion.div className="pedidos-resumo__secao-input__infos" onTap={() => setIsOpen((v) => !v)}>
                     {isEnviadoPor ? (
                         <Title titulo={`Nomes`} />
                     ) : item.tipo === "revista" ? (
@@ -482,10 +417,7 @@ const PedidosRespostaInput = React.memo(
                                         style: "currency",
                                     })}
                                 />
-                                <InpValor
-                                    icon={faBookBookmark}
-                                    titulo={totalRevistas}
-                                />
+                                <InpValor icon={faBookBookmark} titulo={totalRevistas} />
 
                                 <InpValor
                                     icon={faMoneyBills}
@@ -516,10 +448,7 @@ const PedidosRespostaInput = React.memo(
                                         key={i.igrejaId || index}
                                         igreja={i}
                                         item={item}
-                                        nomeIgreja={
-                                            igrejasMemo.get(i.igrejaId)?.nome ||
-                                            ""
-                                        }
+                                        nomeIgreja={igrejasMemo.get(i.igrejaId)?.nome || ""}
                                         isEnviadoPor={isEnviadoPor}
                                     />
                                 ))}
@@ -588,13 +517,7 @@ const PedidosRespostaCard = React.memo(
                 )}
 
                 <div className="pedidos-resumo__card--infos">
-                    <p>
-                        {isProgresso ? (
-                            descricao
-                        ) : (
-                            <motion.span>{desc}</motion.span>
-                        )}
-                    </p>
+                    <p>{isProgresso ? descricao : <motion.span>{desc}</motion.span>}</p>
                 </div>
             </div>
         );
@@ -635,11 +558,7 @@ const PedidosRespostaShareModal = ({
                 className="compartilhar-modal__body"
                 onClick={() => {
                     setCopy(true);
-                    navigator.clipboard.writeText(
-                        link
-                            ? link
-                            : `${window.location.origin}/pedidos/criar/${modeloId}`,
-                    );
+                    navigator.clipboard.writeText(link ? link : `${window.location.origin}/pedidos/criar/${modeloId}`);
                 }}
             >
                 {link ? (
@@ -677,52 +596,46 @@ const OPCOES_BTN = [
     },
     { nome: "Média Presença", icon: faPercent, key: "mediaPresenca" },
 ];
-const BotaoRespostaSugestao = React.memo(
-    ({ onSelect }: { onSelect: (opcao: string) => void }) => {
-        const [isOpen, setIsOpen] = useState(false);
-        return (
-            <div className="pedidos-sugestao-button">
-                <button
-                    type="button"
-                    title="Sugestão"
-                    onClick={() => setIsOpen((v) => !v)}
-                >
-                    <i>
-                        <FontAwesomeIcon icon={faClipboard} />
-                    </i>
-                    <span>Sugerir Dados</span>
-                </button>
-                <AnimatePresence>
-                    {isOpen && (
-                        <motion.div
-                            key={"btn-sugestao"}
-                            className="pedidos-sugestao-button__opcoes"
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                        >
-                            {OPCOES_BTN.map((v) => (
-                                <div
-                                    className="pedidos-sugestao-button__opcao"
-                                    key={v.nome}
-                                    onClick={() => {
-                                        onSelect(v.key);
-                                        setIsOpen(false);
-                                    }}
-                                >
-                                    <i>
-                                        <FontAwesomeIcon icon={v.icon} />
-                                    </i>
-                                    <p>{v.nome}</p>
-                                </div>
-                            ))}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-        );
-    },
-);
+const BotaoRespostaSugestao = React.memo(({ onSelect }: { onSelect: (opcao: string) => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div className="pedidos-sugestao-button">
+            <button type="button" id="sugerir-dados" title="Sugestão" onClick={() => setIsOpen((v) => !v)}>
+                <i>
+                    <FontAwesomeIcon icon={faClipboard} />
+                </i>
+                <span>Sugerir Dados</span>
+            </button>
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        key={"btn-sugestao"}
+                        className="pedidos-sugestao-button__opcoes"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                    >
+                        {OPCOES_BTN.map((v) => (
+                            <div
+                                className="pedidos-sugestao-button__opcao"
+                                key={v.nome}
+                                onClick={() => {
+                                    onSelect(v.key);
+                                    setIsOpen(false);
+                                }}
+                            >
+                                <i>
+                                    <FontAwesomeIcon icon={v.icon} />
+                                </i>
+                                <p>{v.nome}</p>
+                            </div>
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+});
 
 const exportarCSV = (
     pedido: PedidosInterface & PedidosEstrutura,
@@ -753,11 +666,7 @@ const exportarCSV = (
                     const c = colunas[key];
                     switch (c) {
                         case "preco_envio":
-                            l.push(
-                                resp.estrutura[
-                                    campo.idKey
-                                ]?.preco_unitario?.toLocaleString("pt-BR"),
-                            );
+                            l.push(resp.estrutura[campo.idKey]?.preco_unitario?.toLocaleString("pt-BR"));
                             continue;
                         case "enviado":
                             l.push(resp.envido_por.nome);
@@ -769,23 +678,13 @@ const exportarCSV = (
                             l.push(resp.estrutura[campo.idKey][c]);
                             continue;
                         case "rotuloId":
-                            l.push(
-                                rotulos.find((v) => v.id === campo.rotuloId)
-                                    ?.name,
-                            );
+                            l.push(rotulos.find((v) => v.id === campo.rotuloId)?.name);
                             continue;
                         case "igreja":
-                            l.push(
-                                igrejas.find((v) => v.id === resp.igrejaId)
-                                    ?.nome,
-                            );
+                            l.push(igrejas.find((v) => v.id === resp.igrejaId)?.nome);
                             continue;
                         case "data":
-                            l.push(
-                                resp.data_resposta
-                                    .toDate()
-                                    .toLocaleDateString("pt-BR"),
-                            );
+                            l.push(resp.data_resposta.toDate().toLocaleDateString("pt-BR"));
                             continue;
                         case "preco_unitario":
                             l.push(campo[c]?.toLocaleString("pt-BR"));
@@ -826,17 +725,11 @@ const PedidosRespostasResumo = ({
     pedido: PedidosInterface & PedidosEstrutura;
     rotulos: RotulosClassesInterface[];
 }) => {
-    const [respostas, setRespostas] =
-        useState<Map<string | number, PedidosRespostas[]>>();
-    const [totais, setTotais] =
-        useState<
-            Map<string | number, { total: number; totalRevistas: number }>
-        >();
+    const [respostas, setRespostas] = useState<Map<string | number, PedidosRespostas[]>>();
+    const [totais, setTotais] = useState<Map<string | number, { total: number; totalRevistas: number }>>();
     const [igrejasEnviadas, setIgrejasEnviadas] = useState<string[]>([]);
     const [pesquisa, setPesquisa] = useState("");
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
     const [isEnviados, setIsEnviados] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const { igrejas } = useDataContext();
@@ -851,9 +744,7 @@ const PedidosRespostasResumo = ({
         return pedido.estrutura.filter(
             (v) =>
                 (v.titulo || "").toLowerCase().includes(pesquisa) ||
-                v.campos.find((v) =>
-                    (v.titulo || "").toLowerCase().includes(pesquisa),
-                ),
+                v.campos.find((v) => (v.titulo || "").toLowerCase().includes(pesquisa)),
         );
     }, [pedido, pesquisa]);
 
@@ -878,9 +769,7 @@ const PedidosRespostasResumo = ({
                 pedido.estrutura.forEach((v) => {
                     v.campos.forEach((v) => {
                         if (v.tipo === "revista") {
-                            const ttl =
-                                (data.estrutura[v.idKey]?.resposta as number) ||
-                                0;
+                            const ttl = (data.estrutura[v.idKey]?.resposta as number) || 0;
                             const p = ttl * v.preco_unitario;
                             const obj = totalMap.get(v.idKey) || {
                                 total: 0,
@@ -925,9 +814,7 @@ const PedidosRespostasResumo = ({
                         </div>
 
                         <div className="pedidos-resumo__tipo-pendentes">
-                            <label htmlFor="nao-enviados-radio">
-                                Pendentes
-                            </label>
+                            <label htmlFor="nao-enviados-radio">Pendentes</label>
                             <input
                                 type="radio"
                                 name="enviados"
@@ -937,9 +824,7 @@ const PedidosRespostasResumo = ({
                         </div>
                     </div>
                     <motion.button
-                        onTap={() =>
-                            exportarCSV(pedido, respostas!, rotulos, igrejas)
-                        }
+                        onTap={() => exportarCSV(pedido, respostas!, rotulos, igrejas)}
                         className="pedidos-resumo__csv"
                     >
                         <FontAwesomeIcon icon={faFileCsv} />
@@ -951,9 +836,7 @@ const PedidosRespostasResumo = ({
                 <PedidosRespostaCard
                     descricao={`${igrejasEnviadas.length} de ${igrejas.length} igrejas
                             responderam o formulário`}
-                    porcento={
-                        ((igrejasEnviadas.length || 0) / igrejas.length) * 100
-                    }
+                    porcento={((igrejasEnviadas.length || 0) / igrejas.length) * 100}
                     titulo="Progresso Relatório"
                     type="enviados"
                     isProgresso
@@ -970,10 +853,7 @@ const PedidosRespostasResumo = ({
                     icon={faBookBookmark}
                 />
                 <PedidosRespostaCard
-                    descricao={Array.from(totais?.values() || []).reduce(
-                        (prev, current) => current.total + prev,
-                        0,
-                    )}
+                    descricao={Array.from(totais?.values() || []).reduce((prev, current) => current.total + prev, 0)}
                     titulo="Valor Previsto"
                     type="total"
                     isProgresso={false}
@@ -986,10 +866,7 @@ const PedidosRespostasResumo = ({
                 <div className="pedidos-resumo__body">
                     <div className="pedidos-resumo__filtros">
                         <div className="pedidos-resumo__filtros-pesquisa">
-                            <SearchInput
-                                onSearch={(v) => setPesquisa(v)}
-                                texto="Seção"
-                            />
+                            <SearchInput onSearch={setPesquisa} texto="Seção" />
                         </div>
                         <div className="pedidos-resumo__filtros-dropdown">
                             <Dropdown
@@ -1036,18 +913,9 @@ const PedidosRespostasResumo = ({
                                             item={v}
                                             respostasMap={respostas!}
                                             rotulos={rotulos}
-                                            total={
-                                                totais?.get(v.idKey)?.total || 0
-                                            }
-                                            totalRevistas={
-                                                totais?.get(v.idKey)
-                                                    ?.totalRevistas || 0
-                                            }
-                                            preco={
-                                                v.tipo === "revista"
-                                                    ? v.preco_unitario
-                                                    : 0
-                                            }
+                                            total={totais?.get(v.idKey)?.total || 0}
+                                            totalRevistas={totais?.get(v.idKey)?.totalRevistas || 0}
+                                            preco={v.tipo === "revista" ? v.preco_unitario : 0}
                                             currentIgreja={currentIgreja}
                                         />
                                     ))}
@@ -1061,10 +929,7 @@ const PedidosRespostasResumo = ({
                     {igrejas
                         .filter((v) => !igrejasEnviadas.includes(v.id))
                         .map((v) => (
-                            <div
-                                key={v.id}
-                                className="pedidos-resumo__igreja-nao-enviada"
-                            >
+                            <div key={v.id} className="pedidos-resumo__igreja-nao-enviada">
                                 <p>{v.nome}</p>
                                 <p>Pendente</p>
                             </div>
@@ -1091,10 +956,7 @@ const PedidosRespostaReferencia = ({
                 if (a.rotulo?.nome === "OUTRO") return 1;
                 if (b.rotulo?.nome === "OUTRO") return -1;
 
-                return (
-                    (a.rotulo?.idade_minima || 0) -
-                    (b.rotulo?.idade_minima || 0)
-                );
+                return (a.rotulo?.idade_minima || 0) - (b.rotulo?.idade_minima || 0);
             });
     }, [referencia]);
     return (
@@ -1121,10 +983,7 @@ const PedidosRespostaReferencia = ({
 
                 {refernciaMemo.length > 0 ? (
                     refernciaMemo.map((v) => (
-                        <div
-                            className="pedidos-referencia__classe"
-                            key={v.classeId}
-                        >
+                        <div className="pedidos-referencia__classe" key={v.classeId}>
                             <div className="pedidos-referencia__classe-header">
                                 <h4>{v.classeNome}</h4>
                                 <div className="pedidos-referencia__classe-container">
@@ -1137,9 +996,7 @@ const PedidosRespostaReferencia = ({
                                     <div className="pedidos-referencia__classe-profs">
                                         <h5>
                                             <i>
-                                                <FontAwesomeIcon
-                                                    icon={faChalkboardUser}
-                                                />
+                                                <FontAwesomeIcon icon={faChalkboardUser} />
                                             </i>
                                             <span>Total Professores</span>
                                         </h5>
@@ -1148,9 +1005,7 @@ const PedidosRespostaReferencia = ({
                                     <div className="pedidos-referencia__classe-matriculados">
                                         <h5>
                                             <i>
-                                                <FontAwesomeIcon
-                                                    icon={faUsers}
-                                                />
+                                                <FontAwesomeIcon icon={faUsers} />
                                             </i>
                                             <span>Total Matriculados</span>
                                         </h5>
@@ -1159,9 +1014,7 @@ const PedidosRespostaReferencia = ({
                                     <div className="pedidos-referencia__classe-media">
                                         <h5>
                                             <i>
-                                                <FontAwesomeIcon
-                                                    icon={faPercent}
-                                                />
+                                                <FontAwesomeIcon icon={faPercent} />
                                             </i>
                                             <span>Média Presença</span>
                                         </h5>
@@ -1170,13 +1023,9 @@ const PedidosRespostaReferencia = ({
                                     <div className="pedidos-referencia__classe-pico">
                                         <h5>
                                             <i>
-                                                <FontAwesomeIcon
-                                                    icon={faRankingStar}
-                                                />
+                                                <FontAwesomeIcon icon={faRankingStar} />
                                             </i>
-                                            <span>
-                                                Domingo com maior presença
-                                            </span>
+                                            <span>Domingo com maior presença</span>
                                         </h5>
                                         <p>{v.picoPresenca}</p>
                                     </div>
@@ -1189,13 +1038,10 @@ const PedidosRespostaReferencia = ({
                                         <span>Ofertas Total</span>
                                     </h5>
                                     <p>
-                                        {v.totalArrecadado.toLocaleString(
-                                            "pt-BR",
-                                            {
-                                                currency: "BRL",
-                                                style: "currency",
-                                            },
-                                        )}
+                                        {v.totalArrecadado.toLocaleString("pt-BR", {
+                                            currency: "BRL",
+                                            style: "currency",
+                                        })}
                                     </p>
                                 </div>
                             </div>
@@ -1239,19 +1085,12 @@ const RevistaRender = ({
     let sugestaoTotal = 0;
     if (opcaoSugestao && rotulo?.name !== "OUTRO") {
         const tipoRevista = value.tipoRevista.toLocaleLowerCase();
-        if (tipoRevista.includes("professor"))
-            sugestaoTotal = sugestaoObj?.totalProfessores || PADRAO_REVISTAS;
-        if (tipoRevista.includes("aluno"))
-            sugestaoTotal =
-                (sugestaoObj as any)?.[opcaoSugestao] || PADRAO_REVISTAS;
+        if (tipoRevista.includes("professor")) sugestaoTotal = sugestaoObj?.totalProfessores || PADRAO_REVISTAS;
+        if (tipoRevista.includes("aluno")) sugestaoTotal = (sugestaoObj as any)?.[opcaoSugestao] || PADRAO_REVISTAS;
     }
     return (
         <RevistaView
-            preco={
-                resposta && !isActive
-                    ? resposta?.preco_unitario || 0
-                    : value.preco_unitario
-            }
+            preco={resposta && !isActive ? resposta?.preco_unitario || 0 : value.preco_unitario}
             rotulo={rotulo}
             tipoRevista={value.tipoRevista}
             key={value.idKey}
@@ -1266,15 +1105,13 @@ const RevistaRender = ({
         />
     );
 };
-
+const jaViuCoach = () => localStorage.setItem("show-coach-pedidos-resposta", "false");
 function PedidosResposta() {
     const [isLoading, setIsLoading] = useState(true);
     const [isActive, setIsActive] = useState(true);
     const [share, setShare] = useState(false);
     const [rotulos, setRotulos] = useState<RotulosClassesInterface[]>([]);
-    const [pedido, setPedido] = useState<
-        (PedidosInterface & PedidosEstrutura) | null
-    >(null);
+    const [pedido, setPedido] = useState<(PedidosInterface & PedidosEstrutura) | null>(null);
     const [resposta, setResposta] = useState<PedidosRespostas | null>(null);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
@@ -1329,20 +1166,15 @@ function PedidosResposta() {
     useEffect(() => {
         const getRotulos = async () => {
             const rotulosCll = collection(db, "rotulos_classes");
-            const q = query(
-                rotulosCll,
-                where("ministerioId", "==", user?.ministerioId),
-            );
+            const q = query(rotulosCll, where("ministerioId", "==", user?.ministerioId));
             const rotulosDocs = await getDocs(q);
 
             if (rotulosDocs.empty) return;
 
             const r = rotulosDocs.docs.map((v) => {
                 const data = v.data() as RotulosClassesInterface;
-                const idadeMinima =
-                    data.idade_minima !== null ? `${data.idade_minima}` : "";
-                const idadeMaxima =
-                    data.idade_maxima !== null ? `${data.idade_maxima}` : "";
+                const idadeMinima = data.idade_minima !== null ? `${data.idade_minima}` : "";
+                const idadeMaxima = data.idade_maxima !== null ? `${data.idade_maxima}` : "";
                 return {
                     ...data,
                     id: v.id,
@@ -1364,33 +1196,22 @@ function PedidosResposta() {
             const pedidoRespostaCll = collection(db, "pedidos_respostas");
             const q2 = query(
                 pedidoRespostaCll,
+                where("ministerioId", "==", user?.ministerioId),
                 where("igrejaId", "==", user?.igrejaId),
                 where("modeloId", "==", modeloId),
             );
 
-            const [pedidoDocs, pedidoRespostaDocs] = await Promise.all([
-                getDocs(q1),
-                getDocs(q2),
-            ]);
+            const [pedidoDocs, pedidoRespostaDocs] = await Promise.all([getDocs(q1), getDocs(q2)]);
 
             if (pedidoDocs.empty) return navigate("/pedidos");
-            if (!pedidoRespostaDocs.empty)
-                setResposta(
-                    pedidoRespostaDocs.docs[0].data() as PedidosRespostas,
-                );
+            if (!pedidoRespostaDocs.empty) setResposta(pedidoRespostaDocs.docs[0].data() as PedidosRespostas);
 
             const p = {
                 id: pedidoDocs.docs[0].id,
                 ...(pedidoDocs.docs[0].data() as PedidosInterface),
             };
             if (p.tipo === "modelo") return navigate("/pedidos");
-            const estruturaCll = doc(
-                db,
-                "pedidos",
-                modeloId!,
-                "estrutura",
-                "dados",
-            );
+            const estruturaCll = doc(db, "pedidos", modeloId!, "estrutura", "dados");
             const estruturaDoc = await getDoc(estruturaCll);
             if (!estruturaDoc.exists()) return navigate("/pedidos");
 
@@ -1407,6 +1228,7 @@ function PedidosResposta() {
             const cacheLicoesCll = collection(db, "cache_licao");
             const q = query(
                 cacheLicoesCll,
+                where("ministerioId", "==", user?.ministerioId),
                 where("igrejaId", "==", user?.igrejaId!),
                 where("data_inicio", "<=", new Date()),
                 where("data_fim", ">=", new Date()),
@@ -1414,10 +1236,7 @@ function PedidosResposta() {
 
             const usuariosD = doc(db, "cache_usuarios", user?.igrejaId!);
 
-            const [cacheLicoesDocs, usuariosDocs] = await Promise.all([
-                getDocs(q),
-                getDoc(usuariosD),
-            ]);
+            const [cacheLicoesDocs, usuariosDocs] = await Promise.all([getDocs(q), getDoc(usuariosD)]);
             const classesMap = new Map(classes.map((v) => [v.id, v]));
             const classesReferenciaMap = new Map<string, ClassesReferencia>();
             const sugestaoMap = new Map();
@@ -1435,10 +1254,8 @@ function PedidosResposta() {
                 const picoPresenca = pico_presenca;
                 const listaPresenca = Object.values(data.detalhes_aulas);
                 const mediaPresenca = Math.ceil(
-                    listaPresenca.reduce(
-                        (prev, current) => current.total_presenca + prev,
-                        0,
-                    ) / listaPresenca.length || 1,
+                    listaPresenca.reduce((prev, current) => current.total_presenca + prev, 0) / listaPresenca.length ||
+                        1,
                 );
 
                 classesReferenciaMap.set(classeId, {
@@ -1472,10 +1289,7 @@ function PedidosResposta() {
             const usuariosData = usuariosDocs.data() as CacheUsuarioInteface;
             Object.values(usuariosData.lista).forEach((v) => {
                 const id = v.classeId;
-                if (
-                    classesReferenciaMap.has(id) &&
-                    v.role === ROLES.PROFESSOR
-                ) {
+                if (classesReferenciaMap.has(id)) {
                     const ref = classesReferenciaMap.get(id);
                     const sug = sugestaoMap.get(ref?.rotuloId);
                     sugestaoMap.set(ref?.rotuloId, {
@@ -1513,10 +1327,7 @@ function PedidosResposta() {
             <div className="pedidos-resposta">
                 <div className="pedidos-resposta__header">
                     <div className="pedidos-resposta__header-infos">
-                        <button
-                            title="voltar"
-                            onClick={() => navigate("/pedidos?redirect=false")}
-                        >
+                        <button title="voltar" onClick={() => navigate("/pedidos?redirect=false")}>
                             <FontAwesomeIcon icon={faAngleLeft} />
                         </button>
 
@@ -1541,12 +1352,7 @@ function PedidosResposta() {
                                 <FontAwesomeIcon icon={faShareNodes} />
                             </button>
                             {isSuperAdmin.current && (
-                                <button
-                                    title="Editar"
-                                    onClick={() =>
-                                        navigate(`/pedidos/criar/${modeloId}`)
-                                    }
-                                >
+                                <button title="Editar" onClick={() => navigate(`/pedidos/criar/${modeloId}`)}>
                                     <FontAwesomeIcon icon={faPenToSquare} />
                                 </button>
                             )}
@@ -1555,31 +1361,22 @@ function PedidosResposta() {
 
                     <div className="pedidos-resposta__header-abas">
                         <div
+                            id="aba-referencia"
                             className={`pedidos-resposta__header-aba ${type === "referencia" ? "active" : ""}`}
-                            onClick={() =>
-                                navigate(
-                                    `/pedidos/formulario/${modeloId}/referencia`,
-                                )
-                            }
+                            onClick={() => navigate(`/pedidos/formulario/${modeloId}/referencia`)}
                         >
                             <p>Referência</p>
                         </div>
                         <div
                             className={`pedidos-resposta__header-aba ${type !== "resposta" && type !== "referencia" ? "active" : ""}`}
-                            onClick={() =>
-                                navigate(`/pedidos/formulario/${modeloId}`)
-                            }
+                            onClick={() => navigate(`/pedidos/formulario/${modeloId}`)}
                         >
                             <p>Resumo</p>
                         </div>
                         {isSuperAdmin.current && (
                             <div
                                 className={`pedidos-resposta__header-aba ${type === "resposta" ? "active" : ""}`}
-                                onClick={() =>
-                                    navigate(
-                                        `/pedidos/formulario/${modeloId}/resposta`,
-                                    )
-                                }
+                                onClick={() => navigate(`/pedidos/formulario/${modeloId}/resposta`)}
                             >
                                 <p>Respostas</p>
                             </div>
@@ -1588,22 +1385,32 @@ function PedidosResposta() {
                 </div>
 
                 {type === "resposta" && isSuperAdmin.current ? (
-                    <PedidosRespostasResumo
-                        modeloId={modeloId || ""}
-                        pedido={pedido!}
-                        rotulos={rotulos}
-                    />
+                    <PedidosRespostasResumo modeloId={modeloId || ""} pedido={pedido!} rotulos={rotulos} />
                 ) : type === "referencia" ? (
-                    <PedidosRespostaReferencia
-                        referencia={referencia}
-                        rotulos={rotulos}
-                    />
+                    <PedidosRespostaReferencia referencia={referencia} rotulos={rotulos} />
                 ) : (
                     <FormProvider {...methods}>
-                        <form
-                            className="pedidos-resposta__form"
-                            onSubmit={handleSubmit(onSubmit)}
-                        >
+                        <form className="pedidos-resposta__form" onSubmit={handleSubmit(onSubmit)}>
+                            <CoachMark
+                                isOpen={!localStorage.getItem("show-coach-pedidos-resposta")}
+                                refs={[
+                                    {
+                                        id: "sugerir-dados",
+                                        mensagem: "Você pode preencher alguns valores automaticamente clicando aqui.",
+                                    },
+                                    {
+                                        id: "aba-referencia",
+                                        mensagem:
+                                            "Você pode clicar aqui para ver detalhes das classes: Total Professores, Total Matriculados, etc",
+                                    },
+                                    {
+                                        id: "pedidos-valores",
+                                        mensagem: "Clique aqui para ver o resumo e finalizar a solicitação.",
+                                    },
+                                ]}
+                                onClose={jaViuCoach}
+                            />
+
                             {resposta ? (
                                 <div className="pedidos-resposta__form-ja-enviado">
                                     <span>
@@ -1611,18 +1418,12 @@ function PedidosResposta() {
                                     </span>
                                     <p>
                                         Formulário enviado dia{" "}
-                                        <span>
-                                            {resposta.data_resposta
-                                                .toDate()
-                                                .toLocaleDateString("pt-BR")}
-                                        </span>
+                                        <span>{resposta.data_resposta.toDate().toLocaleDateString("pt-BR")}</span>
                                     </p>
                                 </div>
                             ) : (
                                 <div className="pedidos-resposta__form-sugestao">
-                                    <BotaoRespostaSugestao
-                                        onSelect={addSugestao}
-                                    />
+                                    <BotaoRespostaSugestao onSelect={addSugestao} />
                                 </div>
                             )}
 
@@ -1633,55 +1434,34 @@ function PedidosResposta() {
                                     <div className="pedidos-resposta__form-data">
                                         <p>
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faCalendar}
-                                                />
+                                                <FontAwesomeIcon icon={faCalendar} />
                                             </span>
                                             <span>Abertura</span>
                                         </p>
-                                        <data
-                                            value={pedido?.data_inicio
-                                                .toDate()
-                                                .toLocaleDateString("pt-BR")}
-                                        >
-                                            {pedido?.data_inicio
-                                                .toDate()
-                                                .toLocaleDateString("pt-BR")}
+                                        <data value={pedido?.data_inicio.toDate().toLocaleDateString("pt-BR")}>
+                                            {pedido?.data_inicio.toDate().toLocaleDateString("pt-BR")}
                                         </data>
                                     </div>
 
                                     <div className="pedidos-resposta__form-data">
                                         <p>
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faCalendar}
-                                                />
+                                                <FontAwesomeIcon icon={faCalendar} />
                                             </span>
                                             <span>Encerramento</span>
                                         </p>
-                                        <data
-                                            value={pedido?.data_fim
-                                                ?.toDate()
-                                                .toLocaleDateString("pt-BR")}
-                                        >
-                                            {pedido?.data_fim
-                                                ?.toDate()
-                                                .toLocaleDateString("pt-BR")}
+                                        <data value={pedido?.data_fim?.toDate().toLocaleDateString("pt-BR")}>
+                                            {pedido?.data_fim?.toDate().toLocaleDateString("pt-BR")}
                                         </data>
                                     </div>
                                 </div>
 
-                                {pedido?.descricao && (
-                                    <p>{pedido?.descricao}</p>
-                                )}
+                                {pedido?.descricao && <p>{pedido?.descricao}</p>}
                             </div>
 
                             <div className="pedidos-resposta__form-secoes">
                                 {pedido?.estrutura.map((v, i) => (
-                                    <div
-                                        key={v.idKey || i}
-                                        className="pedidos-resposta__form__secao"
-                                    >
+                                    <div key={v.idKey || i} className="pedidos-resposta__form__secao">
                                         {v.titulo && (
                                             <div className="pedidos-resposta__form__secao-titulo">
                                                 <h3>{v.titulo}</h3>
@@ -1691,9 +1471,7 @@ function PedidosResposta() {
                                         <div className="pedidos-resposta__form__secao-inputs">
                                             {v.campos.map((v) => {
                                                 const resp = resposta
-                                                    ? (resposta.estrutura[
-                                                          v.idKey
-                                                      ] as any)
+                                                    ? (resposta.estrutura[v.idKey] as any)
                                                     : undefined;
                                                 if (v.tipo === "revista") {
                                                     return (
@@ -1702,9 +1480,7 @@ function PedidosResposta() {
                                                             setFocus={setFocus}
                                                             setValue={setValue}
                                                             isActive={isActive}
-                                                            opcaoSugestao={
-                                                                opcaoSugestao
-                                                            }
+                                                            opcaoSugestao={opcaoSugestao}
                                                             rotulos={rotulos}
                                                             value={v}
                                                             key={v.idKey}
@@ -1720,12 +1496,9 @@ function PedidosResposta() {
                                                             form={{
                                                                 control,
                                                                 setFocus,
-                                                                required:
-                                                                    v.obrigatorio,
+                                                                required: v.obrigatorio,
                                                                 path: `respostas.${v.idKey}`,
-                                                                defaultValue:
-                                                                    resp?.resposta ||
-                                                                    "",
+                                                                defaultValue: resp?.resposta || "",
                                                             }}
                                                         />
                                                     );
@@ -1747,12 +1520,7 @@ function PedidosResposta() {
                 )}
             </div>
             <AnimatePresence>
-                {share && (
-                    <PedidosRespostaShareModal
-                        modeloId={modeloId || ""}
-                        onClose={() => setShare(false)}
-                    />
-                )}
+                {share && <PedidosRespostaShareModal modeloId={modeloId || ""} onClose={() => setShare(false)} />}
             </AnimatePresence>
             <AlertModal isOpen={!!mensagem} {...mensagem!} />
         </>

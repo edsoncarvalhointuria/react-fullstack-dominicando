@@ -72,6 +72,9 @@
         strong {
             font-weight: 700;
         }
+        i {
+            color: v.$cor-primaria-texto;
+        }
     }
 
     &__actions {
@@ -101,10 +104,7 @@
         background-color: v.$cor-primaria-itens;
         color: white;
         &:hover {
-            background-color: color.scale(
-                v.$cor-primaria-itens,
-                $lightness: -10%
-            );
+            background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
         }
     }
     .button-secondary {

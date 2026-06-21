@@ -86,6 +86,7 @@ function MinhaConta() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 1 }}
             >
                 <div className="minha-conta__card">
                     <h2 className="minha-conta__card-title">
@@ -120,8 +121,7 @@ function MinhaConta() {
                         {user.classeNome && (
                             <div className="info-item">
                                 <h3>
-                                    <FontAwesomeIcon icon={faChalkboardUser} />{" "}
-                                    Classe
+                                    <FontAwesomeIcon icon={faChalkboardUser} /> Classe
                                 </h3>
                                 <p>{user.classeNome}</p>
                             </div>
@@ -137,10 +137,7 @@ function MinhaConta() {
                     <div className="minha-conta__notificao">
                         <div className="minha-conta__notificao--info">
                             {/* <p>Limpar Cache?</p> */}
-                            <button
-                                className="minha-conta__submit-btn"
-                                onClick={limparCache}
-                            >
+                            <button className="minha-conta__submit-btn" onClick={limparCache}>
                                 Atualizar App
                             </button>
                         </div>
@@ -153,81 +150,51 @@ function MinhaConta() {
                         Alterar Senha
                     </h2>
                     <FormProvider {...methods}>
-                        <form
-                            className="minha-conta__form"
-                            onSubmit={handleSubmit(onSubmitSenha)}
-                        >
+                        <form className="minha-conta__form" onSubmit={handleSubmit(onSubmitSenha)}>
                             <div className="form-group">
                                 <label htmlFor="senhaAtual">Senha Atual</label>
                                 <input
                                     type="password"
                                     id="senhaAtual"
-                                    className={
-                                        errors.senhaAtual && "input-error"
-                                    }
+                                    className={errors.senhaAtual && "input-error"}
                                     {...register("senhaAtual", {
-                                        required:
-                                            "A senha atual é obrigatória.",
+                                        required: "A senha atual é obrigatória.",
                                     })}
                                 />
-                                {errors.senhaAtual && (
-                                    <p className="form-error">
-                                        {errors.senhaAtual.message}
-                                    </p>
-                                )}
+                                {errors.senhaAtual && <p className="form-error">{errors.senhaAtual.message}</p>}
                             </div>
                             <div className="form-group">
                                 <label htmlFor="novaSenha">Nova Senha</label>
                                 <input
                                     type="password"
                                     id="novaSenha"
-                                    className={
-                                        errors.novaSenha && "input-error"
-                                    }
+                                    className={errors.novaSenha && "input-error"}
                                     {...register("novaSenha", {
                                         required: "A nova senha é obrigatória.",
                                         minLength: {
                                             value: 6,
-                                            message:
-                                                "A senha deve ter no mínimo 6 caracteres.",
+                                            message: "A senha deve ter no mínimo 6 caracteres.",
                                         },
                                     })}
                                 />
-                                {errors.novaSenha && (
-                                    <p className="form-error">
-                                        {errors.novaSenha.message}
-                                    </p>
-                                )}
+                                {errors.novaSenha && <p className="form-error">{errors.novaSenha.message}</p>}
                             </div>
                             <div className="form-group">
-                                <label htmlFor="confirmarNovaSenha">
-                                    Confirmar Nova Senha
-                                </label>
+                                <label htmlFor="confirmarNovaSenha">Confirmar Nova Senha</label>
                                 <input
                                     type="password"
                                     id="confirmarNovaSenha"
-                                    className={
-                                        errors.confirmarNovaSenha &&
-                                        "input-error"
-                                    }
+                                    className={errors.confirmarNovaSenha && "input-error"}
                                     {...register("confirmarNovaSenha", {
-                                        required:
-                                            "A confirmação é obrigatória.",
-                                        validate: (value) =>
-                                            value === novaSenha ||
-                                            "As senhas não correspondem.",
+                                        required: "A confirmação é obrigatória.",
+                                        validate: (value) => value === novaSenha || "As senhas não correspondem.",
                                     })}
                                 />
                                 {errors.confirmarNovaSenha && (
-                                    <p className="form-error">
-                                        {errors.confirmarNovaSenha.message}
-                                    </p>
+                                    <p className="form-error">{errors.confirmarNovaSenha.message}</p>
                                 )}
                             </div>
-                            <button
-                                type="submit"
-                                className="minha-conta__submit-btn"
-                            >
+                            <button type="submit" className="minha-conta__submit-btn">
                                 Salvar Nova Senha
                             </button>
                         </form>

@@ -254,6 +254,10 @@ body:has(.mobile-notificacao__overlay) {
                 padding: 0 1rem;
             }
         }
+
+        &-sugestao {
+            align-self: end;
+        }
     }
 
     &__valores {
@@ -559,10 +563,7 @@ body:has(.mobile-notificacao__overlay) {
                     gap: 1rem;
 
                     &:hover {
-                        background-color: color.scale(
-                            v.$cor-primaria-itens,
-                            $lightness: -10%
-                        );
+                        background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
                         box-shadow: 0 6px 20px rgba(v.$cor-primaria-itens, 0.4);
                     }
 
@@ -680,10 +681,7 @@ body:has(.mobile-notificacao__overlay) {
         box-shadow: 0 4px 12px rgba(v.$cor-primaria-itens, 0.3);
 
         &:hover {
-            background-color: color.scale(
-                v.$cor-primaria-itens,
-                $lightness: -10%
-            );
+            background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
         }
     }
 
@@ -748,10 +746,7 @@ body:has(.mobile-notificacao__overlay) {
 
         &.total {
             h2 span:first-child {
-                background-color: color.scale(
-                    v.$cor-primaria-itens,
-                    $alpha: -90%
-                );
+                background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
                 color: v.$cor-primaria-itens;
             }
         }
@@ -1065,10 +1060,7 @@ body:has(.mobile-notificacao__overlay) {
                 color: v.$cor-primaria-itens;
                 width: 4rem;
                 height: 4rem;
-                background-color: color.scale(
-                    v.$cor-primaria-itens,
-                    $alpha: -90%
-                );
+                background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
                 border-radius: 1rem;
                 display: grid;
                 place-items: center;
@@ -1152,10 +1144,7 @@ body:has(.mobile-notificacao__overlay) {
                 white-space: nowrap;
 
                 &:first-child {
-                    background-color: color.scale(
-                        v.$cor-primaria-itens,
-                        $alpha: -90%
-                    );
+                    background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
                     color: v.$cor-primaria-itens;
                 }
             }

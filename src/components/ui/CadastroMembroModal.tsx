@@ -5,8 +5,8 @@ import { faAddressCard, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FormProvider, useForm, type FieldError } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
 import { doc, getDoc, Timestamp } from "firebase/firestore";
-import { db } from "../../utils/firebase";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, functions } from "../../utils/firebase";
+import { httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import type { MembroInterface } from "../../interfaces/MembroInterface";
@@ -19,7 +19,6 @@ interface CadastroMembro {
     registro: string;
 }
 
-const functions = getFunctions();
 const salvarMembro = httpsCallable(functions, "salvarMembro");
 
 const variantsForm: Variants = {
@@ -85,16 +84,10 @@ function CadastroMembroModal({
                 const dadosAtualizados: MembroInterface = {
                     ...result,
                     data_nascimento: result.data_nascimento
-                        ? new Timestamp(
-                              result.data_nascimento._seconds,
-                              result.data_nascimento._nanoseconds,
-                          )
+                        ? new Timestamp(result.data_nascimento._seconds, result.data_nascimento._nanoseconds)
                         : null,
                     validade: result.validade
-                        ? new Timestamp(
-                              result.validade._seconds,
-                              result.validade._nanoseconds,
-                          )
+                        ? new Timestamp(result.validade._seconds, result.validade._nanoseconds)
                         : null,
                 };
                 onSave(dadosAtualizados);
@@ -121,16 +114,11 @@ function CadastroMembroModal({
             } as MembroInterface;
 
             reset({
-                data_nascimento: membro.data_nascimento
-                    .toDate()
-                    .toISOString()
-                    .split("T")[0],
+                data_nascimento: membro.data_nascimento.toDate().toISOString().split("T")[0],
                 nome_completo: membro.nome_completo,
                 contato: membro.contato || "",
                 registro: membro.registro || undefined,
-                validade: membro?.validade
-                    ? membro?.validade.toDate().toISOString().split("T")[0]
-                    : undefined,
+                validade: membro?.validade ? membro?.validade.toDate().toISOString().split("T")[0] : undefined,
             });
         };
         if (membroId) {
@@ -170,25 +158,16 @@ function CadastroMembroModal({
                             <FontAwesomeIcon icon={faAddressCard} />
                             <h2>Cadastrar Novo Membro</h2>
                         </div>
-                        <button
-                            className="cadastro-aluno__close"
-                            onClick={onCancel}
-                        >
+                        <button className="cadastro-aluno__close" onClick={onCancel}>
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
 
                     <div className="cadastro-aluno__body">
                         <FormProvider {...methods}>
-                            <form
-                                className="cadastro-aluno__form"
-                                onSubmit={handleSubmit(onSubmit)}
-                            >
+                            <form className="cadastro-aluno__form" onSubmit={handleSubmit(onSubmit)}>
                                 {/* Nome */}
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="cadastro-aluno__form-item"
-                                >
+                                <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                     <div className="cadastro-aluno__input">
                                         <label htmlFor="cadastro-membro-nome">
                                             Nome Completo <span>*</span>
@@ -197,28 +176,18 @@ function CadastroMembroModal({
                                             type="text"
                                             id="cadastro-membro-nome"
                                             {...register("nome_completo", {
-                                                required:
-                                                    "O campo de nome é obrigatório",
+                                                required: "O campo de nome é obrigatório",
                                             })}
-                                            className={
-                                                errors.nome_completo
-                                                    ? "input-error"
-                                                    : ""
-                                            }
+                                            className={errors.nome_completo ? "input-error" : ""}
                                         />
                                     </div>
-                                    <ErroComponent
-                                        error={errors.nome_completo}
-                                    />
+                                    <ErroComponent error={errors.nome_completo} />
                                 </motion.div>
 
                                 {/* Nascimento e Contato */}
                                 <div className="cadastro-aluno__form-group">
                                     {/* Data Nascimento */}
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="cadastro-membro-data-nascimento">
                                                 Data Nascimento <span>*</span>
@@ -226,59 +195,30 @@ function CadastroMembroModal({
                                             <input
                                                 type="date"
                                                 id="cadastro-membro-data-nascimento"
-                                                max={
-                                                    new Date()
-                                                        .toISOString()
-                                                        .split("T")[0]
-                                                }
-                                                {...register(
-                                                    "data_nascimento",
-                                                    {
-                                                        required:
-                                                            "A data é obrigatória",
-                                                    },
-                                                )}
-                                                className={
-                                                    errors.data_nascimento
-                                                        ? "input-error"
-                                                        : ""
-                                                }
+                                                max={new Date().toISOString().split("T")[0]}
+                                                {...register("data_nascimento", {
+                                                    required: "A data é obrigatória",
+                                                })}
+                                                className={errors.data_nascimento ? "input-error" : ""}
                                             />
                                         </div>
-                                        <ErroComponent
-                                            error={errors.data_nascimento}
-                                        />
+                                        <ErroComponent error={errors.data_nascimento} />
                                     </motion.div>
 
                                     {/* Contato */}
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
-                                            <label htmlFor="cadastro-membro-contato">
-                                                Contato
-                                            </label>
+                                            <label htmlFor="cadastro-membro-contato">Contato</label>
                                             <input
                                                 type="text"
                                                 id="cadastro-membro-contato"
-                                                className={
-                                                    errors.contato
-                                                        ? "input-error"
-                                                        : ""
-                                                }
+                                                className={errors.contato ? "input-error" : ""}
                                                 placeholder="(11) 99999-9999"
                                                 {...register("contato", {
                                                     validate: (value) => {
                                                         if (!value) return true;
-                                                        const regex =
-                                                            /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
-                                                        return (
-                                                            regex.test(
-                                                                value.trim(),
-                                                            ) ||
-                                                            "Número invalido"
-                                                        );
+                                                        const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
+                                                        return regex.test(value.trim()) || "Número invalido";
                                                     },
                                                 })}
                                             />
@@ -290,60 +230,35 @@ function CadastroMembroModal({
                                 {/* Validade e Registro */}
                                 <div className="cadastro-aluno__form-group">
                                     {/* Validade */}
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
-                                            <label htmlFor="cadastro-membro-validade">
-                                                Validade
-                                            </label>
+                                            <label htmlFor="cadastro-membro-validade">Validade</label>
                                             <input
                                                 type="date"
                                                 id="cadastro-membro-validade"
                                                 {...register("validade")}
-                                                className={
-                                                    errors.validade
-                                                        ? "input-error"
-                                                        : ""
-                                                }
+                                                className={errors.validade ? "input-error" : ""}
                                             />
                                         </div>
-                                        <ErroComponent
-                                            error={errors.validade}
-                                        />
+                                        <ErroComponent error={errors.validade} />
                                     </motion.div>
 
                                     {/* Registro */}
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-aluno__form-item"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
-                                            <label htmlFor="cadastro-membro-registro">
-                                                Registro
-                                            </label>
+                                            <label htmlFor="cadastro-membro-registro">Registro</label>
                                             <input
                                                 type="text"
                                                 id="cadastro-membro-registro"
-                                                className={
-                                                    errors.registro
-                                                        ? "input-error"
-                                                        : ""
-                                                }
+                                                className={errors.registro ? "input-error" : ""}
                                                 {...register("registro")}
                                             />
                                         </div>
-                                        <ErroComponent
-                                            error={errors.registro}
-                                        />
+                                        <ErroComponent error={errors.registro} />
                                     </motion.div>
                                 </div>
 
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="cadastro-aluno__buttons"
-                                >
+                                <motion.div variants={variantsItem} className="cadastro-aluno__buttons">
                                     <button
                                         type="button"
                                         className="button-secondary"
@@ -353,14 +268,8 @@ function CadastroMembroModal({
                                         Cancelar
                                     </button>
 
-                                    <button
-                                        type="submit"
-                                        className="button-primary"
-                                        disabled={isEnviando}
-                                    >
-                                        {membroId
-                                            ? "Editar Membro"
-                                            : "Salvar Membro"}
+                                    <button type="submit" className="button-primary" disabled={isEnviando}>
+                                        {membroId ? "Editar Membro" : "Salvar Membro"}
                                     </button>
                                 </motion.div>
                             </form>

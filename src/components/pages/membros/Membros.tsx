@@ -6,38 +6,28 @@ import {
     faCalendar,
     faCalendarCheck,
     faFeather,
-    faFileCsv,
     faPhone,
-    faPlus,
     faThumbsUp,
 } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { db, functions } from "../../../utils/firebase";
 import { useNavigate } from "react-router-dom";
 import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
-import type {
-    CacheMembroInterface,
-    MembroInterface,
-} from "../../../interfaces/MembroInterface";
+import { httpsCallable } from "firebase/functions";
+import type { CacheMembroInterface, MembroInterface } from "../../../interfaces/MembroInterface";
 import CadastroMembroModal from "../../ui/CadastroMembroModal";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import { getIdade } from "../../../utils/getIdade";
 import { getOrdem } from "../../../utils/getOrdem";
 import ImportarCSVModal from "../../ui/ImportarCSVModal";
+import ButtonsDefault from "../../ui/ButtonDefault";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -51,7 +41,6 @@ const variantsContainer: Variants = {
     exit: {},
 };
 
-const functions = getFunctions();
 const deletarMembro = httpsCallable(functions, "deletarMembro");
 const salvarMembroCSV = httpsCallable(functions, "salvarMembroCSV");
 const OPTIONS = [
@@ -124,12 +113,8 @@ function Membros() {
     const [editMembro, setEditMembro] = useState("");
     const [addMembro, setAddMembro] = useState(false);
     const [importCSV, setImportCSV] = useState(false);
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
-    const [membros, setMembros] = useState<
-        (MembroInterface & { idade: string })[]
-    >([]);
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
+    const [membros, setMembros] = useState<(MembroInterface & { idade: string })[]>([]);
     const [update, setUpdate] = useState(false);
     const [ordemColuna, setOrdemColuna] = useState<
         keyof (MembroInterface & {
@@ -137,9 +122,7 @@ function Membros() {
             isMatriculado: boolean;
         })
     >("nome_completo");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [mensagem, setMensagem] = useState<{
         titulo: string;
         mensagem: string | ReactNode;
@@ -189,12 +172,10 @@ function Membros() {
             mensagem: (
                 <>
                     <span>
-                        Tem certeza que deseja deletar o membro:{" "}
-                        <strong>{v.nome_completo}</strong>?
+                        Tem certeza que deseja deletar o membro: <strong>{v.nome_completo}</strong>?
                     </span>
                     <span>
-                        Isso irá apagar <strong>TODOS</strong> os dados
-                        associados.
+                        Isso irá apagar <strong>TODOS</strong> os dados associados.
                     </span>
                 </>
             ),
@@ -214,10 +195,7 @@ function Membros() {
         m = m.filter(
             (v) =>
                 v.nome_completo.toLowerCase().includes(pesquisa) ||
-                v.data_nascimento
-                    .toDate()
-                    .toLocaleDateString("pt-BR")
-                    .includes(pesquisa) ||
+                v.data_nascimento.toDate().toLocaleDateString("pt-BR").includes(pesquisa) ||
                 v.idade === pesquisa ||
                 v.contato?.includes(pesquisa) ||
                 v.registro === pesquisa,
@@ -256,8 +234,7 @@ function Membros() {
                 });
     }, [currentIgreja, update]);
     useEffect(() => {
-        if (igrejas.length && !isSuperAdmin.current)
-            setCurrentIgreja(igrejas[0]);
+        if (igrejas.length && !isSuperAdmin.current) setCurrentIgreja(igrejas[0]);
     }, [igrejas]);
     if (!isLoadingData && isSecretario.current) navigate("/dashboard");
     if (isLoadingData || isLoading) return <Loading />;
@@ -272,34 +249,13 @@ function Membros() {
             >
                 <div className="alunos-page__header">
                     <div className="alunos-page__header-infos">
-                        <h2 className="alunos-page__header-title">
-                            Gestão de Membros
-                        </h2>
-                        <div className="alunos-page__cadastrar">
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onTap={() => setAddMembro(true)}
-                                disabled={!currentIgreja}
-                                className="alunos-page__cadastrar--cadastro"
-                            >
-                                <span>
-                                    <FontAwesomeIcon icon={faPlus} />
-                                </span>
-                                Cadastrar novo membro
-                            </motion.button>
-                            {!isSecretario.current && (
-                                <motion.button
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => setImportCSV(true)}
-                                    className="alunos-page__cadastrar--csv"
-                                >
-                                    <span>
-                                        <FontAwesomeIcon icon={faFileCsv} />
-                                    </span>
-                                    Importar CSV
-                                </motion.button>
-                            )}
-                        </div>
+                        <h2 className="alunos-page__header-title">Gestão de Membros</h2>
+
+                        <ButtonsDefault
+                            mensagem="Cadastrar novo membro"
+                            onClickNew={setAddMembro}
+                            onClickCsv={setImportCSV}
+                        />
                     </div>
 
                     <div className="alunos-page__header-filtros">
@@ -315,20 +271,11 @@ function Membros() {
                         </div>
 
                         <div className="alunos-page__header-filtro">
-                            <SearchInput
-                                onSearch={(texto) => setPesquisa(texto)}
-                                texto="Membros"
-                            />
+                            <SearchInput onSearch={setPesquisa} texto="Membros" />
                         </div>
                         <OrderInput
                             isCrescente={ordem === "crescente"}
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
                             options={OPTIONS.filter((v) => v.isFilter)}
                         />
@@ -350,27 +297,9 @@ function Membros() {
                                 onEdit={onEditItem}
                             />
                         ) : (
-                            <motion.div
-                                className="alunos-page__vazio"
-                                variants={variantsItem}
-                            >
-                                <p className="alunos-page__vazio--mensagem">
-                                    Sem resultados
-                                </p>
-                                <motion.div
-                                    className="alunos-page__cadastrar"
-                                    whileTap={{ scale: 0.85 }}
-                                >
-                                    <button
-                                        onClick={() => setAddMembro(true)}
-                                        disabled={!currentIgreja}
-                                    >
-                                        <span>
-                                            <FontAwesomeIcon icon={faPlus} />
-                                        </span>
-                                        Cadastrar novo membro
-                                    </button>
-                                </motion.div>
+                            <motion.div className="alunos-page__vazio" variants={variantsItem}>
+                                <p className="alunos-page__vazio--mensagem">Sem resultados</p>
+                                <ButtonsDefault mensagem="Cadastrar novo membro" onClickNew={setAddMembro} />
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -387,18 +316,13 @@ function Membros() {
                         onSave={(value) => {
                             const membroComIdade = {
                                 ...value,
-                                idade: `${getIdade(
-                                    value.data_nascimento,
-                                )} anos`,
+                                idade: `${getIdade(value.data_nascimento)} anos`,
                             };
 
                             if (!editMembro) {
                                 setMembros((v) => [...v, membroComIdade]);
                             } else {
-                                setMembros((v) => [
-                                    ...v.filter((a) => a.id !== editMembro),
-                                    membroComIdade,
-                                ]);
+                                setMembros((v) => [...v.filter((a) => a.id !== editMembro), membroComIdade]);
                             }
                             setAddMembro(false);
                             setEditMembro("");
@@ -416,6 +340,7 @@ function Membros() {
                         onCancel={() => setImportCSV(false)}
                         onSave={() => setUpdate((v) => !v)}
                         igreja
+                        igrejaId={currentIgreja?.id}
                     />
                 )}
             </AnimatePresence>

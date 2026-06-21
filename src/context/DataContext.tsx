@@ -147,16 +147,35 @@ function DataContext({ children }: { children: ReactNode }) {
                     getPastorPresidente("cache_classes"),
                 ]);
                 setIgrejas(
-                    igrejas.docs.map(
-                        (ig) =>
-                            ({ id: ig.id, ...ig.data() }) as IgrejaInterface,
-                    ),
+                    igrejas.docs
+                        .map(
+                            (ig) =>
+                                ({
+                                    id: ig.id,
+                                    ...ig.data(),
+                                }) as IgrejaInterface,
+                        )
+                        .sort((a, b) =>
+                            a.id === user?.igrejaId
+                                ? -1
+                                : b.id === user?.igrejaId
+                                  ? 1
+                                  : a.nome.localeCompare(b.nome),
+                        ),
                 );
 
                 const c = classes.docs.flatMap((v) =>
                     Object.values(v.data()?.lista),
                 );
-                setClasses(c as ClasseInterface[]);
+                setClasses(
+                    (c as ClasseInterface[]).sort((a, b) =>
+                        a.id === user?.classeId
+                            ? -1
+                            : b.id === user?.classeId
+                              ? 1
+                              : a.nome.localeCompare(b.nome),
+                    ),
+                );
             } else if (isAdmin.current) {
                 const classesDoc = doc(db, "cache_classes", user.igrejaId!);
                 const classesSnap = await getDoc(classesDoc);
@@ -170,7 +189,15 @@ function DataContext({ children }: { children: ReactNode }) {
                     },
                 ]);
 
-                setClasses(classes as ClasseInterface[]);
+                setClasses(
+                    (classes as ClasseInterface[]).sort((a, b) =>
+                        a.id === user?.classeId
+                            ? -1
+                            : b.id === user?.classeId
+                              ? 1
+                              : a.nome.localeCompare(b.nome),
+                    ),
+                );
             } else {
                 const c = await getClasseSecretario("classes");
 

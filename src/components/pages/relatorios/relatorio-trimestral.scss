@@ -414,10 +414,7 @@ $cor-missoes: #0ea5e9;
 
         &__pendente {
             align-self: flex-start;
-            background-color: color.scale(
-                v.$cor-secundaria-texto,
-                $alpha: -90%
-            );
+            background-color: color.scale(v.$cor-secundaria-texto, $alpha: -90%);
             color: v.$cor-secundaria-texto;
             font-size: 1rem;
             font-weight: 700;
@@ -738,10 +735,7 @@ $cor-missoes: #0ea5e9;
         }
 
         .relatorio-classe {
-            background-color: color.scale(
-                v.$cor-primaria-fundo,
-                $lightness: 2%
-            );
+            background-color: color.scale(v.$cor-primaria-fundo, $lightness: 2%);
             border-radius: 0.8rem;
             border: 1px solid #e5e7eb;
             border-left: 4px solid v.$cor-primaria-itens;
@@ -1034,8 +1028,11 @@ $cor-missoes: #0ea5e9;
             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
 
             &:hover {
-                transform: translateY(-2px);
+                transform: scale(1.05);
                 box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+            }
+            &:active {
+                transform: scale(0.99);
             }
             &:disabled {
                 background-color: v.$cor-secundaria-texto;

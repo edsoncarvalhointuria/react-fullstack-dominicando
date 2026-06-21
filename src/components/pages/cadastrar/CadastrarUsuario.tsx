@@ -2,18 +2,14 @@ import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import "./cadastrar-usuario.scss";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faArrowLeft,
-    faCircleCheck,
-    faCircleXmark,
-    faPaperPlane,
-} from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faCircleCheck, faCircleXmark, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm, type FieldError } from "react-hook-form";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import Loading from "../../layout/loading/Loading";
 import AlertModal from "../../ui/AlertModal";
+import { functions } from "../../../utils/firebase";
 
 interface FormCadastroUsuario {
     email: string;
@@ -33,11 +29,7 @@ const variantsItem: Variants = {
     exit: { opacity: 0, y: -20 },
 };
 
-const functions = getFunctions();
-const cadastrarUsuarioComConvite = httpsCallable(
-    functions,
-    "cadastrarUsuarioComConvite"
-);
+const cadastrarUsuarioComConvite = httpsCallable(functions, "cadastrarUsuarioComConvite");
 const validarCodigoConvite = httpsCallable(functions, "validarCodigoConvite");
 
 const ErroComponent = ({ erro }: { erro: FieldError | undefined }) => {
@@ -75,11 +67,8 @@ function CadastrarUsuario() {
         confirmText: string;
         icon?: any;
     } | null>(null);
-    const [showPasswordConfirmacao, setShowPasswordConfirmacao] =
-        useState(false);
-    const [status, setStatus] = useState<
-        "inicial" | "validando" | "sucesso" | "erro"
-    >("inicial");
+    const [showPasswordConfirmacao, setShowPasswordConfirmacao] = useState(false);
+    const [status, setStatus] = useState<"inicial" | "validando" | "sucesso" | "erro">("inicial");
     const [retorno, setRetorno] = useState<{
         codigo: string;
         igreja: string;
@@ -183,15 +172,10 @@ function CadastrarUsuario() {
                     )}
 
                     <div className="pagina-cadastrar-usuario__body">
-                        <div
-                            className={`pagina-cadastrar-usuario__codigo pagina-cadastrar-usuario__codigo--${status}`}
-                        >
+                        <div className={`pagina-cadastrar-usuario__codigo pagina-cadastrar-usuario__codigo--${status}`}>
                             <input
                                 type="text"
-                                readOnly={
-                                    status === "validando" ||
-                                    status === "sucesso"
-                                }
+                                readOnly={status === "validando" || status === "sucesso"}
                                 ref={$codigo}
                                 value={codigo}
                                 onChange={() => {}}
@@ -199,10 +183,7 @@ function CadastrarUsuario() {
                             <motion.button
                                 whileTap={{ scale: 0.95 }}
                                 onTap={validarCodigo}
-                                disabled={
-                                    status === "validando" ||
-                                    status === "sucesso"
-                                }
+                                disabled={status === "validando" || status === "sucesso"}
                                 className="pagina-cadastrar-usuario__codigo-btn"
                             >
                                 {status === "inicial" ? (
@@ -259,54 +240,37 @@ function CadastrarUsuario() {
                                                 variants={variantsItem}
                                                 className="pagina-cadastrar-usuario__input"
                                             >
-                                                <label htmlFor="cadastrar-usuario-nome">
-                                                    Nome Completo
-                                                </label>
+                                                <label htmlFor="cadastrar-usuario-nome">Nome Completo</label>
                                                 <input
                                                     type="text"
                                                     id="cadastrar-usuario-nome"
-                                                    className={
-                                                        errors.nome &&
-                                                        "input-error"
-                                                    }
+                                                    className={errors.nome && "input-error"}
                                                     {...register("nome", {
-                                                        required:
-                                                            "O nome é obrigatório",
+                                                        required: "O nome é obrigatório",
                                                         min: {
                                                             value: 3,
-                                                            message:
-                                                                "O nome precisa ter ao menos 3 caracteres",
+                                                            message: "O nome precisa ter ao menos 3 caracteres",
                                                         },
                                                     })}
                                                 />
 
-                                                <ErroComponent
-                                                    erro={errors.nome}
-                                                />
+                                                <ErroComponent erro={errors.nome} />
                                             </motion.div>
 
                                             <motion.div
                                                 variants={variantsItem}
                                                 className="pagina-cadastrar-usuario__input"
                                             >
-                                                <label htmlFor="cadastrar-usuario-email">
-                                                    E-mail
-                                                </label>
+                                                <label htmlFor="cadastrar-usuario-email">E-mail</label>
                                                 <input
                                                     type="email"
                                                     id="cadastrar-usuario-email"
-                                                    className={
-                                                        errors.email &&
-                                                        "input-error"
-                                                    }
+                                                    className={errors.email && "input-error"}
                                                     {...register("email", {
-                                                        required:
-                                                            "O e-mail é obrigatório",
+                                                        required: "O e-mail é obrigatório",
                                                     })}
                                                 />
-                                                <ErroComponent
-                                                    erro={errors.email}
-                                                />
+                                                <ErroComponent erro={errors.email} />
                                             </motion.div>
 
                                             <motion.div
@@ -314,68 +278,37 @@ function CadastrarUsuario() {
                                                 className="pagina-cadastrar-usuario__input-group"
                                             >
                                                 <div className="pagina-cadastrar-usuario__input">
-                                                    <label htmlFor="cadastrar-usuario-senha">
-                                                        Senha
-                                                    </label>
+                                                    <label htmlFor="cadastrar-usuario-senha">Senha</label>
                                                     <div className="pagina-cadastrar-usuario__input--senha">
                                                         <input
-                                                            type={
-                                                                showPassword
-                                                                    ? "text"
-                                                                    : "password"
-                                                            }
-                                                            className={
-                                                                errors.senha &&
-                                                                "input-error"
-                                                            }
+                                                            type={showPassword ? "text" : "password"}
+                                                            className={errors.senha && "input-error"}
                                                             id="cadastrar-usuario-senha"
-                                                            {...register(
-                                                                "senha",
-                                                                {
-                                                                    required:
-                                                                        "A senha é obrigatória",
-                                                                    minLength: {
-                                                                        value: 6,
-                                                                        message:
-                                                                            "A senha precisa ter no mínimo 6 caracteres",
-                                                                    },
-                                                                }
-                                                            )}
+                                                            {...register("senha", {
+                                                                required: "A senha é obrigatória",
+                                                                minLength: {
+                                                                    value: 6,
+                                                                    message:
+                                                                        "A senha precisa ter no mínimo 6 caracteres",
+                                                                },
+                                                            })}
                                                         />
-                                                        <button
-                                                            type="button"
-                                                            title="Ver senha"
-                                                        >
+                                                        <button type="button" title="Ver senha">
                                                             <motion.div
                                                                 className="pagina-cadastrar-usuario__input--image"
-                                                                onMouseOver={() =>
-                                                                    setKey(
-                                                                        (v) =>
-                                                                            v +
-                                                                            1
-                                                                    )
-                                                                }
-                                                                onTap={() =>
-                                                                    setShowPassword(
-                                                                        (v) =>
-                                                                            !v
-                                                                    )
-                                                                }
+                                                                onMouseOver={() => setKey((v) => v + 1)}
+                                                                onTap={() => setShowPassword((v) => !v)}
                                                             >
                                                                 <img
                                                                     src={`/eye${
-                                                                        showPassword
-                                                                            ? "-close"
-                                                                            : ""
+                                                                        showPassword ? "-close" : ""
                                                                     }.gif?key=${key}`}
                                                                     alt="Ver senha"
                                                                 />
                                                             </motion.div>
                                                         </button>
                                                     </div>
-                                                    <ErroComponent
-                                                        erro={errors.senha}
-                                                    />
+                                                    <ErroComponent erro={errors.senha} />
                                                 </div>
                                                 <div className="pagina-cadastrar-usuario__input">
                                                     <label htmlFor="cadastrar-usuario-senha-confirmacao">
@@ -383,67 +316,31 @@ function CadastrarUsuario() {
                                                     </label>
                                                     <div className="pagina-cadastrar-usuario__input--senha">
                                                         <input
-                                                            type={
-                                                                showPasswordConfirmacao
-                                                                    ? "text"
-                                                                    : "password"
-                                                            }
+                                                            type={showPasswordConfirmacao ? "text" : "password"}
                                                             id="cadastrar-usuario-senha-confirmacao"
-                                                            className={
-                                                                errors.confirmacao &&
-                                                                "input-error"
-                                                            }
-                                                            {...register(
-                                                                "confirmacao",
-                                                                {
-                                                                    required:
-                                                                        "As senhas estão diferentes",
-                                                                    validate: (
-                                                                        v
-                                                                    ) =>
-                                                                        v ===
-                                                                        senha
-                                                                            ? true
-                                                                            : "As senhas estão diferentes",
-                                                                }
-                                                            )}
+                                                            className={errors.confirmacao && "input-error"}
+                                                            {...register("confirmacao", {
+                                                                required: "As senhas estão diferentes",
+                                                                validate: (v) =>
+                                                                    v === senha ? true : "As senhas estão diferentes",
+                                                            })}
                                                         />
-                                                        <button
-                                                            type="button"
-                                                            title="Ver senha"
-                                                        >
+                                                        <button type="button" title="Ver senha">
                                                             <motion.div
                                                                 className="pagina-cadastrar-usuario__input--image"
-                                                                onMouseOver={() =>
-                                                                    setKeyConfirmacao(
-                                                                        (v) =>
-                                                                            v +
-                                                                            1
-                                                                    )
-                                                                }
-                                                                onTap={() =>
-                                                                    setShowPasswordConfirmacao(
-                                                                        (v) =>
-                                                                            !v
-                                                                    )
-                                                                }
+                                                                onMouseOver={() => setKeyConfirmacao((v) => v + 1)}
+                                                                onTap={() => setShowPasswordConfirmacao((v) => !v)}
                                                             >
                                                                 <img
                                                                     src={`/eye${
-                                                                        showPasswordConfirmacao
-                                                                            ? "-close"
-                                                                            : ""
+                                                                        showPasswordConfirmacao ? "-close" : ""
                                                                     }.gif?key=${keyConfirmacao}`}
                                                                     alt="Ver senha"
                                                                 />
                                                             </motion.div>
                                                         </button>
                                                     </div>
-                                                    <ErroComponent
-                                                        erro={
-                                                            errors.confirmacao
-                                                        }
-                                                    />
+                                                    <ErroComponent erro={errors.confirmacao} />
                                                 </div>
                                             </motion.div>
                                         </div>
@@ -452,13 +349,8 @@ function CadastrarUsuario() {
                                             variants={variantsItem}
                                             className="pagina-cadastrar-usuario__form-btn"
                                         >
-                                            <button
-                                                type="submit"
-                                                title="Cadastrar usuário"
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faPaperPlane}
-                                                />
+                                            <button type="submit" title="Cadastrar usuário">
+                                                <FontAwesomeIcon icon={faPaperPlane} />
                                                 Cadastrar
                                             </button>
                                         </motion.div>

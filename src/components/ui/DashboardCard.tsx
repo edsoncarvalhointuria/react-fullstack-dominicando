@@ -1,15 +1,4 @@
-import {
-    Area,
-    AreaChart,
-    Bar,
-    BarChart,
-    Brush,
-    Cell,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-} from "recharts";
+import { Area, AreaChart, Bar, BarChart, Brush, Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import "./dashboard-card.scss";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -55,14 +44,8 @@ function DashboardCard({
 }) {
     const [expandirCard, setExpandirCard] = useState(false);
     const [stack, setStack] = useState(title !== "Total Matriculados");
-    const dataKeys = useMemo(
-        () => Object.keys(datas[0] || {}).filter((v) => v !== "name"),
-        [datas],
-    );
-    const condition = useMemo(
-        () => (chartType === "area" || datas.length >= 14) && datas.length > 1,
-        [],
-    );
+    const dataKeys = useMemo(() => Object.keys(datas[0] || {}).filter((v) => v !== "name"), [datas]);
+    const condition = useMemo(() => (chartType === "area" || datas.length >= 14) && datas.length > 1, []);
 
     return (
         <>
@@ -91,13 +74,9 @@ function DashboardCard({
                                 <div className="dashboard-card__card">
                                     <label htmlFor={"bar-card" + title}>
                                         {chartType === "bar" ? (
-                                            <FontAwesomeIcon
-                                                icon={faChartSimple}
-                                            />
+                                            <FontAwesomeIcon icon={faChartSimple} />
                                         ) : (
-                                            <FontAwesomeIcon
-                                                icon={faChartArea}
-                                            />
+                                            <FontAwesomeIcon icon={faChartArea} />
                                         )}
                                     </label>
                                     <input
@@ -110,9 +89,7 @@ function DashboardCard({
                                 </div>
                             </div>
                             <button onClick={() => setExpandirCard(true)}>
-                                <FontAwesomeIcon
-                                    icon={faUpRightAndDownLeftFromCenter}
-                                />
+                                <FontAwesomeIcon icon={faUpRightAndDownLeftFromCenter} />
                             </button>
                         </div>
                     ) : (
@@ -120,9 +97,7 @@ function DashboardCard({
                     )}
                 </div>
 
-                <div
-                    className={`dashboard-card__body dashboard-card__body--${chartType}`}
-                >
+                <div className={`dashboard-card__body dashboard-card__body--${chartType}`}>
                     <p className="dashboard-card__value">{value}</p>
                     <div className="dashboard-card__chart">
                         <ResponsiveContainer width="100%" height="100%">
@@ -152,16 +127,7 @@ function DashboardCard({
                                         isAnimationActive={false}
                                     >
                                         {datas.map((_, i) => (
-                                            <Cell
-                                                key={i}
-                                                fill={
-                                                    CORES_GRAFICO[
-                                                        i +
-                                                            (1 %
-                                                                CORES_GRAFICO.length)
-                                                    ]
-                                                }
-                                            />
+                                            <Cell key={i} fill={CORES_GRAFICO[i + (1 % CORES_GRAFICO.length)]} />
                                         ))}
                                     </Pie>
                                 </PieChart>
@@ -179,66 +145,46 @@ function DashboardCard({
                                             borderRadius: "0.8rem",
                                         }}
                                         labelStyle={{ color: "#111827" }}
-                                        formatter={(v) =>
-                                            typeof v === "number"
-                                                ? v.toLocaleString("pt-BR")
-                                                : v
-                                        }
+                                        formatter={(v) => (typeof v === "number" ? v.toLocaleString("pt-BR") : v)}
                                         labelFormatter={(_, j) => {
                                             return (
                                                 <span
                                                     style={{
                                                         width: "100%",
                                                         display: "flex",
-                                                        justifyContent:
-                                                            "space-between",
+                                                        justifyContent: "space-between",
                                                         alignItems: "center",
                                                         gap: 5,
                                                         marginBottom: 5,
                                                     }}
                                                 >
-                                                    <span>
-                                                        {j[0]?.payload?.name ||
-                                                            0}
-                                                    </span>
+                                                    <span>{j[0]?.payload?.name || 0}</span>
 
                                                     <strong
                                                         style={{
                                                             padding: 5,
                                                             fontWeight: 700,
-                                                            backgroundColor:
-                                                                "#10b981",
+                                                            backgroundColor: "#10b981",
                                                             fontSize: 12,
                                                             borderRadius: 20,
                                                         }}
                                                     >
                                                         {j
                                                             .reduce(
-                                                                (
-                                                                    prev,
-                                                                    current,
-                                                                ) =>
-                                                                    (typeof current?.value ===
-                                                                    "number"
+                                                                (prev, current) =>
+                                                                    (typeof current?.value === "number"
                                                                         ? current.value
-                                                                        : 0) +
-                                                                    prev,
+                                                                        : 0) + prev,
                                                                 0,
                                                             )
-                                                            .toLocaleString(
-                                                                "pt-BR",
-                                                            )}
+                                                            .toLocaleString("pt-BR")}
                                                     </strong>
                                                 </span>
                                             );
                                         }}
                                     />
 
-                                    <Brush
-                                        dataKey="name"
-                                        height={15}
-                                        stroke="#3B82F6"
-                                    />
+                                    <Brush dataKey="name" height={15} stroke="#3B82F6" />
 
                                     {dataKeys.map((v, i) => (
                                         <Area
@@ -247,16 +193,8 @@ function DashboardCard({
                                             type="monotone"
                                             key={v + i}
                                             dataKey={v}
-                                            fill={
-                                                CORES_GRAFICO[
-                                                    i % CORES_GRAFICO.length
-                                                ]
-                                            }
-                                            stroke={
-                                                CORES_GRAFICO[
-                                                    i % CORES_GRAFICO.length
-                                                ]
-                                            }
+                                            fill={CORES_GRAFICO[i % CORES_GRAFICO.length]}
+                                            stroke={CORES_GRAFICO[i % CORES_GRAFICO.length]}
                                         />
                                     ))}
                                 </AreaChart>
@@ -273,11 +211,7 @@ function DashboardCard({
                                             border: "1px solid #3B82F6",
                                             borderRadius: "0.8rem",
                                         }}
-                                        formatter={(v) =>
-                                            typeof v === "number"
-                                                ? v.toLocaleString("pt-BR")
-                                                : v
-                                        }
+                                        formatter={(v) => (typeof v === "number" ? v.toLocaleString("pt-BR") : v)}
                                         labelStyle={{ color: "#111827" }}
                                         labelFormatter={(_, j) => {
                                             return (
@@ -285,76 +219,49 @@ function DashboardCard({
                                                     style={{
                                                         width: "100%",
                                                         display: "flex",
-                                                        justifyContent:
-                                                            "space-between",
+                                                        justifyContent: "space-between",
                                                         alignItems: "center",
                                                         gap: 5,
                                                         marginBottom: 5,
                                                     }}
                                                 >
-                                                    <span>
-                                                        {j[0]?.payload?.name ||
-                                                            0}
-                                                    </span>
+                                                    <span>{j[0]?.payload?.name || 0}</span>
 
                                                     <strong
                                                         style={{
                                                             padding: 5,
                                                             fontWeight: 700,
-                                                            backgroundColor:
-                                                                "#10b981",
+                                                            backgroundColor: "#10b981",
                                                             fontSize: 12,
                                                             borderRadius: 20,
                                                         }}
                                                     >
                                                         {j
                                                             .reduce(
-                                                                (
-                                                                    prev,
-                                                                    current,
-                                                                ) =>
-                                                                    (typeof current?.value ===
-                                                                    "number"
+                                                                (prev, current) =>
+                                                                    (typeof current?.value === "number"
                                                                         ? current.value
-                                                                        : 0) +
-                                                                    prev,
+                                                                        : 0) + prev,
                                                                 0,
                                                             )
-                                                            .toLocaleString(
-                                                                "pt-BR",
-                                                            )}
+                                                            .toLocaleString("pt-BR")}
                                                     </strong>
                                                 </span>
                                             );
                                         }}
                                     />
 
-                                    <Brush
-                                        dataKey="name"
-                                        height={15}
-                                        stroke="#3B82F6"
-                                        key={Math.random()}
-                                    />
+                                    <Brush dataKey="name" height={15} stroke="#3B82F6" key={Math.random()} />
 
                                     {dataKeys.map((v, i) => {
                                         return (
                                             <Bar
-                                                stackId={
-                                                    stack ? "name" : undefined
-                                                }
+                                                stackId={stack ? "name" : undefined}
                                                 isAnimationActive={false}
                                                 dataKey={v}
                                                 key={v + i}
-                                                fill={
-                                                    CORES_GRAFICO[
-                                                        i % CORES_GRAFICO.length
-                                                    ]
-                                                }
-                                                radius={
-                                                    stack
-                                                        ? undefined
-                                                        : [4, 4, 0, 0]
-                                                }
+                                                fill={CORES_GRAFICO[i % CORES_GRAFICO.length]}
+                                                radius={stack ? undefined : [4, 4, 0, 0]}
                                             />
                                         );
                                     })}

@@ -3,47 +3,25 @@ import "./matriculas.scss";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
 import { useAuthContext } from "../../../context/AuthContext";
-import {
-    faAddressCard,
-    faBookOpenReader,
-    faFeather,
-    faPlus,
-    faThumbsUp,
-} from "@fortawesome/free-solid-svg-icons";
+import { faAddressCard, faBookOpenReader, faFeather, faThumbsUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Dropdown from "../../ui/Dropdown";
 import { Controller, FormProvider, useForm } from "react-hook-form";
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
 import SearchInput from "../../ui/SearchInput";
-import type {
-    CacheMatriculasInterface,
-    MatriculasInterface,
-} from "../../../interfaces/MatriculasInterface";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    limit,
-    orderBy,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import type { CacheMatriculasInterface, MatriculasInterface } from "../../../interfaces/MatriculasInterface";
+import { collection, doc, getDoc, getDocs, getDocsFromCache, limit, orderBy, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
 import MatriculaModal from "../../ui/MatriculaModal";
 import MatriculaAlunoModal from "../../ui/MatriculaAlunoModal";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import { getOrdem } from "../../../utils/getOrdem";
+import ButtonsDefault from "../../ui/ButtonDefault";
+import { houveAtualizacaoIgreja, salvarSistemaLocalStorageIgreja } from "../../../utils/getSistema";
 
 interface Form {
     igreja: string;
@@ -51,7 +29,6 @@ interface Form {
     licao: string;
 }
 
-const functions = getFunctions();
 const deletarMatricula = httpsCallable(functions, "deletarMatricula");
 const OPTIONS = [
     {
@@ -80,9 +57,7 @@ const OPTIONS = [
 ];
 
 function Matriculas() {
-    const [licoes, setLicoes] = useState<(LicaoInterface & { nome: string })[]>(
-        [],
-    );
+    const [licoes, setLicoes] = useState<(LicaoInterface & { nome: string })[]>([]);
     const [matriculas, setMatriculas] = useState<MatriculasInterface[]>([]);
     const [pesquisa, setPesquisa] = useState("");
     const [addMatricula, setAddMatricula] = useState(false);
@@ -100,17 +75,13 @@ function Matriculas() {
     } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingLicoes, setIsLoadingLicoes] = useState(false);
-    const [ordemColuna, setOrdemColuna] =
-        useState<keyof MatriculasInterface>("alunoNome");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordemColuna, setOrdemColuna] = useState<keyof MatriculasInterface>("alunoNome");
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const { classes, igrejas, isLoadingData } = useDataContext();
-    const { user, isSecretario, isAdmin, isSuperAdmin } = useAuthContext();
+    const { user, isAdmin, isSecretario, isSuperAdmin } = useAuthContext();
 
     const methods = useForm<Form>();
     const {
-        reset,
         handleSubmit,
         watch,
         setValue,
@@ -121,50 +92,13 @@ function Matriculas() {
     const { classe, igreja, licao } = watch();
 
     const onSubmit = async (data: Form) => {
-        const matriculasDoc = doc(
-            db,
-            "cache_matriculas",
-            `${data.igreja}_${data.licao}`,
-        );
+        const matriculasDoc = doc(db, "cache_matriculas", `${data.igreja}_${data.licao}`);
         const matriculasSnap = await getDoc(matriculasDoc);
 
         if (!matriculasSnap.exists()) return;
 
         const matriculas = matriculasSnap.data() as CacheMatriculasInterface;
         setMatriculas(Object.values(matriculas.lista));
-    };
-
-    const getLicoes = async (classeId: string) => {
-        setIsLoadingLicoes(true);
-        const licoesColl = collection(db, "licoes");
-        const q = query(
-            licoesColl,
-            where("classeId", "==", classeId),
-            isSuperAdmin.current
-                ? where("ministerioId", "==", user?.ministerioId)
-                : where("igrejaId", "==", user?.igrejaId),
-            limit(10),
-            orderBy("data_inicio", "desc"),
-        );
-        const licoesSnap = await getDocs(q);
-
-        if (licoesSnap.empty) return [];
-
-        const licoes = licoesSnap.docs.map(
-            (v) =>
-                ({
-                    id: v.id,
-                    nome: `${v.data().titulo} - ${
-                        v.data()?.numero_trimestre || 1
-                    }º Trimestre de ${v
-                        .data()
-                        ?.data_inicio.toDate()
-                        .toLocaleDateString("pt-BR", { year: "numeric" })}`,
-                    ...v.data(),
-                }) as LicaoInterface & { nome: string },
-        );
-
-        return licoes.sort((a, b) => Number(b.ativo) - Number(a.ativo));
     };
 
     const apagarMatricula = async (matricula: MatriculasInterface) => {
@@ -201,8 +135,7 @@ function Matriculas() {
         setMensagem({
             mensagem: (
                 <span>
-                    Deseja deletar a matricula do aluno:{" "}
-                    <strong>{v.alunoNome}</strong>?
+                    Deseja deletar a matricula do aluno: <strong>{v.alunoNome}</strong>?
                 </span>
             ),
             onConfirm: () => apagarMatricula(v),
@@ -233,39 +166,64 @@ function Matriculas() {
             .filter(
                 (v) =>
                     v.alunoNome.toLowerCase().includes(pesquisa) ||
-                    v.data_matricula
-                        .toDate()
-                        .toLocaleDateString("pt-BR")
-                        .includes(pesquisa),
+                    v.data_matricula.toDate().toLocaleDateString("pt-BR").includes(pesquisa),
             )
             .sort((a, b) => getOrdem(a, b, ordemColuna, ordem));
     }, [matriculas, pesquisa, ordem, ordemColuna]);
 
     useEffect(() => {
-        if (classe)
-            getLicoes(classe)
-                .then((v) => setLicoes(v))
-                .catch((err) => console.log("deu esse erro", err))
-                .finally(() => setIsLoadingLicoes(false));
-    }, [classe]);
+        if (!classe) return;
 
-    useEffect(() => {
-        if (user) {
-            if (isSecretario.current) {
-                reset({
-                    classe: user.classeId!,
-                    igreja: user.igrejaId!,
-                });
+        const getLicoes = async (classeId: string) => {
+            setIsLoadingLicoes(true);
+            const licoesColl = collection(db, "licoes");
+            const condicoes = [
+                where("classeId", "==", classeId),
+                where("ministerioId", "==", user?.ministerioId),
+                where("igrejaId", "==", igreja),
+                limit(10),
+                orderBy("data_inicio", "desc"),
+            ];
 
-                getLicoes(user.classeId!)
-                    .then((v) => setLicoes(v))
-                    .catch((err) => console.log(err));
-            } else if (isAdmin.current) {
-                reset({
-                    igreja: user.igrejaId!,
-                });
+            const q = query(licoesColl, ...condicoes);
+
+            const houveAtualizacao = await houveAtualizacaoIgreja(user?.ministerioId!, igreja, classeId, "licoes");
+
+            let docs;
+            if (houveAtualizacao.houveAtualizacao) docs = await getDocs(q);
+            else {
+                docs = await getDocsFromCache(q);
+                if (docs.empty) docs = await getDocs(q);
             }
-        }
+            salvarSistemaLocalStorageIgreja(houveAtualizacao);
+
+            if (docs.empty) return [];
+
+            const licoes = docs.docs.map(
+                (v) =>
+                    ({
+                        id: v.id,
+                        nome: `${v.data().titulo} - ${v.data()?.numero_trimestre || 1}º Trimestre de ${v
+                            .data()
+                            ?.data_inicio.toDate()
+                            .toLocaleDateString("pt-BR", { year: "numeric" })}`,
+                        ...v.data(),
+                    }) as LicaoInterface & { nome: string },
+            );
+
+            return licoes.sort((a, b) => Number(b.ativo) - Number(a.ativo));
+        };
+
+        getLicoes(classe)
+            .then((v) => setLicoes(v))
+            .catch((err) => console.log("deu esse erro", err))
+            .finally(() => setIsLoadingLicoes(false));
+    }, [classe]);
+    useEffect(() => {
+        if (!user) return;
+
+        if (!isSuperAdmin.current) setValue("igreja", user.igrejaId!);
+        if (isSecretario.current) setValue("classe", user.classeId!);
     }, [user]);
     if (isLoadingData || isLoading) return <Loading />;
     return (
@@ -277,28 +235,15 @@ function Matriculas() {
                             <h2>Gestão de Matriculas</h2>
                         </div>
 
-                        <motion.div
-                            whileTap={{ scale: 0.9 }}
-                            className="matriculas-page__cadastrar"
-                        >
-                            <motion.button
-                                title="Matricular Aluno"
-                                onTap={() => setAddMatricula(true)}
-                                disabled={!licao}
-                            >
-                                <span>
-                                    <FontAwesomeIcon icon={faPlus} />
-                                </span>
-                                <span>Matricular um novo aluno</span>
-                            </motion.button>
-                        </motion.div>
+                        <ButtonsDefault
+                            mensagem="Matricular um novo aluno"
+                            onClickNew={setAddMatricula}
+                            disabled={!licao}
+                        />
                     </div>
 
                     <FormProvider {...methods}>
-                        <form
-                            className="matriculas-page__filtros"
-                            onSubmit={handleSubmit(onSubmit)}
-                        >
+                        <form className="matriculas-page__filtros" onSubmit={handleSubmit(onSubmit)}>
                             <div className="matriculas-page__dropdowns">
                                 {isSuperAdmin.current && (
                                     <div className="matriculas-page__dropdown">
@@ -307,19 +252,12 @@ function Matriculas() {
                                             control={control}
                                             name="igreja"
                                             rules={{
-                                                required:
-                                                    "É necessário escolher uma igreja",
+                                                required: "É necessário escolher uma igreja",
                                             }}
                                             render={({ field }) => (
                                                 <Dropdown
                                                     lista={igrejas}
-                                                    current={
-                                                        igrejas.find(
-                                                            (v) =>
-                                                                v.id ===
-                                                                field.value,
-                                                        )?.nome || null
-                                                    }
+                                                    current={igrejas.find((v) => v.id === field.value)?.nome || null}
                                                     onSelect={(v) => {
                                                         field.onChange(v?.id);
                                                         setValue("classe", "");
@@ -346,18 +284,13 @@ function Matriculas() {
                                             control={control}
                                             name="classe"
                                             rules={{
-                                                required:
-                                                    "É necessário escolher uma classe",
+                                                required: "É necessário escolher uma classe",
                                             }}
                                             render={({ field }) => (
                                                 <Dropdown
                                                     lista={classesMemo}
                                                     current={
-                                                        classesMemo.find(
-                                                            (v) =>
-                                                                v.id ===
-                                                                field.value,
-                                                        )?.nome || null
+                                                        classesMemo.find((v) => v.id === field.value)?.nome || null
                                                     }
                                                     onSelect={(v) => {
                                                         field.onChange(v?.id);
@@ -387,16 +320,8 @@ function Matriculas() {
                                         render={({ field }) => (
                                             <Dropdown
                                                 lista={licoes}
-                                                current={
-                                                    licoes.find(
-                                                        (v) =>
-                                                            v.id ===
-                                                            field.value,
-                                                    )?.titulo || null
-                                                }
-                                                onSelect={(v) =>
-                                                    field.onChange(v?.id)
-                                                }
+                                                current={licoes.find((v) => v.id === field.value)?.titulo || null}
+                                                onSelect={(v) => field.onChange(v?.id)}
                                                 isAll={false}
                                                 selectId={field.value}
                                                 isErro={!!errors.licao}
@@ -419,26 +344,15 @@ function Matriculas() {
 
                     <div className="matriculas-page__pesquisa">
                         <div className="matriculas-page__pesquisa-input">
-                            <SearchInput
-                                texto="Aluno"
-                                onSearch={(v) => setPesquisa(v)}
-                            />
+                            <SearchInput texto="Aluno" onSearch={setPesquisa} />
                         </div>
                         <OrderInput
                             isCrescente={ordem === "crescente"}
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
                             options={OPTIONS.filter((v) => v.isFilter)}
                         />
-                        <div className="matriculas-page__total">
-                            Total de matriculados:({matriculasMemo.length})
-                        </div>
+                        <div className="matriculas-page__total">Total de matriculados:({matriculasMemo.length})</div>
                     </div>
                 </div>
 
@@ -455,24 +369,12 @@ function Matriculas() {
                         />
                     ) : (
                         <motion.div className="alunos-page__vazio">
-                            <p className="alunos-page__vazio--mensagem">
-                                Sem resultados
-                            </p>
-                            <motion.div
-                                whileTap={{ scale: 0.9 }}
-                                className="alunos-page__cadastrar"
-                            >
-                                <motion.button
-                                    title="Matricular Aluno"
-                                    onTap={() => setAddMatricula(true)}
-                                    disabled={!licao}
-                                >
-                                    <span>
-                                        <FontAwesomeIcon icon={faPlus} />
-                                    </span>
-                                    <span>Matricular um novo aluno</span>
-                                </motion.button>
-                            </motion.div>
+                            <p className="alunos-page__vazio--mensagem">Sem resultados</p>
+                            <ButtonsDefault
+                                mensagem="Matricular um novo aluno"
+                                onClickNew={setAddMatricula}
+                                disabled={!licao}
+                            />
                         </motion.div>
                     )}
                 </div>

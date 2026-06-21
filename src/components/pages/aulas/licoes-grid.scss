@@ -43,14 +43,15 @@
         &--title {
             font-size: 2.8rem;
             font-weight: 700;
-            color: rgba(v.$cor-primaria-texto, 0.8);
+            color: v.$cor-primaria-texto;
             text-align: center;
 
             span {
-                color: v.$cor-primaria-texto;
                 position: relative;
                 z-index: 1;
                 display: inline-block;
+                border-bottom: 2px solid v.$cor-primaria-itens; // Substitua pela sua cor de destaque
+                padding-bottom: 1px;
             }
         }
 
@@ -67,15 +68,16 @@
                 font-size: 1.6rem;
                 font-weight: 700;
                 cursor: pointer;
-                transition: all 0.2s ease-out;
+                transition: all 0.3s ease-out;
 
                 &:hover {
-                    background-color: color.scale(
-                        v.$cor-primaria-itens,
-                        $lightness: -10%
-                    );
-                    transform: translateY(-2px);
+                    background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
+                    transform: scale(1.03);
                     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+                }
+
+                &:active {
+                    transform: scale(0.99);
                 }
             }
         }
@@ -149,10 +151,7 @@
             &:hover:not(:disabled) {
                 border-color: v.$cor-primaria-itens;
                 color: v.$cor-primaria-itens;
-                background-color: color.scale(
-                    v.$cor-primaria-itens,
-                    $alpha: -90%
-                );
+                background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
             }
 
             &:disabled {

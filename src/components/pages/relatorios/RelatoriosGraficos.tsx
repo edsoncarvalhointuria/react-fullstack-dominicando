@@ -10,12 +10,7 @@ import {
     faUpRightAndDownLeftFromCenter,
 } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "../../ui/Dropdown";
-import {
-    Controller,
-    FormProvider,
-    useForm,
-    type FieldError,
-} from "react-hook-form";
+import { Controller, FormProvider, useForm, type FieldError } from "react-hook-form";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
@@ -23,9 +18,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Form, useSearchParams } from "react-router-dom";
 import GraficoDinamico from "../../ui/GraficoDinamico";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
 import DashboardCardModal from "../../ui/DashboardCardModal";
+import { functions } from "../../../utils/firebase";
 
 const METRICAS = [
     { nome: "Ofertas (Detalhado)", id: "ofertas" }, //ok
@@ -65,16 +61,10 @@ interface Form {
     classes?: string[];
     grafico: "bar" | "line" | "pie";
 }
-
-const functions = getFunctions();
 const gerarRelatorioGrafico = httpsCallable(functions, "gerarRelatorioGrafico");
 
 const ErroComponent = ({ erro }: { erro: FieldError }) => {
-    return (
-        <motion.div className="relatorios-graficos__form-erro">
-            {erro.message}
-        </motion.div>
-    );
+    return <motion.div className="relatorios-graficos__form-erro">{erro.message}</motion.div>;
 };
 
 function RelatoriosGraficos() {
@@ -130,10 +120,7 @@ function RelatoriosGraficos() {
         )
             ag = ag.filter((v) => v.id !== "aluno");
         if (metrica === "frequencia_alunos")
-            ag = ag.filter(
-                (v) =>
-                    v.id === "classe" || v.id === "igreja" || v.id === "aluno",
-            );
+            ag = ag.filter((v) => v.id === "classe" || v.id === "igreja" || v.id === "aluno");
 
         return ag;
     }, [user, metrica]);
@@ -153,8 +140,7 @@ function RelatoriosGraficos() {
             igrejas: !igs.includes("undefined") ? igs : undefined,
             classes: !classes.includes("undefined") ? classes : undefined,
         });
-        if (isAdmin.current && igrejas.length)
-            setValue("igrejas", [igrejas[0].id]);
+        if (isAdmin.current && igrejas.length) setValue("igrejas", [igrejas[0].id]);
     }, [params, igrejas]);
 
     if (isLoadingData) return <Loading />;
@@ -166,10 +152,7 @@ function RelatoriosGraficos() {
                         <h2>Relatórios Gráficos</h2>
                     </div>
                     <FormProvider {...methods}>
-                        <form
-                            className="relatorios-graficos__form"
-                            onSubmit={handleSubmit(onSave)}
-                        >
+                        <form className="relatorios-graficos__form" onSubmit={handleSubmit(onSave)}>
                             <div className="relatorios-graficos__filtros">
                                 <div className="relatorios-graficos__group-filtro">
                                     {/* Métricas */}
@@ -179,27 +162,15 @@ function RelatoriosGraficos() {
                                             name="metrica"
                                             control={control}
                                             rules={{
-                                                required:
-                                                    "A métrica é obrigatória",
+                                                required: "A métrica é obrigatória",
                                             }}
                                             render={({ field }) => (
                                                 <Dropdown
-                                                    current={
-                                                        METRICAS.find(
-                                                            (v) =>
-                                                                v.id ===
-                                                                field.value,
-                                                        )?.nome || null
-                                                    }
+                                                    current={METRICAS.find((v) => v.id === field.value)?.nome || null}
                                                     lista={METRICAS}
                                                     onSelect={(v) => {
-                                                        field.onChange(
-                                                            v?.id || null,
-                                                        );
-                                                        setValue(
-                                                            "agrupamento",
-                                                            "",
-                                                        );
+                                                        field.onChange(v?.id || null);
+                                                        setValue("agrupamento", "");
                                                     }}
                                                     isAll={false}
                                                     isErro={!!errors.metrica}
@@ -207,11 +178,7 @@ function RelatoriosGraficos() {
                                                 />
                                             )}
                                         />
-                                        {errors.metrica && (
-                                            <ErroComponent
-                                                erro={errors.metrica}
-                                            />
-                                        )}
+                                        {errors.metrica && <ErroComponent erro={errors.metrica} />}
                                     </div>
 
                                     {/* Agrupamentos  */}
@@ -221,103 +188,59 @@ function RelatoriosGraficos() {
                                             control={control}
                                             name="agrupamento"
                                             rules={{
-                                                required:
-                                                    "O agrupamento é obrigatório",
+                                                required: "O agrupamento é obrigatório",
                                             }}
                                             render={({ field }) => (
                                                 <Dropdown
                                                     current={
-                                                        agrupamentosMemo.find(
-                                                            (v) =>
-                                                                v.id ===
-                                                                field.value,
-                                                        )?.nome || null
+                                                        agrupamentosMemo.find((v) => v.id === field.value)?.nome || null
                                                     }
                                                     lista={agrupamentosMemo}
                                                     isAll={false}
-                                                    onSelect={(v) =>
-                                                        field.onChange(
-                                                            v?.id || null,
-                                                        )
-                                                    }
-                                                    isErro={
-                                                        !!errors.agrupamento
-                                                    }
+                                                    onSelect={(v) => field.onChange(v?.id || null)}
+                                                    isErro={!!errors.agrupamento}
                                                     selectId={field.value}
                                                 />
                                             )}
                                         />
-                                        {errors.agrupamento && (
-                                            <ErroComponent
-                                                erro={errors.agrupamento}
-                                            />
-                                        )}
+                                        {errors.agrupamento && <ErroComponent erro={errors.agrupamento} />}
                                     </div>
                                 </div>
 
                                 {/* Periodo */}
                                 <div className="relatorios-graficos__group-filtro">
-                                    <motion.div
-                                        layout
-                                        className="relatorios-graficos__filtro"
-                                    >
-                                        <label htmlFor="relatorios-graficos-inicio-input">
-                                            Início
-                                        </label>
+                                    <motion.div layout className="relatorios-graficos__filtro">
+                                        <label htmlFor="relatorios-graficos-inicio-input">Início</label>
                                         <input
                                             type="date"
-                                            className={
-                                                errors.dataInicio &&
-                                                "input-error"
-                                            }
+                                            className={errors.dataInicio && "input-error"}
                                             id="relatorios-graficos-inicio-input"
                                             {...register("dataInicio", {
-                                                required:
-                                                    "A data de início é obrigatória",
+                                                required: "A data de início é obrigatória",
                                             })}
                                         />
-                                        {errors.dataInicio && (
-                                            <ErroComponent
-                                                erro={errors.dataInicio}
-                                            />
-                                        )}
+                                        {errors.dataInicio && <ErroComponent erro={errors.dataInicio} />}
                                     </motion.div>
-                                    <motion.div
-                                        layout
-                                        className="relatorios-graficos__filtro"
-                                    >
-                                        <label htmlFor="relatorios-graficos-fim-input">
-                                            Fim
-                                        </label>
+                                    <motion.div layout className="relatorios-graficos__filtro">
+                                        <label htmlFor="relatorios-graficos-fim-input">Fim</label>
                                         <input
                                             type="date"
-                                            className={
-                                                errors.dataFim && "input-error"
-                                            }
+                                            className={errors.dataFim && "input-error"}
                                             id="relatorios-graficos-fim-input"
                                             {...register("dataFim", {
-                                                required:
-                                                    "A data de fim é obrigatória",
+                                                required: "A data de fim é obrigatória",
                                                 validate: (v) => {
-                                                    if (!dataInicio)
-                                                        return true;
+                                                    if (!dataInicio) return true;
 
                                                     return (
-                                                        new Date(v) >=
-                                                            new Date(
-                                                                dataInicio,
-                                                            ) ||
+                                                        new Date(v) >= new Date(dataInicio) ||
                                                         "A data final deve ser igual ou posterior à data inicial."
                                                     );
                                                 },
                                             })}
                                         />
 
-                                        {errors.dataFim && (
-                                            <ErroComponent
-                                                erro={errors.dataFim}
-                                            />
-                                        )}
+                                        {errors.dataFim && <ErroComponent erro={errors.dataFim} />}
                                     </motion.div>
                                 </div>
 
@@ -333,18 +256,10 @@ function RelatoriosGraficos() {
                                                     render={({ field }) => (
                                                         <MultiSelectDropdown
                                                             lista={igrejas}
-                                                            currentListIds={
-                                                                field.value ||
-                                                                []
-                                                            }
+                                                            currentListIds={field.value || []}
                                                             onChange={(v) => {
-                                                                setValue(
-                                                                    "classes",
-                                                                    undefined,
-                                                                );
-                                                                field.onChange(
-                                                                    v,
-                                                                );
+                                                                setValue("classes", undefined);
+                                                                field.onChange(v);
                                                             }}
                                                             texto="Todas as igrejas"
                                                         />
@@ -353,8 +268,7 @@ function RelatoriosGraficos() {
                                             </div>
                                         )}
 
-                                        {(isAdmin.current ||
-                                            isSuperAdmin.current) && (
+                                        {(isAdmin.current || isSuperAdmin.current) && (
                                             <div className="relatorios-graficos__filtro">
                                                 <p>Classes</p>
                                                 <Controller
@@ -363,15 +277,8 @@ function RelatoriosGraficos() {
                                                     render={({ field }) => (
                                                         <MultiSelectDropdown
                                                             lista={classesMemo}
-                                                            currentListIds={
-                                                                field.value ||
-                                                                []
-                                                            }
-                                                            onChange={(v) =>
-                                                                field.onChange(
-                                                                    v,
-                                                                )
-                                                            }
+                                                            currentListIds={field.value || []}
+                                                            onChange={(v) => field.onChange(v)}
                                                             texto="Todas as classes"
                                                         />
                                                     )}
@@ -384,29 +291,16 @@ function RelatoriosGraficos() {
                                 {/* Gráfico */}
                                 <div className="relatorios-graficos__tipos">
                                     {GRAFICOS.map((v) => (
-                                        <div
-                                            key={v.id}
-                                            className="relatorios-graficos__grafico"
-                                        >
-                                            <label
-                                                htmlFor={
-                                                    "relatorios-graficos-grafico-" +
-                                                    v.id
-                                                }
-                                            >
+                                        <div key={v.id} className="relatorios-graficos__grafico">
+                                            <label htmlFor={"relatorios-graficos-grafico-" + v.id}>
                                                 <span>
-                                                    <FontAwesomeIcon
-                                                        icon={v.icon}
-                                                    />
+                                                    <FontAwesomeIcon icon={v.icon} />
                                                 </span>
                                                 {v.nome}
                                             </label>
                                             <input
                                                 type="radio"
-                                                id={
-                                                    "relatorios-graficos-grafico-" +
-                                                    v.id
-                                                }
+                                                id={"relatorios-graficos-grafico-" + v.id}
                                                 value={v.id}
                                                 {...register("grafico")}
                                             />
@@ -423,9 +317,7 @@ function RelatoriosGraficos() {
                                         type="submit"
                                     >
                                         <span>
-                                            <FontAwesomeIcon
-                                                icon={faChartArea}
-                                            />
+                                            <FontAwesomeIcon icon={faChartArea} />
                                         </span>
                                         Gerar Relatório
                                     </motion.button>
@@ -442,35 +334,22 @@ function RelatoriosGraficos() {
                         ) : dados.length > 0 ? (
                             <>
                                 <div className="relatorios-graficos__rechart-container">
-                                    <h3 className="relatorios-graficos__rechart--title">
-                                        {title}
-                                    </h3>
+                                    <h3 className="relatorios-graficos__rechart--title">{title}</h3>
                                     <button
                                         onClick={() => setModal(true)}
                                         className="relatorios-graficos__rechart--button"
                                     >
-                                        <FontAwesomeIcon
-                                            icon={
-                                                faUpRightAndDownLeftFromCenter
-                                            }
-                                        />
+                                        <FontAwesomeIcon icon={faUpRightAndDownLeftFromCenter} />
                                     </button>
                                 </div>
-                                <GraficoDinamico
-                                    dados={dados as any}
-                                    tipoGrafico={tipoGrafico}
-                                    title={title}
-                                />
+                                <GraficoDinamico dados={dados as any} tipoGrafico={tipoGrafico} title={title} />
                             </>
                         ) : (
                             <div className="relatorios-graficos__vazio">
                                 <p>
-                                    Nenhum resultado encontrado. Faça uma nova
-                                    consulta!
+                                    Nenhum resultado encontrado. Faça uma nova consulta!
                                     <span>
-                                        <FontAwesomeIcon
-                                            icon={faFaceSmileBeam}
-                                        />
+                                        <FontAwesomeIcon icon={faFaceSmileBeam} />
                                     </span>
                                 </p>
                             </div>

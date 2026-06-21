@@ -36,8 +36,7 @@ const NotificacaoAluno = ({
         <div className="desktop-notificacao__aluno">
             {data === "hoje" ? (
                 <p>
-                    Hoje é aniversário de <strong>{aluno.alunoNome}</strong>.
-                    Não esqueça de parabenizar!
+                    Hoje é aniversário de <strong>{aluno.alunoNome}</strong>. Não esqueça de parabenizar!
                 </p>
             ) : data === "amanhã" ? (
                 <p>
@@ -94,24 +93,13 @@ const NotificaoContainer = ({
                 >
                     <FontAwesomeIcon icon={faTrash} />
                 </button>
-                <button
-                    onClick={onRefresh}
-                    type="button"
-                    className="refresh"
-                    title="atualizar notificações"
-                >
+                <button onClick={onRefresh} type="button" className="refresh" title="atualizar notificações">
                     <FontAwesomeIcon icon={faArrowsRotate} />
                 </button>
             </div>
             <div className="desktop-notificacao__alunos">
                 {lista.map((v) => {
-                    return (
-                        <NotificacaoAluno
-                            key={v.alunoId}
-                            aluno={v}
-                            onRemoveItem={onRemoveItem}
-                        />
-                    );
+                    return <NotificacaoAluno key={v.alunoId} aluno={v} onRemoveItem={onRemoveItem} />;
                 })}
             </div>
         </motion.div>
@@ -135,23 +123,15 @@ function DesktopNavbar({
     const [showAlert, setShowAlert] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const $dropdown = useRef<HTMLParagraphElement>(null);
-    const { notificacoes, fetchNotificacoes, removerNotificacoes } =
-        useDataContext();
+    const { notificacoes, fetchNotificacoes, removerNotificacoes } = useDataContext();
 
     return (
-        <motion.header
-            className="header-desktop"
-            variants={variantsHeader}
-            initial={"hidden"}
-            animate={"visible"}
-        >
-            <Link to={"/dashboard"} className="header-desktop__img">
-                <motion.img
-                    variants={variantsItens}
-                    src="/logo-preenchida.svg"
-                    alt="Logo Dominicando"
-                />
-            </Link>
+        <motion.header className="header-desktop" variants={variantsHeader} initial={"hidden"} animate={"visible"}>
+            <motion.div whileHover={{ scale: 1.01, rotate: 360 }} transition={{ ease: "backOut", duration: 1 }}>
+                <Link to={"/dashboard"} className="header-desktop__img">
+                    <motion.img variants={variantsItens} src="/logo-preenchida.svg" alt="Logo Dominicando" />
+                </Link>
+            </motion.div>
             <nav className="nav-desktop">
                 <ul className="nav-desktop__links">
                     {OPCOES.map((v, i) =>
@@ -162,10 +142,7 @@ function DesktopNavbar({
                                 onMouseOver={() => setShowDropdown(true)}
                                 onMouseOut={() => setShowDropdown(false)}
                             >
-                                <p
-                                    ref={$dropdown}
-                                    className="nav-desktop__link--dropdown"
-                                >
+                                <p ref={$dropdown} className="nav-desktop__link--dropdown">
                                     {v.texto}
                                     <FontAwesomeIcon icon={faCaretDown} />
                                 </p>
@@ -174,34 +151,17 @@ function DesktopNavbar({
                                     {showDropdown && (
                                         <motion.div
                                             className="nav-desktop__links--dropdown"
-                                            initial={{
-                                                opacity: 0,
-                                                y: -10,
-                                            }}
-                                            animate={{
-                                                opacity: 1,
-                                                y: 0,
-                                            }}
-                                            exit={{
-                                                opacity: 0,
-                                                y: -10,
-                                                transition: {
-                                                    duration: 0.5,
-                                                    delay: 0.5,
-                                                },
-                                            }}
+                                            initial={{ opacity: 0, y: -20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -0, transition: { duration: 0.5, delay: 0.5 } }}
                                         >
                                             {v.dropdown.map((d, i) => (
                                                 <NavLink
                                                     key={d.texto + i}
                                                     to={d.caminho!}
-                                                    className={({
-                                                        isActive,
-                                                    }) => {
+                                                    className={({ isActive }) => {
                                                         if (isActive) {
-                                                            $dropdown.current?.classList.add(
-                                                                "active",
-                                                            );
+                                                            $dropdown.current?.classList.add("active");
                                                             return "nav-desktop__link nav-desktop__link--active";
                                                         }
                                                         return "nav-desktop__link";
@@ -215,18 +175,12 @@ function DesktopNavbar({
                                 </AnimatePresence>
                             </motion.li>
                         ) : (
-                            <motion.li
-                                key={v.texto + i}
-                                variants={variantsItens}
-                                whileHover={{ scale: 1.05 }}
-                            >
+                            <motion.li key={v.texto + i} variants={variantsItens} whileHover={{ scale: 1.05 }}>
                                 <NavLink
                                     to={v.caminho!}
                                     className={({ isActive }) => {
                                         if (isActive) {
-                                            $dropdown.current?.classList.remove(
-                                                "active",
-                                            );
+                                            $dropdown.current?.classList.remove("active");
                                             return "nav-desktop__link nav-desktop__link--active";
                                         }
                                         return "nav-desktop__link";
@@ -247,16 +201,17 @@ function DesktopNavbar({
                     <motion.div
                         className="nav-desktop__conta"
                         onTap={() => {
-                            setShowAccount((v) => !v);
+                            setShowAccount(true);
                             setShowAlert(false);
+                        }}
+                        onBlur={() => {
+                            setShowAccount(false);
                         }}
                         variants={variantsItens}
                     >
                         <FontAwesomeIcon
                             className={`nav-desktop__conta--icon ${
-                                showAccount
-                                    ? "nav-desktop__conta--icon-select"
-                                    : ""
+                                showAccount ? "nav-desktop__conta--icon-select" : ""
                             }`}
                             icon={faCircleUser}
                         />
@@ -268,40 +223,21 @@ function DesktopNavbar({
                                     className="nav-desktop__conta-container"
                                     initial={{ opacity: 0, scale: 0, y: -10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{
-                                        opacity: 0,
-                                        scale: 0,
-                                        y: -50,
-                                        x: 100,
-                                        transition: { delay: 0.3 },
-                                    }}
+                                    exit={{ opacity: 0 }}
                                 >
-                                    <p className="nav-desktop__conta-container--nome">
-                                        Olá, {userName}!
-                                    </p>
-                                    <p className="nav-desktop__conta-container--email">
-                                        {userEmail}
-                                    </p>
+                                    <p className="nav-desktop__conta-container--nome">Olá, {userName}!</p>
+                                    <p className="nav-desktop__conta-container--email">{userEmail}</p>
 
-                                    <Link
-                                        to={"/minha-conta"}
-                                        className="nav-desktop__conta-container--link"
-                                    >
+                                    <Link to={"/minha-conta"} className="nav-desktop__conta-container--link">
                                         Minha Conta
                                     </Link>
                                     {portalAluno && (
-                                        <Link
-                                            to={portalAluno}
-                                            className="nav-desktop__conta-container--link"
-                                        >
+                                        <Link to={portalAluno} className="nav-desktop__conta-container--link">
                                             Portal do Aluno
                                         </Link>
                                     )}
                                     <motion.div>
-                                        <button
-                                            className="nav-mobile__sair"
-                                            onClick={logout}
-                                        >
+                                        <button className="nav-mobile__sair" onClick={logout}>
                                             Sair
                                         </button>
                                     </motion.div>
@@ -319,9 +255,7 @@ function DesktopNavbar({
                     >
                         <FontAwesomeIcon
                             className={`nav-desktop__notificacoes--icon ${
-                                showAlert
-                                    ? "nav-desktop__notificacoes--icon-select"
-                                    : ""
+                                showAlert ? "nav-desktop__notificacoes--icon-select" : ""
                             }`}
                             icon={faBell}
                         />

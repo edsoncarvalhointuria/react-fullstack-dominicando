@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import "./dropdown.scss";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 
@@ -40,12 +40,7 @@ function Dropdown<T extends base>({
 
     useEffect(() => {
         const mousedown = (evt: MouseEvent) => {
-            if (
-                isOpen &&
-                $dropdown.current &&
-                evt.target instanceof Node &&
-                !$dropdown.current.contains(evt.target)
-            ) {
+            if (isOpen && $dropdown.current && evt.target instanceof Node && !$dropdown.current.contains(evt.target)) {
                 setIsOpen(false);
             }
         };
@@ -104,10 +99,8 @@ function Dropdown<T extends base>({
                                             : lista.filter((l) =>
                                                   l.nome
                                                       .toLowerCase()
-                                                      .includes(
-                                                          $input.current?.value.toLocaleLowerCase()!
-                                                      )
-                                              )
+                                                      .includes($input.current?.value.toLocaleLowerCase()!),
+                                              ),
                                     )
                                 }
                             />
@@ -116,8 +109,7 @@ function Dropdown<T extends base>({
                         <motion.ul className="dropdown__opcoes--lista">
                             {isLoading ? (
                                 <li className="dropdown__lista-carregando">
-                                    <p>Carregando</p>{" "}
-                                    <span className="dropdown__lista--spinner"></span>
+                                    <p>Carregando</p> <span className="dropdown__lista--spinner"></span>
                                 </li>
                             ) : (
                                 <>
@@ -139,11 +131,7 @@ function Dropdown<T extends base>({
                                         listaState.map((v) => (
                                             <li
                                                 key={v.id}
-                                                className={
-                                                    selectId === v.id
-                                                        ? "dropdown__opcoes--select"
-                                                        : ""
-                                                }
+                                                className={selectId === v.id ? "dropdown__opcoes--select" : ""}
                                                 onClick={() => {
                                                     if (lista.length > 0) {
                                                         onSelect(v);
@@ -170,4 +158,4 @@ function Dropdown<T extends base>({
     );
 }
 
-export default Dropdown;
+export default memo(Dropdown) as typeof Dropdown;

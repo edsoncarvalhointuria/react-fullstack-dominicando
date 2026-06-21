@@ -37,34 +37,34 @@
         color: v.$cor-primaria-texto;
     }
 
-    &__cadastrar button {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem 2rem;
-        border: none;
-        border-radius: 0.8rem;
-        background-color: v.$cor-primaria-itens;
-        color: white;
-        font-size: 1.6rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease-out;
+    // &__cadastrar button {
+    //     display: flex;
+    //     align-items: center;
+    //     gap: 1rem;
+    //     padding: 1rem 2rem;
+    //     border: none;
+    //     border-radius: 0.8rem;
+    //     background-color: v.$cor-primaria-itens;
+    //     color: white;
+    //     font-size: 1.6rem;
+    //     font-weight: 600;
+    //     cursor: pointer;
+    //     transition: all 0.2s ease-out;
 
-        &:hover:not(:disabled) {
-            background-color: color.scale(
-                v.$cor-primaria-itens,
-                $lightness: -10%
-            );
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-        }
+    //     &:hover:not(:disabled) {
+    //         background-color: color.scale(
+    //             v.$cor-primaria-itens,
+    //             $lightness: -10%
+    //         );
+    //         transform: translateY(-2px);
+    //         box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    //     }
 
-        &:disabled {
-            background-color: #d1d5db;
-            cursor: not-allowed;
-        }
-    }
+    //     &:disabled {
+    //         background-color: #d1d5db;
+    //         cursor: not-allowed;
+    //     }
+    // }
 
     &__filtros {
         display: flex;

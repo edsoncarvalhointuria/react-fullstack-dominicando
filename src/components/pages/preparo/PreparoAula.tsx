@@ -8,39 +8,27 @@ import {
     doc,
     getDoc,
     getDocs,
+    getDocsFromCache,
     limit,
     orderBy,
     query,
     Timestamp,
     where,
 } from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { db, functions } from "../../../utils/firebase";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faChevronDown,
-    faPlay,
-    faTriangleExclamation,
-} from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faPlay, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FormProvider, useForm } from "react-hook-form";
 import { AnimatePresence, motion } from "framer-motion";
 import Dropdown from "../../ui/Dropdown";
 import SearchInput from "../../ui/SearchInput";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import YouTube from "react-youtube";
 import { useDataContext } from "../../../context/DataContext";
 import AlertModal from "../../ui/AlertModal";
-import type { LicaoPreparoInterface } from "../../../interfaces/LicaoPreparoInterface";
+import type { AulaPreparo, LicaoPreparoInterface } from "../../../interfaces/LicaoPreparoInterface";
 import type { CacheUsuarioInteface } from "../../../interfaces/UsuarioInterface";
-
-interface Aula {
-    aula: string;
-    titulo_aula: string | null;
-    link_youtube: string | null;
-    trimestre: string;
-    total_visualizacoes: number;
-    realizado: boolean;
-    licaoId?: string;
-}
+import { houveAtualizacaoMinisterio, salvarSistemaLocalStorageMinisterio } from "../../../utils/getSistema";
 
 interface VideoForm {
     link_youtube: string;
@@ -57,6 +45,7 @@ interface Visualizacao {
 
 interface VisualizacoesLista {
     lista: { [usuarioId: string]: Visualizacao };
+    ministerioId: string;
 }
 
 interface Visualicoes {
@@ -75,7 +64,6 @@ interface LicoesDropdown {
     aulas: { id: string; nome: string; status: boolean }[];
 }
 
-const functions = getFunctions();
 const salvarAulaPreparo = httpsCallable(functions, "salvarAulaPreparo");
 const deletarAulaPreparo = httpsCallable(functions, "deletarAulaPreparo");
 const registrarVisualizacao = httpsCallable(functions, "registrarVisualizacao");
@@ -85,20 +73,16 @@ function PreparoAula() {
     const navigate = useNavigate();
     const { isSuperAdmin } = useAuthContext();
     const { igrejas } = useDataContext();
-    const [aula, setAula] = useState<Aula | null>(null);
+    const [aula, setAula] = useState<AulaPreparo | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [update, setUpdate] = useState(false);
     const [isOpenCadastro, setIsOpenCadastro] = useState(false);
     const [isOpenChamada, setIsOpenChamada] = useState(false);
     const [views, setViews] = useState<Visualicoes | null>(null);
     const [loadingViews, setLoadingViews] = useState(true);
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
     const [pesquisa, setPesquisa] = useState("");
-    const [currentLicao, setCurrentLicao] = useState<LicoesDropdown | null>(
-        null,
-    );
+    const [currentLicao, setCurrentLicao] = useState<LicoesDropdown | null>(null);
     const [currentAulaId, setCurrentAulaId] = useState<string | null>(null);
     const [listaLicoes, setListaLicoes] = useState<LicoesDropdown[]>([]);
     const [isLoadingVideo, setIsLoadingVideo] = useState(true);
@@ -190,13 +174,9 @@ function PreparoAula() {
         if (currentIgreja) v = views[currentIgreja.id];
         if (pesquisa)
             v = v.filter(
-                (v) =>
-                    v.nome.toLowerCase().includes(pesquisa) ||
-                    v.contagem_visualizacoes == Number(pesquisa),
+                (v) => v.nome.toLowerCase().includes(pesquisa) || v.contagem_visualizacoes == Number(pesquisa),
             );
-        return v.sort(
-            (a, b) => b.contagem_visualizacoes - a.contagem_visualizacoes,
-        );
+        return v.sort((a, b) => b.contagem_visualizacoes - a.contagem_visualizacoes);
     }, [views, currentIgreja, pesquisa]);
 
     useEffect(() => {
@@ -207,17 +187,11 @@ function PreparoAula() {
             }
 
             try {
-                const aulaRef = doc(
-                    db,
-                    "licoes_preparo",
-                    licaoId,
-                    "aulas",
-                    aulaId,
-                );
+                const aulaRef = doc(db, "licoes_preparo", licaoId, "aulas", aulaId);
                 const docSnap = await getDoc(aulaRef);
 
                 if (docSnap.exists()) {
-                    const aulaData = docSnap.data() as Aula;
+                    const aulaData = docSnap.data() as AulaPreparo;
                     setAula(aulaData);
                     if (aulaData.realizado) {
                         reset({
@@ -237,30 +211,15 @@ function PreparoAula() {
             setLoadingViews(true);
 
             try {
-                const visualizacoesDoc = doc(
-                    db,
-                    "licoes_preparo",
-                    licaoId,
-                    "aulas",
-                    aulaId,
-                    "visualizacoes",
-                    "lista",
-                );
+                const visualizacoesDoc = doc(db, "licoes_preparo", licaoId, "aulas", aulaId, "visualizacoes", "lista");
                 const usuariosCll = collection(db, "cache_usuarios");
-                const qUsuarios = query(
-                    usuariosCll,
-                    where("ministerioId", "==", user?.ministerioId),
-                );
+                const qUsuarios = query(usuariosCll, where("ministerioId", "==", user?.ministerioId));
 
                 const [visualizacoesDocs, usuariosDocs] = await Promise.all([
                     getDoc(visualizacoesDoc),
                     getDocs(qUsuarios),
                 ]);
-                const viewsMap = new Map(
-                    Object.entries(
-                        (visualizacoesDocs.data() as VisualizacoesLista).lista,
-                    ),
-                );
+                const viewsMap = new Map(Object.entries((visualizacoesDocs.data() as VisualizacoesLista).lista));
                 const usuariosMap = new Map();
                 usuariosDocs.docs.forEach((v) => {
                     const data = v.data() as CacheUsuarioInteface;
@@ -301,14 +260,26 @@ function PreparoAula() {
                 orderBy("data_inicio", "desc"),
                 limit(2),
             );
-            const licoesDocs = await getDocs(q);
 
-            const aulas = licoesDocs.docs.map((v) => {
+            const houveAtualizacao = await houveAtualizacaoMinisterio(user.ministerioId!, "preparo");
+
+            let docs;
+            if (houveAtualizacao.houveAtualizacao) docs = await getDocs(q);
+            else {
+                docs = await getDocsFromCache(q);
+                if (docs.empty) docs = await getDocs(q);
+            }
+
+            salvarSistemaLocalStorageMinisterio(houveAtualizacao);
+
+            const aulas = docs.docs.map((v) => {
                 const id = v.id;
                 const licao = v.data() as LicaoPreparoInterface;
-                const aulas = Object.entries(licao?.status_aulas || {}).map(
-                    ([id, status]) => ({ id, nome: id, status }),
-                );
+                const aulas = Object.entries(licao?.status_aulas || {}).map(([id, status]) => ({
+                    id,
+                    nome: id,
+                    status,
+                }));
 
                 return {
                     id,
@@ -327,29 +298,16 @@ function PreparoAula() {
     }, [user]);
 
     if (isLoading) return <Loading />;
-    if (!aula)
-        return <div className="preparo-aula--vazio">Aula não encontrada.</div>;
+    if (!aula) return <div className="preparo-aula--vazio">Aula não encontrada.</div>;
     return (
         <>
             <div className="preparo-aula">
                 {isSuperAdmin.current && (
-                    <motion.div
-                        className="preparo-aula__painel"
-                        onClick={() => setIsOpenCadastro((v) => !v)}
-                    >
+                    <motion.div className="preparo-aula__painel" onClick={() => setIsOpenCadastro((v) => !v)}>
                         <div className="preparo-aula__painel-container">
-                            <motion.button
-                                title="Cadastrar Vídeo"
-                                type="button"
-                            >
+                            <motion.button title="Cadastrar Vídeo" type="button">
                                 {aula.realizado ? "Editar" : "Cadastrar"} Vídeo{" "}
-                                <span
-                                    className={
-                                        isOpenCadastro
-                                            ? "preparo-aula--open"
-                                            : "preparo-aula--close"
-                                    }
-                                >
+                                <span className={isOpenCadastro ? "preparo-aula--open" : "preparo-aula--close"}>
                                     <FontAwesomeIcon icon={faChevronDown} />
                                 </span>
                             </motion.button>
@@ -366,29 +324,18 @@ function PreparoAula() {
                                             }}
                                             exit={{ height: 0, opacity: 0 }}
                                             onSubmit={handleSubmit(onSubmit)}
-                                            onClick={(evt) =>
-                                                evt.stopPropagation()
-                                            }
+                                            onClick={(evt) => evt.stopPropagation()}
                                             key={"cadastrar-video"}
                                         >
                                             <div className="preparo-aula__input">
-                                                <label htmlFor="titulo-aula">
-                                                    Título
-                                                </label>
+                                                <label htmlFor="titulo-aula">Título</label>
                                                 <input
                                                     type="text"
                                                     id="titulo-aula"
-                                                    className={
-                                                        errors.titulo_aula &&
-                                                        "input-error"
-                                                    }
-                                                    {...register(
-                                                        "titulo_aula",
-                                                        {
-                                                            required:
-                                                                "O título é obrigatório",
-                                                        },
-                                                    )}
+                                                    className={errors.titulo_aula && "input-error"}
+                                                    {...register("titulo_aula", {
+                                                        required: "O título é obrigatório",
+                                                    })}
                                                 />
                                                 <AnimatePresence>
                                                     {errors.titulo_aula && (
@@ -407,35 +354,20 @@ function PreparoAula() {
                                                                 opacity: 0,
                                                             }}
                                                         >
-                                                            <p>
-                                                                {
-                                                                    errors
-                                                                        .titulo_aula
-                                                                        .message
-                                                                }
-                                                            </p>
+                                                            <p>{errors.titulo_aula.message}</p>
                                                         </motion.div>
                                                     )}
                                                 </AnimatePresence>
                                             </div>
                                             <div className="preparo-aula__input">
-                                                <label htmlFor="link-aula">
-                                                    Link do Youtube
-                                                </label>
+                                                <label htmlFor="link-aula">Link do Youtube</label>
                                                 <input
                                                     type="text"
                                                     id="link-aula"
-                                                    className={
-                                                        errors.link_youtube &&
-                                                        "input-error"
-                                                    }
-                                                    {...register(
-                                                        "link_youtube",
-                                                        {
-                                                            required:
-                                                                "O link é obrigatório",
-                                                        },
-                                                    )}
+                                                    className={errors.link_youtube && "input-error"}
+                                                    {...register("link_youtube", {
+                                                        required: "O link é obrigatório",
+                                                    })}
                                                 />
                                                 <AnimatePresence>
                                                     {errors.link_youtube && (
@@ -454,13 +386,7 @@ function PreparoAula() {
                                                                 opacity: 0,
                                                             }}
                                                         >
-                                                            <p>
-                                                                {
-                                                                    errors
-                                                                        .link_youtube
-                                                                        .message
-                                                                }
-                                                            </p>
+                                                            <p>{errors.link_youtube.message}</p>
                                                         </motion.div>
                                                     )}
                                                 </AnimatePresence>
@@ -484,10 +410,7 @@ function PreparoAula() {
                                                     title="Salvar Vídeo"
                                                     type="submit"
                                                 >
-                                                    Salvar{" "}
-                                                    {aula.realizado &&
-                                                        "edição do "}{" "}
-                                                    Vídeo
+                                                    Salvar {aula.realizado && "edição do "} Vídeo
                                                 </motion.button>
                                             </div>
                                         </motion.form>
@@ -502,13 +425,7 @@ function PreparoAula() {
                     <div className="preparo-aula__chamada">
                         <h2 onClick={() => setIsOpenChamada((v) => !v)}>
                             Visualizações{" "}
-                            <span
-                                className={
-                                    isOpenChamada
-                                        ? "preparo-aula--open"
-                                        : "preparo-aula--close"
-                                }
-                            >
+                            <span className={isOpenChamada ? "preparo-aula--open" : "preparo-aula--close"}>
                                 <FontAwesomeIcon icon={faChevronDown} />
                             </span>
                         </h2>
@@ -535,18 +452,12 @@ function PreparoAula() {
                                 >
                                     <div className="preparo-aula__chamada--filtros">
                                         <Dropdown
-                                            current={
-                                                currentIgreja?.nome || null
-                                            }
-                                            onSelect={(v) =>
-                                                setCurrentIgreja(v)
-                                            }
+                                            current={currentIgreja?.nome || null}
+                                            onSelect={(v) => setCurrentIgreja(v)}
                                             lista={igrejas}
                                             selectId={currentIgreja?.id}
                                         />
-                                        <SearchInput
-                                            onSearch={(v) => setPesquisa(v)}
-                                        />
+                                        <SearchInput onSearch={setPesquisa} />
                                     </div>
                                     <table className="preparo-aula__chamada-table">
                                         <thead>
@@ -576,17 +487,10 @@ function PreparoAula() {
                                                         <p>{v.igreja}</p>
                                                     </td>
                                                     <td data-label="Classe">
-                                                        <p>
-                                                            {v.classe ||
-                                                                "(Sem Classe)"}
-                                                        </p>
+                                                        <p>{v.classe || "(Sem Classe)"}</p>
                                                     </td>
                                                     <td data-label="Visualizações">
-                                                        <p>
-                                                            {
-                                                                v?.contagem_visualizacoes
-                                                            }
-                                                        </p>
+                                                        <p>{v?.contagem_visualizacoes}</p>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -595,10 +499,7 @@ function PreparoAula() {
                                 </motion.div>
                             ) : (
                                 isOpenChamada && (
-                                    <motion.div
-                                        key={"table-skeleton"}
-                                        className="table-skeleton"
-                                    >
+                                    <motion.div key={"table-skeleton"} className="table-skeleton">
                                         <table>
                                             <thead>
                                                 <tr>
@@ -663,8 +564,7 @@ function PreparoAula() {
                                 >
                                     <img
                                         src={`https://img.youtube.com/vi/${aula?.link_youtube?.slice(
-                                            aula.link_youtube.lastIndexOf("/") +
-                                                1,
+                                            aula.link_youtube.lastIndexOf("/") + 1,
                                             aula.link_youtube.lastIndexOf("?"),
                                         )}/hqdefault.jpg`}
                                     />
@@ -675,21 +575,13 @@ function PreparoAula() {
                                 </div>
                             ) : (
                                 <>
-                                    {isLoadingVideo && (
-                                        <div className="video-loader"></div>
-                                    )}
+                                    {isLoadingVideo && <div className="video-loader"></div>}
                                     <YouTube
                                         videoId={aula.link_youtube?.slice(
-                                            aula.link_youtube.lastIndexOf("/") +
-                                                1,
+                                            aula.link_youtube.lastIndexOf("/") + 1,
                                             aula.link_youtube.lastIndexOf("?"),
                                         )}
-                                        onReady={() =>
-                                            setTimeout(
-                                                () => setIsLoadingVideo(false),
-                                                500,
-                                            )
-                                        }
+                                        onReady={() => setTimeout(() => setIsLoadingVideo(false), 500)}
                                         opts={{
                                             playerVars: {
                                                 autoplay: 1,
@@ -701,10 +593,7 @@ function PreparoAula() {
                         </div>
                     ) : (
                         <div className="preparo-aula__video--vazio">
-                            <p>
-                                Nenhum vídeo foi adicionado para esta aula
-                                ainda.
-                            </p>
+                            <p>Nenhum vídeo foi adicionado para esta aula ainda.</p>
                         </div>
                     )}
 
@@ -733,11 +622,7 @@ function PreparoAula() {
                                 onSelect={(v) => {
                                     if (v?.id) {
                                         setCurrentAulaId(v.id);
-                                        navigate(
-                                            `/preparo/licao/${
-                                                currentLicao!.id
-                                            }/aula/${v?.id}`,
-                                        );
+                                        navigate(`/preparo/licao/${currentLicao!.id}/aula/${v?.id}`);
                                     }
                                 }}
                             />

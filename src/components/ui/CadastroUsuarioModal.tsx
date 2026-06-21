@@ -1,20 +1,15 @@
+import "./cadastro-usuario-modal.scss";
 import { faCircleUser, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    Controller,
-    FormProvider,
-    useForm,
-    type FieldError,
-} from "react-hook-form";
+import { Controller, FormProvider, useForm, useWatch, type FieldError } from "react-hook-form";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import Dropdown from "./Dropdown";
 import { useAuthContext } from "../../context/AuthContext";
 import { useDataContext } from "../../context/DataContext";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../utils/firebase";
-import "./cadastro-usuario-modal.scss";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, functions } from "../../utils/firebase";
+import { httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import type { Roles } from "../../roles/RolesType";
@@ -57,37 +52,38 @@ const ROLES_LIST: { nome: string; id: Roles }[] = [
     { nome: RolesLabel[ROLES.SECRETARIO_CLASSE], id: ROLES.SECRETARIO_CLASSE },
 ];
 
-const functions = getFunctions();
 const salvarUsuario = httpsCallable(functions, "salvarUsuario");
 
 function CadastroUsuarioModal({
     usuarioId,
     onSave,
     onCancel,
+    igrejaId,
 }: {
     usuarioId?: string;
     onSave: (data: UsuarioInterface) => void;
     onCancel: () => void;
+    igrejaId?: string;
 }) {
     const { isSecretario, isAdmin, user } = useAuthContext();
     const { classes, igrejas } = useDataContext();
-    const methods = useForm<Form>();
+    const methods = useForm<Form>({ defaultValues: { igrejaId: igrejas.find((v) => v.id === igrejaId)?.id } });
     const {
         register,
-        reset,
         handleSubmit,
         setValue,
         control,
         formState: { errors },
     } = methods;
 
+    const currentIgreja = useWatch({ control, name: "igrejaId" });
+    const currentRole = useWatch({ control, name: "role" });
+
     const [showSenha, setShowSenha] = useState(false);
     const [key, setKey] = useState(0);
     const [isEnviando, setIsEnviando] = useState(false);
     const [mensagemErro, setMensagemErro] = useState("");
     const [roles, setRoles] = useState(ROLES_LIST);
-    const [currentIgreja, setCurrentIgreja] = useState<string | null>(null);
-    const [currentRole, setCurrentRole] = useState<string | null>(null);
 
     const onSubmit = (dados: Form) => {
         setIsEnviando(true);
@@ -107,10 +103,7 @@ function CadastroUsuarioModal({
     };
     const ErroMenssage = (erro: FieldError) => {
         return (
-            <motion.div
-                variants={variantsErro}
-                className="cadastro-usuario__form-erro"
-            >
+            <motion.div variants={variantsErro} className="cadastro-usuario__form-erro">
                 {erro.message}
             </motion.div>
         );
@@ -123,79 +116,53 @@ function CadastroUsuarioModal({
         return c;
     }, [currentIgreja]);
     useEffect(() => {
-        const getUsuario = async () => {
-            if (!usuarioId) return;
-            const d = doc(db, "usuarios", usuarioId);
-            const snap = await getDoc(d);
+        if (!user) return;
+        if (igrejaId) {
+        }
 
-            if (!snap.exists()) return;
+        if (usuarioId === user.uid) {
+            setRoles(roles.filter((v) => v.id === user.role));
+        } else if (user.role === ROLES.SECRETARIO_CONGREGACAO)
+            setRoles(
+                ROLES_LIST.filter((v) => v.id !== "pastor_presidente" && v.id !== "super_admin" && v.id !== "pastor"),
+            );
+        else if (user.role === ROLES.SUPER_ADMIN) setRoles(ROLES_LIST.filter((v) => v.id !== "pastor_presidente"));
+        else if (isAdmin.current)
+            setRoles(ROLES_LIST.filter((v) => v.id !== "pastor_presidente" && v.id !== "super_admin"));
+        else if (user.role === "professor")
+            setRoles(ROLES_LIST.filter((v) => v.id === "secretario_classe" || v.id === "professor"));
+        else if (user.role === "secretario_classe") setRoles(ROLES_LIST.filter((v) => v.id === "secretario_classe"));
 
-            const usuario = { id: snap.id, ...snap.data() } as UsuarioInterface;
+        if (usuarioId) {
+            const getUsuario = async () => {
+                const d = doc(db, "usuarios", usuarioId);
+                const snap = await getDoc(d);
 
-            return usuario;
-        };
-        if (user)
-            if (usuarioId === user.uid) {
-                setRoles(roles.filter((v) => v.id === user.role));
-            } else if (user.role === ROLES.SECRETARIO_CONGREGACAO)
-                setRoles(
-                    ROLES_LIST.filter(
-                        (v) =>
-                            v.id !== "pastor_presidente" &&
-                            v.id !== "super_admin" &&
-                            v.id !== "pastor",
-                    ),
-                );
-            else if (user.role === ROLES.SUPER_ADMIN)
-                setRoles(
-                    ROLES_LIST.filter((v) => v.id !== "pastor_presidente"),
-                );
-            else if (isAdmin.current)
-                setRoles(
-                    ROLES_LIST.filter(
-                        (v) =>
-                            v.id !== "pastor_presidente" &&
-                            v.id !== "super_admin",
-                    ),
-                );
-            else if (user.role === "professor")
-                setRoles(
-                    ROLES_LIST.filter(
-                        (v) =>
-                            v.id === "secretario_classe" ||
-                            v.id === "professor",
-                    ),
-                );
-            else if (user.role === "secretario_classe")
-                setRoles(
-                    ROLES_LIST.filter((v) => v.id === "secretario_classe"),
-                );
-        if (usuarioId)
+                if (!snap.exists()) return;
+
+                const usuario = { id: snap.id, ...snap.data() } as UsuarioInterface;
+
+                return usuario;
+            };
+
             getUsuario()
                 .then((v) => {
                     if (v) {
-                        reset({
+                        const obj: Partial<Form> = {
                             classeId: v.classeId || undefined,
                             email: v.email,
                             nome: v.nome,
                             igrejaId: v.igrejaId,
                             role: v.role as Roles,
                             senha: "",
-                        });
+                        };
 
-                        setCurrentIgreja(v.igrejaId || null);
-                        setCurrentRole(v.role || null);
-                    } else
-                        reset({
-                            classeId: "",
-                            email: "",
-                            nome: "",
-                            igrejaId: "",
-                            senha: "",
-                        });
+                        Object.entries(obj).forEach(([key, v]) => setValue(key as any, v));
+                    }
                 })
                 .catch((err) => console.log("deu esse erro", err));
-    }, [user, reset]);
+        }
+    }, [user]);
     return (
         <>
             <motion.div
@@ -206,10 +173,7 @@ function CadastroUsuarioModal({
                     transition: { duration: 0.2 },
                 }}
             >
-                <motion.div
-                    className="cadastro-usuario"
-                    onClick={(evt) => evt.stopPropagation()}
-                >
+                <motion.div className="cadastro-usuario" onClick={(evt) => evt.stopPropagation()}>
                     <LoadingModal isEnviando={isEnviando} />
                     <div className="cadastro-usuario__header">
                         <div className="cadastro-usuario__title">
@@ -217,10 +181,7 @@ function CadastroUsuarioModal({
                             <h2>Cadastrar Novo Usuário</h2>
                         </div>
 
-                        <div
-                            className="cadastro-usuario__close"
-                            onClick={() => onCancel()}
-                        >
+                        <div className="cadastro-usuario__close" onClick={() => onCancel()}>
                             <FontAwesomeIcon icon={faXmark} />
                         </div>
                     </div>
@@ -252,19 +213,8 @@ function CadastroUsuarioModal({
                                         render={({ field }) => (
                                             <Dropdown
                                                 lista={roles}
-                                                current={
-                                                    roles.find(
-                                                        (v) =>
-                                                            v.id ===
-                                                            field.value,
-                                                    )?.nome || null
-                                                }
-                                                onSelect={(v) => {
-                                                    setCurrentRole(v?.id!);
-                                                    field.onChange(
-                                                        v?.id || null,
-                                                    );
-                                                }}
+                                                current={roles.find((v) => v.id === field.value)?.nome || null}
+                                                onSelect={(v) => field.onChange(v?.id || null)}
                                                 isAll={false}
                                                 isErro={!!errors.role}
                                             />
@@ -273,10 +223,7 @@ function CadastroUsuarioModal({
                                     {errors.role && ErroMenssage(errors.role)}
                                 </motion.div>
 
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="cadastro-usuario__form-input"
-                                >
+                                <motion.div variants={variantsItem} className="cadastro-usuario__form-input">
                                     <p>
                                         Igreja <span>*</span>
                                     </p>
@@ -289,30 +236,17 @@ function CadastroUsuarioModal({
                                         render={({ field }) => (
                                             <Dropdown
                                                 lista={igrejas}
-                                                current={
-                                                    igrejas.find(
-                                                        (v) =>
-                                                            v.id ===
-                                                            field.value,
-                                                    )?.nome || null
-                                                }
+                                                current={igrejas.find((v) => v.id === field.value)?.nome || null}
                                                 onSelect={(v) => {
-                                                    setValue(
-                                                        "classeId",
-                                                        undefined,
-                                                    );
-                                                    setCurrentIgreja(v?.id!);
-                                                    field.onChange(
-                                                        v?.id || null,
-                                                    );
+                                                    setValue("classeId", undefined);
+                                                    field.onChange(v?.id || null);
                                                 }}
                                                 isAll={false}
                                                 isErro={!!errors.igrejaId}
                                             />
                                         )}
                                     />
-                                    {errors.igrejaId &&
-                                        ErroMenssage(errors.igrejaId)}
+                                    {errors.igrejaId && ErroMenssage(errors.igrejaId)}
                                 </motion.div>
 
                                 <AnimatePresence>
@@ -324,13 +258,11 @@ function CadastroUsuarioModal({
                                         >
                                             <p>
                                                 Classe{" "}
-                                                {currentRole ===
-                                                    ROLES.SECRETARIO_CLASSE ||
-                                                currentRole ===
-                                                    ROLES.PROFESSOR ? (
+                                                {currentRole === ROLES.SECRETARIO_CLASSE ||
+                                                currentRole === ROLES.PROFESSOR ? (
                                                     <span>*</span>
                                                 ) : (
-                                                    <i>(não é obrigatório)</i>
+                                                    <i>(apenas se for professor)</i>
                                                 )}
                                             </p>
                                             <Controller
@@ -338,10 +270,8 @@ function CadastroUsuarioModal({
                                                 control={control}
                                                 rules={{
                                                     required:
-                                                        currentRole ===
-                                                            ROLES.SECRETARIO_CLASSE ||
-                                                        currentRole ===
-                                                            ROLES.PROFESSOR
+                                                        currentRole === ROLES.SECRETARIO_CLASSE ||
+                                                        currentRole === ROLES.PROFESSOR
                                                             ? "O cargo selecionado, exige que uma classe vinculada"
                                                             : false,
                                                 }}
@@ -350,33 +280,21 @@ function CadastroUsuarioModal({
                                                         lista={classesMemo}
                                                         isAll={false}
                                                         current={
-                                                            classesMemo.find(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    field.value,
-                                                            )?.nome || null
+                                                            classesMemo.find((v) => v.id === field.value)?.nome || null
                                                         }
                                                         onSelect={(v) => {
-                                                            field.onChange(
-                                                                v?.id || null,
-                                                            );
+                                                            field.onChange(v?.id || null);
                                                         }}
-                                                        isErro={
-                                                            !!errors.classeId
-                                                        }
+                                                        isErro={!!errors.classeId}
                                                     />
                                                 )}
                                             />
 
-                                            {errors.classeId &&
-                                                ErroMenssage(errors.classeId)}
+                                            {errors.classeId && ErroMenssage(errors.classeId)}
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="cadastro-usuario__form-input"
-                                >
+                                <motion.div variants={variantsItem} className="cadastro-usuario__form-input">
                                     <label htmlFor="cadastro-usuario-nome">
                                         Nome Completo <span>*</span>
                                     </label>
@@ -388,8 +306,7 @@ function CadastroUsuarioModal({
                                             required: "O nome é obrigatório",
                                             minLength: {
                                                 value: 3,
-                                                message:
-                                                    "O nome deve ter pelo menos 3 caracteres.",
+                                                message: "O nome deve ter pelo menos 3 caracteres.",
                                             },
                                         })}
                                     />
@@ -398,95 +315,60 @@ function CadastroUsuarioModal({
                                 </motion.div>
 
                                 {(!usuarioId || !isSecretario.current) && (
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="cadastro-usuario__form-group"
-                                    >
+                                    <motion.div variants={variantsItem} className="cadastro-usuario__form-group">
                                         <div className="cadastro-usuario__form-input">
                                             <label htmlFor="cadastro-usuario-email">
                                                 E-mail <span>*</span>
                                             </label>
                                             <input
                                                 type="email"
-                                                className={
-                                                    errors.email &&
-                                                    "input-error"
-                                                }
+                                                className={errors.email && "input-error"}
                                                 placeholder="email@dominio.com"
                                                 id="cadastro-usuario-email"
                                                 {...register("email", {
-                                                    required:
-                                                        "O email é obrigatório",
+                                                    required: "O email é obrigatório",
                                                     validate: (value) => {
                                                         const regex =
                                                             /^[A-Za-z0-9][A-Za-z0-9._+-]+@[A-Za-z0-9][A-Za-z0-9._-]+\.[A-Za-z]{2,}$/u;
-                                                        return (
-                                                            regex.test(value) ||
-                                                            "Formato de email invalido;"
-                                                        );
+                                                        return regex.test(value) || "Formato de email invalido;";
                                                     },
                                                 })}
                                             />
-                                            {errors.email &&
-                                                ErroMenssage(errors.email)}
+                                            {errors.email && ErroMenssage(errors.email)}
                                         </div>
                                         <div className="cadastro-usuario__form-input">
                                             <label htmlFor="cadastro-usuario-senha">
                                                 Senha
-                                                {usuarioId ? (
-                                                    ""
-                                                ) : (
-                                                    <span>*</span>
-                                                )}
+                                                {usuarioId ? "" : <span>*</span>}
                                             </label>
                                             <div className="cadastro-usuario__form-input--senha">
                                                 <input
-                                                    type={
-                                                        showSenha
-                                                            ? "text"
-                                                            : "password"
-                                                    }
-                                                    className={
-                                                        errors.senha &&
-                                                        "input-error"
-                                                    }
+                                                    type={showSenha ? "text" : "password"}
+                                                    className={errors.senha && "input-error"}
                                                     id="cadastro-usuario-senha"
                                                     {...register("senha", {
                                                         required: {
-                                                            value: usuarioId
-                                                                ? false
-                                                                : true,
-                                                            message:
-                                                                "A senha é obrigatória",
+                                                            value: usuarioId ? false : true,
+                                                            message: "A senha é obrigatória",
                                                         },
                                                         minLength: {
                                                             value: 6,
-                                                            message:
-                                                                "A senha deve ter pelo menos 6 caracteres.",
+                                                            message: "A senha deve ter pelo menos 6 caracteres.",
                                                         },
                                                     })}
                                                 />
                                                 <motion.div
                                                     className="cadastro-usuario__form-input--image"
-                                                    onMouseOver={() =>
-                                                        setKey((v) => v + 1)
-                                                    }
-                                                    onTap={() =>
-                                                        setShowSenha((v) => !v)
-                                                    }
+                                                    onMouseOver={() => setKey((v) => v + 1)}
+                                                    onTap={() => setShowSenha((v) => !v)}
                                                 >
                                                     <img
-                                                        src={`/eye${
-                                                            showSenha
-                                                                ? "-close"
-                                                                : ""
-                                                        }.gif?key=${key}`}
+                                                        src={`/eye${showSenha ? "-close" : ""}.gif?key=${key}`}
                                                         alt="Ver senha"
                                                     />
                                                 </motion.div>
                                             </div>
-                                            {errors.senha &&
-                                                ErroMenssage(errors.senha)}
+                                            {errors.senha && ErroMenssage(errors.senha)}
                                         </div>
                                     </motion.div>
                                 )}
@@ -502,18 +384,9 @@ function CadastroUsuarioModal({
                                             Cancelar
                                         </button>
                                     </div>
-                                    <motion.div
-                                        whileTap={{ scale: 0.9 }}
-                                        className="cadastro-usuario__form-submit"
-                                    >
-                                        <button
-                                            title="Salvar Usuário"
-                                            type="submit"
-                                            disabled={isEnviando}
-                                        >
-                                            {usuarioId
-                                                ? "Editar Usuário"
-                                                : "Cadastrar Usuário"}
+                                    <motion.div whileTap={{ scale: 0.9 }} className="cadastro-usuario__form-submit">
+                                        <button title="Salvar Usuário" type="submit" disabled={isEnviando}>
+                                            {usuarioId ? "Editar Usuário" : "Cadastrar Usuário"}
                                         </button>
                                     </motion.div>
                                 </div>

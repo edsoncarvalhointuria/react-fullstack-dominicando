@@ -5,6 +5,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import JSZip from "jszip";
 import Hashids from "hashids";
+import { DecodedIdToken, UpdateRequest } from "firebase-admin/auth";
 
 enum Roles {
     PASTOR_PRESIDENTE = "pastor_presidente",
@@ -42,8 +43,14 @@ enum Cll {
     TRIMESTRES = "trimestres",
     USUARIOS = "usuarios",
     VISITANTES = "visitantes",
+    SISTEMA = "sistema",
 }
 
+interface CacheDefault<T> {
+    igrejaId: string;
+    ministerioId: string;
+    lista: { [key: string]: T };
+}
 interface ValidarUsuario {
     user: admin.firestore.DocumentData;
     db: admin.firestore.Firestore;
@@ -56,12 +63,12 @@ interface User {
     uid: string;
     email: string;
     nome: string;
+
     role: string;
     igrejaId: string;
-    igrejaNome: string;
     ministerioId: string;
-    classeId: string;
-    classeNome: string;
+    classeId: string | null;
+
     tokens?: number;
 }
 
@@ -79,13 +86,7 @@ interface Notificacao {
     message: string;
 }
 
-function enviarLog(
-    user: User,
-    request: any,
-    evento: string,
-    message: string,
-    dadosImportantes?: any,
-) {
+function enviarLog(user: User, request: any, evento: string, message: string, dadosImportantes?: any) {
     const notificacao: Notificacao = {
         actor: {
             email: user.email,
@@ -146,35 +147,38 @@ function getNewCacheAluno(
 
 async function validarUsuario(request: functions.https.CallableRequest) {
     if (!request.auth) {
-        throw new functions.https.HttpsError(
-            "unauthenticated",
-            "usuário não está logado",
-        );
+        throw new functions.https.HttpsError("unauthenticated", "usuário não está logado");
     }
 
-    const { uid } = request.auth;
+    const { uid, rawToken } = request.auth;
+
+    const dados = (await admin.auth().verifyIdToken(rawToken, true)) as TokenUser & DecodedIdToken;
+
     const db = admin.firestore();
-    const userDoc = await db.collection("usuarios").doc(uid).get();
 
-    if (!userDoc.exists) {
+    const user: User = {
+        classeId: dados.classeId,
+        email: dados.email!,
+        igrejaId: dados.igrejaId,
+        ministerioId: dados.ministerioId,
+        nome: dados["name"] || "",
+        role: dados.role,
+        uid,
+    };
+
+    const isSuperAdmin = user.role === Roles.PASTOR_PRESIDENTE || user.role === Roles.SUPER_ADMIN;
+    const isAdmin = user.role === Roles.PASTOR || user.role === Roles.SECRETARIO_CONGREGACAO;
+    const isSecretario = user.role === Roles.SECRETARIO_CLASSE || user.role === Roles.PROFESSOR;
+    const isTeste = !!dados.isTeste;
+
+    return { user, db, isSuperAdmin, isAdmin, isSecretario, isTeste };
+}
+function throwIsTeste(isTeste: boolean) {
+    if (isTeste)
         throw new functions.https.HttpsError(
-            "not-found",
-            "usuário não encontrado",
+            "permission-denied",
+            "Cadastro não permitido. Usuários com acesso de testes não podem realizar novos cadastros.",
         );
-    }
-
-    const user = userDoc.data()! as User;
-
-    const isSuperAdmin =
-        user.role === Roles.PASTOR_PRESIDENTE ||
-        user.role === Roles.SUPER_ADMIN;
-    const isAdmin =
-        user.role === Roles.PASTOR ||
-        user.role === Roles.SECRETARIO_CONGREGACAO;
-    const isSecretario =
-        user.role === Roles.SECRETARIO_CLASSE || user.role === Roles.PROFESSOR;
-
-    return { user, db, isSuperAdmin, isAdmin, isSecretario };
 }
 
 function baseDashboard(
@@ -188,10 +192,7 @@ function baseDashboard(
 
     let { dataInicio, dataFim } = request.data;
     if (!dataInicio || !dataFim) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "As datas são obrigatórias",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "As datas são obrigatórias");
     }
 
     dataInicio = new Date(dataInicio);
@@ -209,8 +210,7 @@ function baseDashboard(
 
     let q;
     if (isSecretario) q = baseQuery.where("classeId", "==", user.classeId);
-    else if (isSuperAdmin)
-        q = baseQuery.where("ministerioId", "==", user.ministerioId);
+    else if (isSuperAdmin) q = baseQuery.where("ministerioId", "==", user.ministerioId);
     else q = baseQuery.where("igrejaId", "==", user.igrejaId);
 
     return q;
@@ -269,17 +269,12 @@ function calcCacheLicao(
             const [d1, m1, a1] = a.name.split("/");
             const [d2, m2, a2] = b.name.split("/");
 
-            return (
-                new Date(a1, m1, d1).getTime() - new Date(a2, m2, d2).getTime()
-            );
+            return new Date(a1, m1, d1).getTime() - new Date(a2, m2, d2).getTime();
         });
     }
 }
 
-function calcCacheMembros(
-    documentos: admin.firestore.DocumentData[],
-    isSecretario: boolean,
-) {
+function calcCacheMembros(documentos: admin.firestore.DocumentData[], isSecretario: boolean) {
     if (isSecretario) return [];
 
     const membros = new Map();
@@ -287,9 +282,7 @@ function calcCacheMembros(
         const cache = v.data();
         const listaMembros = Array.from(Object.values(cache.lista || {}));
         const total_membros = listaMembros.length;
-        const total_matriculados = listaMembros.filter(
-            (v: any) => v.alunoId,
-        ).length;
+        const total_matriculados = listaMembros.filter((v: any) => v.alunoId).length;
 
         membros.set(cache.igrejaId, { total_membros, total_matriculados });
     });
@@ -304,8 +297,7 @@ function getIdade(data_nascimento: Timestamp) {
     let idade = hoje.getFullYear() - nascimento.getFullYear();
     const mes = hoje.getMonth() - nascimento.getMonth();
 
-    if (mes < 0 || (mes === 0 && hoje.getDate() <= nascimento.getDate()))
-        idade--;
+    if (mes < 0 || (mes === 0 && hoje.getDate() <= nascimento.getDate())) idade--;
 
     return idade;
 }
@@ -318,10 +310,7 @@ async function calcTrimestre(
     db: admin.firestore.Firestore,
 ) {
     if (!igrejaId || !trimestreId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     const [igrejaSnap, trimestreSnap] = await Promise.all([
@@ -329,19 +318,10 @@ async function calcTrimestre(
         db.collection(Cll.TRIMESTRES).doc(trimestreId).get(),
     ]);
     if (!igrejaSnap.exists || !trimestreSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Coleções não encontradas.",
-        );
+        throw new functions.https.HttpsError("not-found", "Coleções não encontradas.");
     }
-    if (
-        naoTemPermissao ||
-        user.ministerioId !== trimestreSnap.data()?.ministerioId
-    ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+    if (naoTemPermissao || user.ministerioId !== trimestreSnap.data()?.ministerioId) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     const trimestre = trimestreSnap.data() as Trimestre;
@@ -361,9 +341,7 @@ async function calcTrimestre(
     const dias = new Map();
     const meses = new Map();
 
-    const aulasSnaps = await Promise.all(
-        licoes.docs.map(async (v) => v.ref.collection("aulas").get()),
-    );
+    const aulasSnaps = await Promise.all(licoes.docs.map(async (v) => v.ref.collection("aulas").get()));
 
     const aulasRealizadas = aulasSnaps
         .flatMap((v) => v.docs)
@@ -383,12 +361,8 @@ async function calcTrimestre(
             const mes = meses.get(data.getMonth()) || {
                 id: `${data.getFullYear()}-${data.getMonth() + 1}`,
                 nome:
-                    data
-                        .toLocaleDateString("pt-BR", { month: "long" })[0]
-                        .toUpperCase() +
-                    data
-                        .toLocaleDateString("pt-BR", { month: "long" })
-                        .slice(1),
+                    data.toLocaleDateString("pt-BR", { month: "long" })[0].toUpperCase() +
+                    data.toLocaleDateString("pt-BR", { month: "long" }).slice(1),
                 numero_mes: data.getMonth(),
                 datas: [],
                 resumo_final: {
@@ -408,9 +382,7 @@ async function calcTrimestre(
             return aula?.realizada;
         });
 
-    const registrosSnaps = await Promise.all(
-        aulasRealizadas.map((v) => v.data().registroRef.get()),
-    );
+    const registrosSnaps = await Promise.all(aulasRealizadas.map((v) => v.data().registroRef.get()));
 
     const totais = {
         total: 0,
@@ -428,12 +400,10 @@ async function calcTrimestre(
         const valores = {
             total_ofertas_pix: registro.ofertas.pix || 0,
             total_ofertas_dinheiro: registro.ofertas.dinheiro || 0,
-            total_ofertas:
-                (registro.ofertas.dinheiro || 0) + (registro.ofertas.pix || 0),
+            total_ofertas: (registro.ofertas.dinheiro || 0) + (registro.ofertas.pix || 0),
             total_missoes_pix: registro.missoes.pix || 0,
             total_missoes_dinheiro: registro.missoes.dinheiro || 0,
-            total_missoes:
-                (registro.missoes.dinheiro || 0) + (registro.missoes.pix || 0),
+            total_missoes: (registro.missoes.dinheiro || 0) + (registro.missoes.pix || 0),
             total: registro.ofertas_total + registro.missoes_total || 0,
         };
         const colunas: Array<
@@ -480,10 +450,7 @@ async function calcTrimestre(
             totais[v] = (totais[v] || 0) + valores[v];
             mes["resumo_final"][v] = (mes["resumo_final"][v] || 0) + valores[v];
         });
-        classe["comprovantes"].push(
-            ...(registro.imgsPixMissoes || []),
-            ...(registro.imgsPixOfertas || []),
-        );
+        classe["comprovantes"].push(...(registro.imgsPixMissoes || []), ...(registro.imgsPixOfertas || []));
 
         aula["classes"] = { ...classes, [registro.classeId]: classe };
         if (!mes["datas"].includes(aula)) mes["datas"].push(aula);
@@ -517,19 +484,11 @@ export const getDashboard = functions.https.onCall(async (request) => {
 
     const respostasMap = new Map();
     Object.entries(colunas).forEach(([key, resp]) => {
-        const r = calcCacheLicao(
-            cacheLicaoDocs,
-            isSuperAdmin,
-            isSecretario,
-            key,
-        );
+        const r = calcCacheLicao(cacheLicaoDocs, isSuperAdmin, isSecretario, key);
         respostasMap.set(resp, r);
     });
 
-    const total_membros_matriculados = calcCacheMembros(
-        cacheMembrosDocs,
-        isSecretario,
-    );
+    const total_membros_matriculados = calcCacheMembros(cacheMembrosDocs, isSecretario);
 
     return {
         ...Object.fromEntries(respostasMap),
@@ -538,14 +497,15 @@ export const getDashboard = functions.https.onCall(async (request) => {
 });
 
 export const getRelatorioDominical = functions.https.onCall(async (request) => {
-    const { db } = await validarUsuario(request);
+    const { db, isSecretario, user, isSuperAdmin } = await validarUsuario(request);
 
-    const { data, classes, igrejaId } = request.data;
-    if (!data || (!classes && !igrejaId)) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Data, classes ou igreja invalidos",
-        );
+    const { data, igrejaId } = request.data;
+    if (!data || !igrejaId) {
+        throw new functions.https.HttpsError("invalid-argument", "Data, classes ou igreja invalidos");
+    }
+
+    if (!isSuperAdmin && igrejaId !== user.igrejaId) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     const inicioDia = new Date(data);
@@ -553,25 +513,20 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     const fimDia = new Date(data);
     fimDia.setHours(23, 59, 59, 59);
 
-    const q = db
+    let q = db
         .collection(Cll.REGISTROS_AULA)
+        .where("ministerioId", "==", user.ministerioId)
+        .where("igrejaId", "==", igrejaId)
         .where("data", ">=", inicioDia)
         .where("data", "<=", fimDia);
+    if (isSecretario) q = q.where("classeId", "==", user.classeId);
 
-    const promisesQ = [];
-    for (let i = 0; i < classes.length; i += 30) {
-        const classesSplit = classes.slice(i, i + 30);
-        promisesQ.push(q.where("classeId", "in", classesSplit).get());
-    }
-
-    const todosRegistros = (await Promise.all(promisesQ)).flatMap(
-        (v) => v.docs,
-    );
+    const todosRegistros = await q.get();
     const classesRelatorio: any[] = [];
-    const registrosMap = new Map<string, any>();
+    const registrosMap = new Map<string, RegistroAulaInterface>();
     todosRegistros.forEach((v) => {
         const value = v.data();
-        registrosMap.set(value.classeId, { id: v.id, ...v.data() });
+        registrosMap.set(value.classeId, { id: v.id, ...(v.data() as RegistroAulaInterface) });
         if (value)
             classesRelatorio.push({
                 id: value.classeId,
@@ -581,7 +536,7 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
 
     // Totais Gerais
     const totaisGeraisMap = new Map<string, any>();
-    const colunas = [
+    const colunas: (keyof RegistroAulaInterface)[] = [
         "total_matriculados",
         "presentes_chamada",
         "visitas",
@@ -596,26 +551,22 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
         "missoes",
     ];
 
-    registrosMap.forEach((r) => {
-        colunas.forEach((c) => {
-            const item = r[c];
+    registrosMap.forEach((registro) => {
+        colunas.forEach((coluna) => {
+            const item = registro[coluna];
             if (item) {
-                if (c === "ofertas" || c === "missoes") {
-                    const keyPix = `${c}_pix`;
-                    const keyDinheiro = `${c}_dinheiro`;
+                if (coluna === "ofertas" || coluna === "missoes") {
+                    const keyPix = `${coluna}_pix`;
+                    const keyDinheiro = `${coluna}_dinheiro`;
 
-                    const totalPix =
-                        (totaisGeraisMap.get(keyPix) || 0) +
-                        Number(item["pix"]);
-                    const totalDinheiro =
-                        (totaisGeraisMap.get(keyDinheiro) || 0) +
-                        Number(item["dinheiro"]);
+                    const totalPix = (totaisGeraisMap.get(keyPix) || 0) + Number((item as any)["pix"]);
+                    const totalDinheiro = (totaisGeraisMap.get(keyDinheiro) || 0) + Number((item as any)["dinheiro"]);
 
                     totaisGeraisMap.set(keyPix, totalPix);
                     totaisGeraisMap.set(keyDinheiro, totalDinheiro);
                 } else {
-                    const total = (totaisGeraisMap.get(c) || 0) + Number(item);
-                    totaisGeraisMap.set(c, total);
+                    const total = (totaisGeraisMap.get(coluna) || 0) + Number(item);
+                    totaisGeraisMap.set(coluna, total);
                 }
             }
         });
@@ -626,10 +577,7 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
     inicioSemana.setDate(inicioSemana.getDate() - 7);
     const fimSemana = new Date(fimDia);
 
-    const alunosSnap = await db
-        .collection(Cll.CACHE_ALUNOS)
-        .doc(igrejaId)
-        .get();
+    const alunosSnap = await db.collection(Cll.CACHE_ALUNOS).doc(igrejaId).get();
 
     if (!alunosSnap.exists)
         return {
@@ -646,19 +594,14 @@ export const getRelatorioDominical = functions.https.onCall(async (request) => {
         return {
             ...v,
             idade,
-            data_nascimento: new Date(
-                v["data_nascimento"]
-                    .toDate()
-                    .setFullYear(fimSemana.getFullYear()),
-            ),
+            data_nascimento: new Date(v["data_nascimento"].toDate().setFullYear(fimSemana.getFullYear())),
         };
     });
 
     const aniversariantes = alunosAtualizados
         .filter((v) => {
             const aniversario = v["data_nascimento"];
-            if (aniversario.getMonth() === 1 && aniversario.getDate() === 29)
-                aniversario.setDate(28);
+            if (aniversario.getMonth() === 1 && aniversario.getDate() === 29) aniversario.setDate(28);
             return aniversario >= inicioSemana && aniversario <= fimSemana;
         })
         .map((v) => ({
@@ -688,79 +631,65 @@ interface Trimestre {
     numero_trimestre: number;
 }
 
-export const getRelatorioTrimestral = functions.https.onCall(
-    async (request) => {
-        const { db, isSecretario, user } = await validarUsuario(request);
+export const getRelatorioTrimestral = functions.https.onCall(async (request) => {
+    const { db, isSecretario, user } = await validarUsuario(request);
 
-        const { igrejaId, trimestreId } = request.data;
+    const { igrejaId, trimestreId } = request.data;
 
-        const { meses, totais } = await calcTrimestre(
-            trimestreId,
-            igrejaId,
-            isSecretario,
-            user,
-            db,
-        );
+    const { meses, totais } = await calcTrimestre(trimestreId, igrejaId, isSecretario, user, db);
 
-        const relatorioSnap = await db
-            .collection(Cll.RELATORIOS_TRIMESTRE)
-            .where("igrejaId", "==", igrejaId)
-            .where("trimestreId", "==", trimestreId)
-            .get();
+    const relatorioSnap = await db
+        .collection(Cll.RELATORIOS_TRIMESTRE)
+        .where("igrejaId", "==", igrejaId)
+        .where("trimestreId", "==", trimestreId)
+        .get();
 
-        let total_enviado = {
-            valor_enviado_missoes: 0,
-            valor_enviado_ofertas: 0,
-        };
+    let total_enviado = {
+        valor_enviado_missoes: 0,
+        valor_enviado_ofertas: 0,
+    };
 
-        if (!relatorioSnap.empty) {
-            relatorioSnap.forEach((v) => {
-                const dados = v.data();
-                const bloqueado = dados.bloqueado;
+    if (!relatorioSnap.empty) {
+        relatorioSnap.forEach((v) => {
+            const dados = v.data();
+            const bloqueado = dados.bloqueado;
 
-                if (bloqueado) {
-                    const mes = meses.get(dados.numeroMes);
-                    mes["bloqueado"] = bloqueado;
-                    dados["data_envio"] = dados["data_envio"]
-                        .toDate()
-                        .toLocaleDateString("pt-BR");
-                    mes["relatorio"] = dados;
+            if (bloqueado) {
+                const mes = meses.get(dados.numeroMes);
+                mes["bloqueado"] = bloqueado;
+                dados["data_envio"] = dados["data_envio"].toDate().toLocaleDateString("pt-BR");
+                mes["relatorio"] = dados;
 
-                    total_enviado["valor_enviado_missoes"] =
-                        total_enviado["valor_enviado_missoes"] +
-                        (dados["valor_enviado_missoes"] || 0);
-                    total_enviado["valor_enviado_ofertas"] =
-                        total_enviado["valor_enviado_ofertas"] +
-                        (dados["valor_enviado_ofertas"] || 0);
-                }
-            });
-        }
-
-        let isAllBloqueado = true;
-        const listaMeses = Array.from(meses.values());
-        listaMeses.forEach((v) => {
-            isAllBloqueado = isAllBloqueado && v.bloqueado;
-            v.datas.forEach(
-                (d: any) => (d["classes"] = Object.values(d["classes"] || {})),
-            );
+                total_enviado["valor_enviado_missoes"] =
+                    total_enviado["valor_enviado_missoes"] + (dados["valor_enviado_missoes"] || 0);
+                total_enviado["valor_enviado_ofertas"] =
+                    total_enviado["valor_enviado_ofertas"] + (dados["valor_enviado_ofertas"] || 0);
+            }
         });
+    }
 
-        enviarLog(
-            user,
-            request,
-            "GET_RELATORIO_TRIMESTRAL",
-            `Relatório gerado com sucesso pelo usuário: ${user.uid}`,
-            totais,
-        );
+    let isAllBloqueado = true;
+    const listaMeses = Array.from(meses.values());
+    listaMeses.forEach((v) => {
+        isAllBloqueado = isAllBloqueado && v.bloqueado;
+        v.datas.forEach((d: any) => (d["classes"] = Object.values(d["classes"] || {})));
+    });
 
-        return {
-            bloqueado: isAllBloqueado,
-            resumo_final: totais,
-            total_enviado,
-            meses: listaMeses,
-        };
-    },
-);
+    enviarLog(
+        user,
+        request,
+        "GET_RELATORIO_TRIMESTRAL",
+        `Relatório gerado com sucesso pelo usuário: ${user.uid}`,
+        totais,
+    );
+
+    return {
+        bloqueado: isAllBloqueado,
+        resumo_final: totais,
+        total_enviado,
+        meses: listaMeses,
+    };
+});
 
 // interface RelatoriosTrimestres {
 //     id: string;
@@ -785,117 +714,112 @@ export const getRelatorioTrimestral = functions.https.onCall(
 //     bloqueado: boolean;
 // }
 
-export const salvarRelatorioTrimestral = functions.https.onCall(
-    async (request) => {
-        const { isAdmin, db, user } = await validarUsuario(request);
+export const salvarRelatorioTrimestral = functions.https.onCall(async (request) => {
+    const { isAdmin, db, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
+    const {
+        igrejaId,
+        trimestreId,
+        numeroMes,
+        confirmacao,
+        valor_final_missao,
+        valor_final_oferta,
+        descricao_missao,
+        descricao_oferta,
+    } = request.data;
 
-        const {
-            igrejaId,
-            trimestreId,
+    if (
+        !confirmacao ||
+        igrejaId !== user.igrejaId ||
+        numeroMes < 0 ||
+        numeroMes > 11 ||
+        Number.isNaN(Number(valor_final_missao)) ||
+        Number.isNaN(Number(valor_final_oferta))
+    ) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
+    }
+
+    const { totais, trimestre, meses, aulasRealizadas } = await calcTrimestre(
+        trimestreId,
+        igrejaId,
+        !isAdmin,
+        user,
+        db,
+    );
+
+    const relatorioRef = db.collection(Cll.RELATORIOS_TRIMESTRE).doc(`${trimestre.ano}-${numeroMes}-${igrejaId}`);
+    const relatorioSnap = await relatorioRef.get();
+
+    if (relatorioSnap.exists && relatorioSnap.data()?.bloqueado) {
+        throw new functions.https.HttpsError(
+            "permission-denied",
+            "Esse relatório já foi enviado, somente os administradores do ministério podem liberar a edição.",
+        );
+    }
+
+    try {
+        const batch = db.batch();
+
+        const dados = {
+            data_envio: Timestamp.now(),
+            assinado_por: {
+                nome: user.nome,
+                email: user.email,
+                uid: user.uid,
+                ip: request.rawRequest.ip,
+            },
+            ...meses.get(numeroMes).resumo_final,
             numeroMes,
-            confirmacao,
-            valor_final_missao,
-            valor_final_oferta,
-            descricao_missao,
-            descricao_oferta,
-        } = request.data;
+            valor_enviado_missoes: valor_final_missao,
+            valor_enviado_ofertas: valor_final_oferta,
+            descricao_missao: descricao_missao || null,
+            descricao_oferta: descricao_oferta || null,
+            igrejaId,
+            ministerioId: user.ministerioId,
+            trimestreId,
+            data_inicio: trimestre.data_inicio,
+            data_fim: trimestre.data_fim,
+            bloqueado: true,
+        };
 
-        if (
-            !confirmacao ||
-            igrejaId !== user.igrejaId ||
-            numeroMes < 0 ||
-            numeroMes > 11 ||
-            Number.isNaN(Number(valor_final_missao)) ||
-            Number.isNaN(Number(valor_final_oferta))
-        ) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Dados inválidos ou ausentes.",
-            );
-        }
+        const isEdit = relatorioSnap.exists;
 
-        const { totais, trimestre, meses, aulasRealizadas } =
-            await calcTrimestre(trimestreId, igrejaId, !isAdmin, user, db);
+        if (isEdit) batch.update(relatorioRef, dados);
+        else batch.set(relatorioRef, dados);
 
-        const relatorioRef = db
-            .collection(Cll.RELATORIOS_TRIMESTRE)
-            .doc(`${trimestre.ano}-${numeroMes}-${igrejaId}`);
-        const relatorioSnap = await relatorioRef.get();
+        aulasRealizadas.forEach((v) => {
+            const dados = v.data();
+            const mes = dados.data_prevista.toDate().getMonth();
 
-        if (relatorioSnap.exists && relatorioSnap.data()?.bloqueado) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Esse relatório já foi enviado, somente os administradores do ministério podem liberar a edição.",
-            );
-        }
+            if (mes === numeroMes)
+                batch.update(dados.registroRef, {
+                    relatorio_enviado: true,
+                });
+        });
 
-        try {
-            const batch = db.batch();
+        await batch.commit();
 
-            const dados = {
-                data_envio: Timestamp.now(),
-                assinado_por: {
-                    nome: user.nome,
-                    email: user.email,
-                    uid: user.uid,
-                    ip: request.rawRequest.ip,
-                },
-                ...meses.get(numeroMes).resumo_final,
-                numeroMes,
-                valor_enviado_missoes: valor_final_missao,
-                valor_enviado_ofertas: valor_final_oferta,
-                descricao_missao: descricao_missao || null,
-                descricao_oferta: descricao_oferta || null,
-                igrejaId,
-                ministerioId: user.ministerioId,
-                trimestreId,
-                data_inicio: trimestre.data_inicio,
-                data_fim: trimestre.data_fim,
-                bloqueado: true,
-            };
+        enviarLog(
+            user,
+            request,
+            "SALVAR_RELATORIO_TRIMESTRAL",
+            `Relatório de ${numeroMes} salvo com sucesso pelo usuário: ${user.uid}`,
+            totais,
+        );
 
-            const isEdit = relatorioSnap.exists;
-
-            if (isEdit) batch.update(relatorioRef, dados);
-            else batch.set(relatorioRef, dados);
-
-            aulasRealizadas.forEach((v) => {
-                const dados = v.data();
-                const mes = dados.data_prevista.toDate().getMonth();
-
-                if (mes === numeroMes)
-                    batch.update(dados.registroRef, {
-                        relatorio_enviado: true,
-                    });
-            });
-
-            await batch.commit();
-
-            enviarLog(
-                user,
-                request,
-                "SALVAR_RELATORIO_TRIMESTRAL",
-                `Relatório de ${numeroMes} salvo com sucesso pelo usuário: ${user.uid}`,
-                totais,
-            );
-
-            return { message: "Relatório salvo com sucesso." };
-        } catch (error: any) {
-            console.log("Erro ao salvar relatório", error);
-            throw new functions.https.HttpsError("internal", error.message);
-        }
-    },
-);
+        return { message: "Relatório salvo com sucesso." };
+    } catch (error: any) {
+        console.log("Erro ao salvar relatório", error);
+        throw new functions.https.HttpsError("internal", error.message);
+    }
+});
 
 export const desbloquearRelatorio = functions.https.onCall(async (request) => {
     const { db, isSuperAdmin, user } = await validarUsuario(request);
     const { trimestreId, igrejaId, numeroMes } = request.data;
 
     if (!trimestreId || !igrejaId || typeof numeroMes !== "number") {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     const [igrejaSnap, trimestreSnap] = await Promise.all([
@@ -904,18 +828,12 @@ export const desbloquearRelatorio = functions.https.onCall(async (request) => {
     ]);
 
     if (!igrejaSnap.exists || !trimestreSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Coleções não encontradas",
-        );
+        throw new functions.https.HttpsError("not-found", "Coleções não encontradas");
     }
 
     const trimestre = trimestreSnap.data();
     if (!isSuperAdmin || trimestre?.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     const data = trimestre.data_inicio.toDate();
@@ -926,22 +844,11 @@ export const desbloquearRelatorio = functions.https.onCall(async (request) => {
         .get();
 
     if (!relatorioSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Relatório não encontrado",
-        );
+        throw new functions.https.HttpsError("not-found", "Relatório não encontrado");
     }
 
     const dataInicio = new Date(data.getFullYear(), numeroMes, 1, 0, 0, 0, 0);
-    const dataFim = new Date(
-        data.getFullYear(),
-        numeroMes + 1,
-        0,
-        23,
-        59,
-        59,
-        59,
-    );
+    const dataFim = new Date(data.getFullYear(), numeroMes + 1, 0, 23, 59, 59, 59);
 
     const registrosSnap = await db
         .collection(Cll.REGISTROS_AULA)
@@ -976,10 +883,7 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
     const { db, isSuperAdmin, user } = await validarUsuario(request);
 
     if (!isSuperAdmin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para isso.");
     }
 
     const {
@@ -988,20 +892,14 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
     } = request.data as AtualizarTrimestreFront;
 
     if (!data_inicio || !numero_aulas || !numero_trimestre) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     const trimestreRef = db.collection(Cll.TRIMESTRES).doc(trimestreId);
     const trimestreSnap = await trimestreRef.get();
 
     if (!trimestreSnap.exists) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Trimestre não encontrado",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Trimestre não encontrado");
     }
 
     const trimestre = trimestreSnap.data();
@@ -1035,15 +933,10 @@ export const atualizarTrimestre = functions.https.onCall(async (request) => {
                 numero_trimestre,
                 numero_aulas,
             });
-            batch.update(
-                db
-                    .collection(Cll.CACHE_LICAO)
-                    .doc(`${v.data().igrejaId}_${v.id}`),
-                {
-                    data_inicio: novaDataInicio,
-                    data_fim: novaDataFim,
-                },
-            );
+            batch.update(db.collection(Cll.CACHE_LICAO).doc(`${v.data().igrejaId}_${v.id}`), {
+                data_inicio: novaDataInicio,
+                data_fim: novaDataFim,
+            });
         });
 
         batch.delete(trimestreRef);
@@ -1094,33 +987,24 @@ interface MembrosCSVFront {
 
 // Membros
 export const salvarMembro = functions.https.onCall(async (request) => {
-    const { db, user, isSecretario, isAdmin } = await validarUsuario(request);
+    const { db, user, isSecretario, isTeste, isAdmin } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { dados, igrejaId, membroId } = request.data as MembroFront;
 
     if (!igrejaId || !dados) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     const igreja = await db.collection("igrejas").doc(igrejaId).get();
     if (isSecretario || user.ministerioId !== igreja.data()?.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     const dadosParaSalvar: Membro = {
         contato: dados.contato || null,
-        data_nascimento: Timestamp.fromDate(
-            new Date(dados.data_nascimento + "T12:00:00"),
-        ),
-        validade: dados?.validade
-            ? Timestamp.fromDate(new Date(dados.validade + "T12:00:00"))
-            : null,
+        data_nascimento: Timestamp.fromDate(new Date(dados.data_nascimento + "T12:00:00")),
+        validade: dados?.validade ? Timestamp.fromDate(new Date(dados.validade + "T12:00:00")) : null,
         igrejaId,
         igrejaNome: igreja.data()!.nome,
         ministerioId: user.ministerioId,
@@ -1133,38 +1017,49 @@ export const salvarMembro = functions.https.onCall(async (request) => {
         const membroSnap = await membroRef.get();
 
         if (!membroSnap.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Membro não encontrado",
-            );
+            throw new functions.https.HttpsError("not-found", "Membro não encontrado");
         }
-
         if (isAdmin) dadosParaSalvar.igrejaId = user.igrejaId; //Apenas por precaução
 
-        await Promise.all([
+        const membroData = membroSnap.data() as Membro;
+
+        const promises = [
             membroRef.update(dadosParaSalvar as any),
             db
                 .collection(Cll.CACHE_MEMBROS)
                 .doc(igrejaId)
                 .update({
                     [`lista.${membroRef.id}`]: {
-                        ...membroSnap.data(),
+                        ...membroData,
                         ...dadosParaSalvar,
                         id: membroRef.id,
                     },
                 }),
-        ]);
+        ];
+        if (membroData.alunoId) {
+            const alunoUpdate = {
+                nome_completo: dadosParaSalvar.nome_completo,
+                data_nascimento: dadosParaSalvar.data_nascimento,
+                contato: dadosParaSalvar.contato,
+            };
+            promises.push(
+                db.collection(Cll.ALUNOS).doc(membroData.alunoId).update(alunoUpdate),
+                db
+                    .collection(Cll.CACHE_ALUNOS)
+                    .doc(dadosParaSalvar.igrejaId)
+                    .update({
+                        [`lista.${membroData.alunoId}.nome_completo`]: alunoUpdate.nome_completo,
+                        [`lista.${membroData.alunoId}.data_nascimento`]: alunoUpdate.data_nascimento,
+                        [`lista.${membroData.alunoId}.contato`]: alunoUpdate.contato,
+                    }),
+            );
+        }
+        await Promise.all(promises);
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_MEMBRO",
-            `Membro atualizado com sucesso por ${user.uid}`,
-            {
-                dadosParaSalvar,
-                dadosAnteriores: membroSnap.data(),
-            },
-        );
+        enviarLog(user, request, "SALVAR_MEMBRO", `Membro atualizado com sucesso por ${user.uid}`, {
+            dadosParaSalvar,
+            dadosAnteriores: membroSnap.data(),
+        });
 
         return { id: membroId, ...membroSnap.data(), ...dadosParaSalvar };
     }
@@ -1184,24 +1079,17 @@ export const salvarMembro = functions.https.onCall(async (request) => {
                 },
             }),
     ]);
-    enviarLog(
-        user,
-        request,
-        "SALVAR_MEMBRO",
-        `Membro salvo com sucesso por ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_MEMBRO", `Membro salvo com sucesso por ${user.uid}`);
 
     return { id: membroRef.id, ...dadosParaSalvar };
 });
 export const deletarMembro = functions.https.onCall(async (request) => {
-    const { db, user, isAdmin, isSecretario } = await validarUsuario(request);
+    const { db, user, isAdmin, isSecretario, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { membroId } = request.data;
     if (!membroId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const membroRef = db.collection(Cll.MEMBROS).doc(membroId);
@@ -1209,20 +1097,14 @@ export const deletarMembro = functions.https.onCall(async (request) => {
     const igrejaId = membroSnap.data()?.igrejaId;
 
     if (!membroSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Membro não encontrado",
-        );
+        throw new functions.https.HttpsError("not-found", "Membro não encontrado");
     }
     if (
         membroSnap.data()?.ministerioId !== user.ministerioId ||
         (isAdmin && igrejaId !== user.igrejaId) ||
         isSecretario
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     try {
@@ -1232,9 +1114,7 @@ export const deletarMembro = functions.https.onCall(async (request) => {
             [`lista.${membroId}`]: FieldValue.delete(),
         });
 
-        const alunoQuery = db
-            .collection(Cll.ALUNOS)
-            .where("membroId", "==", membroId);
+        const alunoQuery = db.collection(Cll.ALUNOS).where("membroId", "==", membroId);
         const alunoSnap = await alunoQuery.get();
 
         if (!alunoSnap.empty) {
@@ -1248,48 +1128,32 @@ export const deletarMembro = functions.https.onCall(async (request) => {
         }
 
         await batch.commit();
-        enviarLog(
-            user,
-            request,
-            "DELETAR_MEMBRO",
-            `Aluno deletado com sucesso pelo usuário: ${user.uid}`,
-        );
+        enviarLog(user, request, "DELETAR_MEMBRO", `Aluno deletado com sucesso pelo usuário: ${user.uid}`);
 
         return { message: "Membro deletado com suscesso." };
     } catch (error) {
         console.log("Ocorreu um erro ao deletar membro", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve um erro ao deletar membro",
-        );
+        throw new functions.https.HttpsError("internal", "Houve um erro ao deletar membro");
     }
 });
 export const salvarMembroCSV = functions.https.onCall(async (request) => {
-    const { db, isSecretario, user } = await validarUsuario(request);
+    const { db, isSecretario, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { igrejaId, csv } = request.data as MembrosCSVFront;
     if (!igrejaId || !csv || !csv.length) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados invalidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados invalidos ou ausentes");
     }
 
     const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igrejaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada");
     }
 
     const igreja = igrejaSnap.data() as Igreja;
 
     if (isSecretario || igreja.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para isso");
     }
 
     let batch = db.batch();
@@ -1298,38 +1162,17 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
 
     const membrosComErro: string[] = [];
     csv.forEach((v) => {
-        const { nome_completo, data_nascimento, contato, registro, validade } =
-            v;
+        const { nome_completo, data_nascimento, contato, registro, validade } = v;
         const [dia, mes, ano] = data_nascimento.split("/");
         const [_, mesValidade, anoValidade] = validade.split("/");
         if (!nome_completo) return;
-        if (
-            !dia ||
-            !mes ||
-            !ano ||
-            Number.isNaN(Number(dia)) ||
-            Number.isNaN(Number(mes)) ||
-            Number.isNaN(Number(ano))
-        )
+        if (!dia || !mes || !ano || Number.isNaN(Number(dia)) || Number.isNaN(Number(mes)) || Number.isNaN(Number(ano)))
             return membrosComErro.push(nome_completo);
 
-        const nascimento = Timestamp.fromDate(
-            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0),
-        );
+        const nascimento = Timestamp.fromDate(new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0));
         const validadeMembro =
-            !Number.isNaN(Number(mesValidade)) &&
-            !Number.isNaN(Number(anoValidade))
-                ? Timestamp.fromDate(
-                      new Date(
-                          Number(anoValidade),
-                          Number(mesValidade) - 1,
-                          1,
-                          12,
-                          0,
-                          0,
-                          0,
-                      ),
-                  )
+            !Number.isNaN(Number(mesValidade)) && !Number.isNaN(Number(anoValidade))
+                ? Timestamp.fromDate(new Date(Number(anoValidade), Number(mesValidade) - 1, 1, 12, 0, 0, 0))
                 : null;
         const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
 
@@ -1364,18 +1207,11 @@ export const salvarMembroCSV = functions.https.onCall(async (request) => {
 
     await Promise.all(batches.map((v) => v.commit()));
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_MEMBROS_CSV",
-        `Membros cadastrados com sucesso pelo usuário: ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_MEMBROS_CSV", `Membros cadastrados com sucesso pelo usuário: ${user.uid}`);
     console.log(`Membros cadastrados com sucesso pelo usuário: ${user.uid}`);
     return {
         message: membrosComErro.length
-            ? `Os membros a seguir não foram cadastrados devido a erros no arquivo: ${membrosComErro.join(
-                  ",",
-              )}`
+            ? `Os membros a seguir não foram cadastrados devido a erros no arquivo: ${membrosComErro.join(",")}`
             : "Membros cadastrados com sucesso!",
     };
 });
@@ -1406,23 +1242,20 @@ interface AlunoInterface {
 }
 
 export const salvarAluno = functions.https.onCall(async (request) => {
-    const { db, user, isSuperAdmin } = await validarUsuario(request);
+    const { db, user, isSuperAdmin, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
+
     let { alunoId, igrejaId } = request.data;
     const dados = request.data.dados as AlunoFront;
 
     if (isSuperAdmin && !igrejaId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Id igreja não enviado",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Id igreja não enviado");
     }
     if (!isSuperAdmin) igrejaId = user.igrejaId;
 
     const dadosAtualizados = {
         ...dados,
-        data_nascimento: admin.firestore.Timestamp.fromDate(
-            new Date(dados.data_nascimento + "T12:00:00"),
-        ),
+        data_nascimento: admin.firestore.Timestamp.fromDate(new Date(dados.data_nascimento + "T12:00:00")),
         membroId: dados.membroId || null,
     };
 
@@ -1432,10 +1265,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         const alunoData = alunoDoc.data();
 
         if (!alunoDoc.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Aluno não encontrado",
-            );
+            throw new functions.https.HttpsError("not-found", "Aluno não encontrado");
         }
 
         const batch = db.batch();
@@ -1468,13 +1298,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         });
 
         await batch.commit();
-        enviarLog(
-            user,
-            request,
-            "SALVAR_ALUNO",
-            `Aluno editado pelo usuário ${user.uid}`,
-            { aluno: alunoDoc.data() },
-        );
+        enviarLog(user, request, "SALVAR_ALUNO", `Aluno editado pelo usuário ${user.uid}`, { aluno: alunoDoc.data() });
 
         return {
             id: alunoDoc.id,
@@ -1485,16 +1309,10 @@ export const salvarAluno = functions.https.onCall(async (request) => {
 
     const igreja = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igreja.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada");
     }
     if (igreja.data()?.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão par isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão par isso");
     }
 
     const aluno = {
@@ -1524,9 +1342,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
             .update({ [`lista.${docRef.id}`]: { id: docRef.id, ...aluno } }),
         db
             .collection(Cll.CACHE_ANIVERSARIANTES)
-            .doc(
-                `${aluno.ministerioId}_${aluno.data_nascimento.toDate().getMonth()}`,
-            )
+            .doc(`${aluno.ministerioId}_${aluno.data_nascimento.toDate().getMonth()}`)
             .update({
                 [`lista.${docRef.id}`]: {
                     alunoId: docRef.id,
@@ -1542,10 +1358,7 @@ export const salvarAluno = functions.https.onCall(async (request) => {
     ]);
     if (dados.membroId) {
         await Promise.all([
-            db
-                .collection(Cll.MEMBROS)
-                .doc(dados.membroId)
-                .update({ alunoId: docRef.id }),
+            db.collection(Cll.MEMBROS).doc(dados.membroId).update({ alunoId: docRef.id }),
             db
                 .collection(Cll.CACHE_MEMBROS)
                 .doc(igrejaId)
@@ -1553,184 +1366,132 @@ export const salvarAluno = functions.https.onCall(async (request) => {
         ]);
     }
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_ALUNO",
-        `Aluno salvo pelo usuário ${user.uid}`,
-        aluno,
-    );
+    enviarLog(user, request, "SALVAR_ALUNO", `Aluno salvo pelo usuário ${user.uid}`, aluno);
 
     return { id: docRef.id, ...aluno };
 });
-export const onAlunoUpdate = onDocumentUpdated(
-    "alunos/{alunoId}",
-    async (event) => {
-        const dadosAntigos = event.data?.before.data() as AlunoInterface;
-        const dadosNovos = event.data?.after.data() as AlunoInterface;
+export const onAlunoUpdate = onDocumentUpdated("alunos/{alunoId}", async (event) => {
+    const dadosAntigos = event.data?.before.data() as AlunoInterface;
+    const dadosNovos = event.data?.after.data() as AlunoInterface;
 
-        if (!dadosAntigos || !dadosNovos) {
-            console.log(
-                "Dados ausentes no evento de atualização, encerrando a função.",
-            );
-            return;
+    if (!dadosAntigos || !dadosNovos) {
+        console.log("Dados ausentes no evento de atualização, encerrando a função.");
+        return;
+    }
+
+    const nomeMudou = dadosAntigos.nome_completo !== dadosNovos.nome_completo;
+    const dataMudou = dadosAntigos.data_nascimento.toMillis() !== dadosNovos.data_nascimento.toMillis();
+
+    if (!nomeMudou && !dataMudou) {
+        console.log("Nenhum dado mudou, encerrando trigger");
+        return;
+    }
+
+    const { alunoId } = event.params;
+    const db = admin.firestore();
+    const batch = db.batch();
+
+    if (dataMudou) {
+        console.log("As datas mudaram, iniciando update...");
+
+        const cacheCollection = db.collection(Cll.CACHE_ANIVERSARIANTES);
+        const { ministerioId, igrejaId, nome_completo } = dadosNovos;
+        const dataAntiga = dadosAntigos.data_nascimento;
+        const dataNova = dadosNovos.data_nascimento;
+
+        const mesAntigo = dataAntiga.toDate().getMonth();
+        const mesNovo = dataNova.toDate().getMonth();
+        const diaNovo = dataNova.toDate().getDate();
+
+        const dadosParaSalvar = {
+            alunoId,
+            alunoNome: nome_completo,
+            data_nascimento: dataNova,
+            dia_nascimento: diaNovo,
+            igrejaId,
+            mes_nascimento: mesNovo,
+            ministerioId,
+        };
+        if (mesAntigo === mesNovo) {
+            batch.update(cacheCollection.doc(`${ministerioId}_${mesNovo}`), { [`lista.${alunoId}`]: dadosParaSalvar });
+        } else {
+            batch.update(cacheCollection.doc(`${ministerioId}_${mesAntigo}`), {
+                [`lista.${alunoId}`]: FieldValue.delete(),
+            });
+            batch.update(cacheCollection.doc(`${ministerioId}_${mesNovo}`), { [`lista.${alunoId}`]: dadosParaSalvar });
         }
 
-        const nomeMudou =
-            dadosAntigos.nome_completo !== dadosNovos.nome_completo;
-        const dataMudou =
-            dadosAntigos.data_nascimento.toMillis() !==
-            dadosNovos.data_nascimento.toMillis();
+        batch.update(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId), {
+            data_nascimento: dataNova,
+        });
+    }
 
-        if (!nomeMudou && !dataMudou) {
-            console.log("Nenhum dado mudou, encerrando trigger");
-            return;
-        }
+    if (nomeMudou) {
+        const novoNome = dadosNovos.nome_completo;
+        const { ministerioId } = dadosNovos;
 
-        const { alunoId } = event.params;
-        const db = admin.firestore();
-        const batch = db.batch();
+        console.log(`Aluno ${alunoId} mudou de nome para "${novoNome}". Iniciando fan-out...`);
 
-        if (dataMudou) {
-            console.log("As datas mudaram, iniciando update...");
+        const matriculasQuery = db.collection(Cll.MATRICULAS).where("alunoId", "==", alunoId);
+        const matriculasSnap = await matriculasQuery.get();
+        matriculasSnap.forEach((doc) => {
+            const data = doc.data();
+            batch.update(doc.ref, { alunoNome: novoNome });
+            batch.update(db.collection(Cll.CACHE_MATRICULAS).doc(`${data?.igrejaId}_${data?.licaoId}`), {
+                [`lista.${doc.id}.alunoNome`]: novoNome,
+            });
+        });
 
-            const cacheCollection = db.collection(Cll.CACHE_ANIVERSARIANTES);
-            const { ministerioId, igrejaId, nome_completo } = dadosNovos;
-            const dataAntiga = dadosAntigos.data_nascimento;
-            const dataNova = dadosNovos.data_nascimento;
+        batch.update(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId), {
+            nome: novoNome.split(" ")[0],
+        });
 
-            const mesAntigo = dataAntiga.toDate().getMonth();
-            const mesNovo = dataNova.toDate().getMonth();
-            const diaNovo = dataNova.toDate().getDate();
-
-            const dadosParaSalvar = {
-                alunoId,
-                alunoNome: nome_completo,
-                data_nascimento: dataNova,
-                dia_nascimento: diaNovo,
-                igrejaId,
-                mes_nascimento: mesNovo,
-                ministerioId,
-            };
-            if (mesAntigo === mesNovo) {
-                batch.update(
-                    cacheCollection.doc(`${ministerioId}_${mesNovo}`),
-                    { [`lista.${alunoId}`]: dadosParaSalvar },
-                );
-            } else {
-                batch.update(
-                    cacheCollection.doc(`${ministerioId}_${mesAntigo}`),
-                    { [`lista.${alunoId}`]: FieldValue.delete() },
-                );
-                batch.update(
-                    cacheCollection.doc(`${ministerioId}_${mesNovo}`),
-                    { [`lista.${alunoId}`]: dadosParaSalvar },
-                );
+        const licoesIds = matriculasSnap.docs.map((doc) => doc.data().licaoId).filter(Boolean);
+        if (licoesIds.length > 0) {
+            const cachePromises = [];
+            for (let i = 0; i < licoesIds.length; i += 30) {
+                const l = licoesIds.slice(i, i + 30);
+                cachePromises.push(db.collection(Cll.CACHE_LICAO).where("licaoId", "in", l).get());
             }
 
-            batch.update(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId), {
-                data_nascimento: dataNova,
-            });
-        }
+            const cacheSnap = (await Promise.all(cachePromises)).flatMap((v) => v.docs);
 
-        if (nomeMudou) {
-            const novoNome = dadosNovos.nome_completo;
-            const { ministerioId } = dadosNovos;
-
-            console.log(
-                `Aluno ${alunoId} mudou de nome para "${novoNome}". Iniciando fan-out...`,
-            );
-
-            const matriculasQuery = db
-                .collection(Cll.MATRICULAS)
-                .where("alunoId", "==", alunoId);
-            const matriculasSnap = await matriculasQuery.get();
-            matriculasSnap.forEach((doc) => {
-                const data = doc.data();
-                batch.update(doc.ref, { alunoNome: novoNome });
-                batch.update(
-                    db
-                        .collection(Cll.CACHE_MATRICULAS)
-                        .doc(`${data?.igrejaId}_${data?.licaoId}`),
-                    {
-                        [`lista.${doc.id}.alunoNome`]: novoNome,
-                    },
-                );
-            });
-
-            batch.update(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId), {
-                nome: novoNome.split(" ")[0],
-            });
-
-            const licoesIds = matriculasSnap.docs
-                .map((doc) => doc.data().licaoId)
-                .filter(Boolean);
-            if (licoesIds.length > 0) {
-                const cachePromises = [];
-                for (let i = 0; i < licoesIds.length; i += 30) {
-                    const l = licoesIds.slice(i, i + 30);
-                    cachePromises.push(
-                        db
-                            .collection(Cll.CACHE_LICAO)
-                            .where("licaoId", "in", l)
-                            .get(),
-                    );
-                }
-
-                const cacheSnap = (await Promise.all(cachePromises)).flatMap(
-                    (v) => v.docs,
-                );
-
-                cacheSnap.forEach((doc) => {
-                    batch.update(doc.ref, {
-                        [`detalhes_aluno.${alunoId}.nome`]: novoNome,
-                    });
+            cacheSnap.forEach((doc) => {
+                batch.update(doc.ref, {
+                    [`detalhes_aluno.${alunoId}.nome`]: novoNome,
                 });
-            }
-
-            if (!dataMudou) {
-                const mes = dadosNovos.data_nascimento.toDate().getMonth();
-                batch.update(
-                    db
-                        .collection(Cll.CACHE_ANIVERSARIANTES)
-                        .doc(`${ministerioId}_${mes}`),
-                    { [`lista.${alunoId}.alunoNome`]: novoNome },
-                );
-            }
+            });
         }
 
-        await batch.commit();
-        console.log(`Fan-out para o aluno ${alunoId} concluído com sucesso!`);
-    },
-);
+        if (!dataMudou) {
+            const mes = dadosNovos.data_nascimento.toDate().getMonth();
+            batch.update(db.collection(Cll.CACHE_ANIVERSARIANTES).doc(`${ministerioId}_${mes}`), {
+                [`lista.${alunoId}.alunoNome`]: novoNome,
+            });
+        }
+    }
+
+    await batch.commit();
+    console.log(`Fan-out para o aluno ${alunoId} concluído com sucesso!`);
+});
 export const deletarAluno = functions.https.onCall(async (request) => {
-    const { db, user, isSuperAdmin } = await validarUsuario(request);
+    const { db, user, isSuperAdmin, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
+
     const { alunoId } = request.data;
 
     if (!alunoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
     const alunosRef = db.collection(Cll.ALUNOS).doc(alunoId);
     const alunosSnap = await alunosRef.get();
 
     if (!alunosSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Aluno não encontrado",
-        );
+        throw new functions.https.HttpsError("not-found", "Aluno não encontrado");
     }
     const alunoData = alunosSnap.data() as AlunoInterface;
-    if (
-        (!isSuperAdmin && alunoData?.igrejaId !== user.igrejaId) ||
-        alunoData?.ministerioId !== user.ministerioId
-    ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para isso",
-        );
+    if ((!isSuperAdmin && alunoData?.igrejaId !== user.igrejaId) || alunoData?.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para isso");
     }
 
     try {
@@ -1740,20 +1501,14 @@ export const deletarAluno = functions.https.onCall(async (request) => {
         let batch = db.batch();
         const batchs = [batch];
 
-        const matriculasSnaps = await db
-            .collection(Cll.MATRICULAS)
-            .where("alunoId", "==", alunoId)
-            .get();
+        const matriculasSnaps = await db.collection(Cll.MATRICULAS).where("alunoId", "==", alunoId).get();
         matriculasSnaps.forEach((v) => {
             const matricula = v.data();
             refsDel.push(v.ref);
             licoesUpt.push(matricula.licaoRef);
-            batch.update(
-                db
-                    .collection(Cll.CACHE_MATRICULAS)
-                    .doc(`${matricula.igrejaId}_${matricula.licaoId}`),
-                { [`lista.${v.id}`]: FieldValue.delete() },
-            );
+            batch.update(db.collection(Cll.CACHE_MATRICULAS).doc(`${matricula.igrejaId}_${matricula.licaoId}`), {
+                [`lista.${v.id}`]: FieldValue.delete(),
+            });
 
             count++;
             if (count >= 499) {
@@ -1770,32 +1525,18 @@ export const deletarAluno = functions.https.onCall(async (request) => {
 
             for (let i = 0; i < licoesIds.length; i += 30) {
                 const chunk = licoesIds.slice(i, i + 30);
-                promisesRegistros.push(
-                    db
-                        .collection(Cll.REGISTROS_AULA)
-                        .where("licaoId", "in", chunk)
-                        .get(),
-                );
-                promisesCache.push(
-                    db
-                        .collection(Cll.CACHE_LICAO)
-                        .where("licaoId", "in", chunk)
-                        .get(),
-                );
+                promisesRegistros.push(db.collection(Cll.REGISTROS_AULA).where("licaoId", "in", chunk).get());
+                promisesCache.push(db.collection(Cll.CACHE_LICAO).where("licaoId", "in", chunk).get());
             }
 
-            const registrosDocs = (
-                await Promise.all(promisesRegistros)
-            ).flatMap((v) => v.docs);
+            const registrosDocs = (await Promise.all(promisesRegistros)).flatMap((v) => v.docs);
 
             const chamadas = registrosDocs.map(async (v) => {
                 const listaAulasRef = v.ref.collection("chamada").doc("lista");
                 const listaAlunos = await listaAulasRef.get();
 
                 if (listaAlunos.exists) {
-                    const lista = listaAlunos
-                        .data()
-                        ?.chamada.filter((v: any) => v.alunoId !== alunoId);
+                    const lista = listaAlunos.data()?.chamada.filter((v: any) => v.alunoId !== alunoId);
                     count++;
                     batch.update(listaAulasRef, { chamada: lista });
                 }
@@ -1819,20 +1560,14 @@ export const deletarAluno = functions.https.onCall(async (request) => {
             });
         }
 
-        const membros = await db
-            .collection("membros")
-            .where("alunoId", "==", alunoId)
-            .get();
+        const membros = await db.collection("membros").where("alunoId", "==", alunoId).get();
 
         if (!membros.empty) {
             membros.docs.forEach((v) => {
                 batch.update(v.ref, { alunoId: null });
-                batch.update(
-                    db
-                        .collection(Cll.CACHE_MEMBROS)
-                        .doc(alunosSnap.data()?.igrejaId),
-                    { [`lista.${v.id}.alunoId`]: null },
-                );
+                batch.update(db.collection(Cll.CACHE_MEMBROS).doc(alunosSnap.data()?.igrejaId), {
+                    [`lista.${v.id}.alunoId`]: null,
+                });
                 count += 2;
             });
         }
@@ -1843,9 +1578,7 @@ export const deletarAluno = functions.https.onCall(async (request) => {
         batch.update(
             db
                 .collection(Cll.CACHE_ANIVERSARIANTES)
-                .doc(
-                    `${alunoData.ministerioId}_${alunoData.data_nascimento.toDate().getMonth()}`,
-                ),
+                .doc(`${alunoData.ministerioId}_${alunoData.data_nascimento.toDate().getMonth()}`),
             {
                 [`lista.${alunoId}`]: FieldValue.delete(),
             },
@@ -1881,11 +1614,7 @@ export const deletarAluno = functions.https.onCall(async (request) => {
             user,
             request,
             "DELETAR_ALUNO",
-            `Aluno e ${
-                refsDel.length - 1
-            } dados associados foram deletados com sucesso pelo usuário: ${
-                user.uid
-            }`,
+            `Aluno e ${refsDel.length - 1} dados associados foram deletados com sucesso pelo usuário: ${user.uid}`,
             { alunos: alunosSnap.data() },
         );
 
@@ -1894,39 +1623,28 @@ export const deletarAluno = functions.https.onCall(async (request) => {
         };
     } catch (error) {
         console.log("deu esse erro", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve algum erro ao deletar o Aluno. Tente de novo.",
-        );
+        throw new functions.https.HttpsError("internal", "Houve algum erro ao deletar o Aluno. Tente de novo.");
     }
 });
 export const salvarAlunosCSV = functions.https.onCall(async (request) => {
-    const { db, isSecretario, user } = await validarUsuario(request);
+    const { db, isSecretario, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { csv, igrejaId } = request.data as AlunoCSVFront;
     if (!igrejaId || !csv || !csv.length) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
 
     if (!igrejaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada");
     }
 
     const igreja = igrejaSnap.data() as Igreja;
 
     if (isSecretario || igreja.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     let batch = db.batch();
@@ -1938,19 +1656,10 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
         const { nome_completo, data_nascimento, contato } = v;
         const [dia, mes, ano] = data_nascimento.split("/");
         if (!nome_completo) return;
-        if (
-            !dia ||
-            !mes ||
-            !ano ||
-            Number.isNaN(Number(dia)) ||
-            Number.isNaN(Number(mes)) ||
-            Number.isNaN(Number(ano))
-        )
+        if (!dia || !mes || !ano || Number.isNaN(Number(dia)) || Number.isNaN(Number(mes)) || Number.isNaN(Number(ano)))
             return alunosComErro.push(nome_completo);
 
-        const nascimento = Timestamp.fromDate(
-            new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0),
-        );
+        const nascimento = Timestamp.fromDate(new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0, 0));
         const regex = /\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g;
 
         const dadosParaSalvar = {
@@ -1984,29 +1693,20 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
         batch.update(
             db
                 .collection(Cll.CACHE_ANIVERSARIANTES)
-                .doc(
-                    `${dadosParaSalvar.ministerioId}_${dadosParaSalvar.data_nascimento.toDate().getMonth()}`,
-                ),
+                .doc(`${dadosParaSalvar.ministerioId}_${dadosParaSalvar.data_nascimento.toDate().getMonth()}`),
             {
                 [`lista.${alunoRef.id}`]: {
                     alunoId: alunoRef.id,
                     alunoNome: dadosParaSalvar.nome_completo,
                     data_nascimento: dadosParaSalvar.data_nascimento,
-                    dia_nascimento: dadosParaSalvar.data_nascimento
-                        .toDate()
-                        .getDate(),
-                    mes_nascimento: dadosParaSalvar.data_nascimento
-                        .toDate()
-                        .getMonth(),
+                    dia_nascimento: dadosParaSalvar.data_nascimento.toDate().getDate(),
+                    mes_nascimento: dadosParaSalvar.data_nascimento.toDate().getMonth(),
                     ministerioId: dadosParaSalvar.ministerioId,
                     igrejaId: dadosParaSalvar.igrejaId,
                 },
             },
         );
-        batch.set(
-            db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoRef.id),
-            alunoPortal,
-        );
+        batch.set(db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoRef.id), alunoPortal);
         count += 4;
         if (count >= 499) {
             batch = db.batch();
@@ -2019,18 +1719,11 @@ export const salvarAlunosCSV = functions.https.onCall(async (request) => {
 
     await Promise.all(batches.map((v) => v.commit()));
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_ALUNOS_CSV",
-        `Alunos cadastrados com sucesso pelo usuário: ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_ALUNOS_CSV", `Alunos cadastrados com sucesso pelo usuário: ${user.uid}`);
     console.log(`Alunos cadastrados com sucesso pelo usuário: ${user.uid}`);
     return {
         message: alunosComErro.length
-            ? `Os alunos a seguir não foram cadastrados devido a erros no arquivo: ${alunosComErro.join(
-                  ",",
-              )}`
+            ? `Os alunos a seguir não foram cadastrados devido a erros no arquivo: ${alunosComErro.join(",")}`
             : "Alunos cadastrados com sucesso!",
     };
 });
@@ -2055,8 +1748,9 @@ interface ClasseCSVFront {
 }
 
 export const salvarClasse = functions.https.onCall(async (request) => {
-    const { db, user, isSuperAdmin, isSecretario } =
-        await validarUsuario(request);
+    const { db, user, isSuperAdmin, isSecretario, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
+
     if (isSecretario) {
         throw new functions.https.HttpsError(
             "permission-denied",
@@ -2065,15 +1759,11 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     }
 
     const { classeId } = request.data;
-    let { igrejaId, nome, idade_minima, idade_maxima, rotuloId } = request.data
-        .dados as ClasseFront;
+    let { igrejaId, nome, idade_minima, idade_maxima, rotuloId } = request.data.dados as ClasseFront;
     const isDefaultLabel = rotuloId === "id-outro";
 
     if (isSuperAdmin && !igrejaId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Id igreja não enviado",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Id igreja não enviado");
     }
     if (!isSuperAdmin) igrejaId = user.igrejaId;
 
@@ -2083,20 +1773,14 @@ export const salvarClasse = functions.https.onCall(async (request) => {
     ]);
 
     if (!igrejaSnap.exists || (!isDefaultLabel && !rotuloSnap.exists)) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja ou rótulo não encontrado",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja ou rótulo não encontrado");
     }
     const rotulo = rotuloSnap.data();
     if (
         igrejaSnap.data()!.ministerioId !== user.ministerioId ||
         (!isDefaultLabel && rotulo!.ministerioId !== user.ministerioId)
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     if (isDefaultLabel) {
@@ -2125,10 +1809,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
         const classeData = classeSnap.data();
 
         if (!classeSnap.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Classe não encontrada",
-            );
+            throw new functions.https.HttpsError("not-found", "Classe não encontrada");
         }
 
         const igrejaMudou = classeData?.igrejaId !== igrejaId;
@@ -2154,16 +1835,10 @@ export const salvarClasse = functions.https.onCall(async (request) => {
                 : undefined,
         ]);
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_CLASSE",
-            `Aluno editado pelo usuário ${user.uid}`,
-            {
-                dadosAtualizados,
-                classe: classeSnap.data(),
-            },
-        );
+        enviarLog(user, request, "SALVAR_CLASSE", `Aluno editado pelo usuário ${user.uid}`, {
+            dadosAtualizados,
+            classe: classeSnap.data(),
+        });
 
         return {
             id: classeSnap.id,
@@ -2187,116 +1862,93 @@ export const salvarClasse = functions.https.onCall(async (request) => {
             .update({ [`lista.${docRef.id}`]: { ...classe, id: docRef.id } }),
     ]);
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_CLASSE",
-        `Aluno cadastrado pelo usuário ${user.uid}`,
-        dadosAtualizados,
-    );
+    enviarLog(user, request, "SALVAR_CLASSE", `Aluno cadastrado pelo usuário ${user.uid}`, dadosAtualizados);
 
     return { id: docRef.id, ...classe };
 });
-export const onClasseUpdate = onDocumentUpdated(
-    "classes/{classeId}",
-    async (event) => {
-        const dadosAntigos = event.data?.before.data() as Classe;
-        const dadosNovos = event.data?.after.data() as Classe;
+export const onClasseUpdate = onDocumentUpdated("classes/{classeId}", async (event) => {
+    const dadosAntigos = event.data?.before.data() as Classe;
+    const dadosNovos = event.data?.after.data() as Classe;
 
-        if (!dadosAntigos || !dadosNovos) {
-            console.log("Dados ausentes, encerrando trigger");
-            return;
-        }
-        if (dadosNovos.nome === dadosAntigos.nome) return;
+    if (!dadosAntigos || !dadosNovos) {
+        console.log("Dados ausentes, encerrando trigger");
+        return;
+    }
+    if (dadosNovos.nome === dadosAntigos.nome) return;
 
-        const { classeId } = event.params;
-        const novoNome = { classeNome: dadosNovos.nome };
-        const field = "classeId";
-        const db = admin.firestore();
-        let batch = db.batch();
-        const batches = [batch];
-        let count = 0;
-        const listaRefs: any = [];
+    const { classeId } = event.params;
+    const novoNome = { classeNome: dadosNovos.nome };
+    const field = "classeId";
+    const db = admin.firestore();
+    let batch = db.batch();
+    const batches = [batch];
+    let count = 0;
+    const listaRefs: any = [];
 
-        console.log(
-            `Nome antigo: ${dadosAntigos.nome} | Nome novo: ${dadosNovos.nome}`,
-        );
+    console.log(`Nome antigo: ${dadosAntigos.nome} | Nome novo: ${dadosNovos.nome}`);
 
-        const colecoes = [Cll.REGISTROS_AULA, Cll.CACHE_LICAO, Cll.LICOES];
-        const promises = colecoes.map((v) =>
-            db.collection(v).where(field, "==", classeId).get(),
-        );
-        (await Promise.all(promises)).forEach((v) => {
-            v.forEach((v) => {
-                listaRefs.push(v.ref);
-            });
-        });
-
-        const [matriculasSnap, usuariosSnap] = await Promise.all([
-            db.collection(Cll.MATRICULAS).where(field, "==", classeId).get(),
-            db.collection(Cll.USUARIOS).where(field, "==", classeId).get(),
-        ]);
-        matriculasSnap.docs.forEach((v) => {
-            const data = v.data();
+    const colecoes = [Cll.REGISTROS_AULA, Cll.CACHE_LICAO, Cll.LICOES];
+    const promises = colecoes.map((v) => db.collection(v).where(field, "==", classeId).get());
+    (await Promise.all(promises)).forEach((v) => {
+        v.forEach((v) => {
             listaRefs.push(v.ref);
-            batch.update(
-                db
-                    .collection(Cll.CACHE_MATRICULAS)
-                    .doc(`${dadosNovos.igrejaId}_${data?.licaoId}`),
-                { [`lista.${v.id}.classeNome`]: novoNome.classeNome },
-            );
-            count++;
-
-            if (count >= 499) {
-                batch = db.batch();
-                count = 0;
-                batches.push(batch);
-            }
         });
-        usuariosSnap.docs.forEach((v) => {
-            listaRefs.push(v.ref);
-            batch.update(
-                db.collection(Cll.CACHE_USUARIOS).doc(dadosNovos.igrejaId),
-                { [`lista.${v.id}.classeNome`]: novoNome.classeNome },
-            );
-            count++;
+    });
+
+    const [matriculasSnap, usuariosSnap] = await Promise.all([
+        db.collection(Cll.MATRICULAS).where(field, "==", classeId).get(),
+        db.collection(Cll.USUARIOS).where(field, "==", classeId).get(),
+    ]);
+    matriculasSnap.docs.forEach((v) => {
+        const data = v.data();
+        listaRefs.push(v.ref);
+        batch.update(db.collection(Cll.CACHE_MATRICULAS).doc(`${dadosNovos.igrejaId}_${data?.licaoId}`), {
+            [`lista.${v.id}.classeNome`]: novoNome.classeNome,
         });
+        count++;
 
-        for (const ref of listaRefs) {
-            batch.update(ref, novoNome);
-            count++;
-
-            if (count >= 499) {
-                batch = db.batch();
-                count = 0;
-                batches.push(batch);
-            }
+        if (count >= 499) {
+            batch = db.batch();
+            count = 0;
+            batches.push(batch);
         }
+    });
+    usuariosSnap.docs.forEach((v) => {
+        listaRefs.push(v.ref);
+        batch.update(db.collection(Cll.CACHE_USUARIOS).doc(dadosNovos.igrejaId), {
+            [`lista.${v.id}.classeNome`]: novoNome.classeNome,
+        });
+        count++;
+    });
 
-        await Promise.all(batches.map((v) => v.commit()));
+    for (const ref of listaRefs) {
+        batch.update(ref, novoNome);
+        count++;
 
-        console.log("Fan-out realizado, classe alterada!");
-    },
-);
+        if (count >= 499) {
+            batch = db.batch();
+            count = 0;
+            batches.push(batch);
+        }
+    }
+
+    await Promise.all(batches.map((v) => v.commit()));
+
+    console.log("Fan-out realizado, classe alterada!");
+});
 export const deletarClasse = functions.https.onCall(async (request) => {
-    const { db, isSecretario, isSuperAdmin, user } =
-        await validarUsuario(request);
+    const { db, isSecretario, isSuperAdmin, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { classeId } = request.data;
     if (!classeId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const classeRef = db.collection(Cll.CLASSES).doc(classeId);
     const classeSnap = await classeRef.get();
     if (!classeSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Classe não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Classe não encontrada");
     }
 
     const igrejaId = classeSnap.data()!.igrejaId;
@@ -2305,16 +1957,10 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         (!isSuperAdmin && igrejaId !== user.igrejaId) ||
         (isSuperAdmin && classeSnap.data()!.ministerioId !== user.ministerioId)
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para apagar uma classe.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para apagar uma classe.");
     }
 
-    const licao = await db
-        .collection(Cll.LICOES)
-        .where("classeId", "==", classeId)
-        .get();
+    const licao = await db.collection(Cll.LICOES).where("classeId", "==", classeId).get();
 
     if (!licao.empty) {
         throw new functions.https.HttpsError(
@@ -2346,6 +1992,16 @@ export const deletarClasse = functions.https.onCall(async (request) => {
             if (uid) promises.push(admin.auth().deleteUser(uid));
         });
 
+        batch.set(
+            db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(igrejaId),
+            {
+                classes: {
+                    [classeId]: FieldValue.delete(),
+                },
+            },
+            { merge: true },
+        );
+
         await batch.commit();
         await Promise.all(promises);
 
@@ -2360,21 +2016,16 @@ export const deletarClasse = functions.https.onCall(async (request) => {
         return { message: "Classe deletada com sucesso!" };
     } catch (erro) {
         console.log("Erro ao apagar classe", erro);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve um erro ao deletar a classe. Tente novamente",
-        );
+        throw new functions.https.HttpsError("internal", "Houve um erro ao deletar a classe. Tente novamente");
     }
 });
 export const salvarClasseCSV = functions.https.onCall(async (request) => {
-    const { db, isSecretario, user } = await validarUsuario(request);
+    const { db, isSecretario, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { csv, igrejaId } = request.data as ClasseCSVFront;
     if (!igrejaId || !csv || !csv.length) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     const [igrejaSnap, rotuloSnap] = await Promise.all([
@@ -2387,18 +2038,12 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
             .get(),
     ]);
     if (!igrejaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada;",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada;");
     }
     const igreja = { id: igrejaSnap.id, ...igrejaSnap.data() } as any;
 
     if (isSecretario || igreja!.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     let rotuloId;
@@ -2423,17 +2068,10 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
 
     csv.forEach((v) => {
         const { idade_maxima, idade_minima, nome } = v;
-        const idadeMaxima =
-            idade_maxima && !Number.isNaN(Number(idade_maxima))
-                ? Number(idade_maxima)
-                : null;
-        const idadeMinima =
-            idade_minima && !Number.isNaN(Number(idade_minima))
-                ? Number(idade_minima)
-                : null;
+        const idadeMaxima = idade_maxima && !Number.isNaN(Number(idade_maxima)) ? Number(idade_maxima) : null;
+        const idadeMinima = idade_minima && !Number.isNaN(Number(idade_minima)) ? Number(idade_minima) : null;
         if (!nome) return;
-        if (idadeMaxima && idadeMinima && idadeMinima > idadeMaxima)
-            return foraDaFaixa.push(nome);
+        if (idadeMaxima && idadeMinima && idadeMinima > idadeMaxima) return foraDaFaixa.push(nome);
 
         const dadosParaSalvar = {
             nome,
@@ -2465,18 +2103,11 @@ export const salvarClasseCSV = functions.https.onCall(async (request) => {
 
     await Promise.all(batches.map((v) => v.commit()));
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_CLASSE_CSV",
-        `Classes cadastradas com sucesso pelo usuário: ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_CLASSE_CSV", `Classes cadastradas com sucesso pelo usuário: ${user.uid}`);
     console.log(`Classes cadastradas com sucesso pelo usuário: ${user.uid}`);
     return {
         message: foraDaFaixa.length
-            ? `As classes a seguir estavam com a faixa etária inválida: ${foraDaFaixa.join(
-                  ",",
-              )}`
+            ? `As classes a seguir estavam com a faixa etária inválida: ${foraDaFaixa.join(",")}`
             : "Classes cadastradas com sucesso!",
     };
 });
@@ -2490,10 +2121,7 @@ export const salvarRotuloClasse = functions.https.onCall(async (request) => {
     const { db, isSuperAdmin, user } = await validarUsuario(request);
 
     if (!isSuperAdmin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     const {
@@ -2502,10 +2130,7 @@ export const salvarRotuloClasse = functions.https.onCall(async (request) => {
     } = request.data as RotuloClasseFront;
 
     if (!nome || (idade_maxima && typeof idade_minima !== "number")) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const dados = { nome, idade_minima, idade_maxima };
@@ -2516,29 +2141,16 @@ export const salvarRotuloClasse = functions.https.onCall(async (request) => {
         const rotuloData = rotuloSnap.data();
 
         if (!rotuloSnap.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Rótulo não encontrado",
-            );
+            throw new functions.https.HttpsError("not-found", "Rótulo não encontrado");
         }
 
         await rotuloRef.update(dados as any);
         if (nome !== rotuloData?.nome) {
-            const classes = await db
-                .collection("classes")
-                .where("rotuloId", "==", rotuloId)
-                .get();
-            await Promise.all(
-                classes.docs.map((v) => v.ref.update({ rotuloNome: nome })),
-            );
+            const classes = await db.collection("classes").where("rotuloId", "==", rotuloId).get();
+            await Promise.all(classes.docs.map((v) => v.ref.update({ rotuloNome: nome })));
         }
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_ROTULO_CLASSE",
-            `Rótulo foi atualizado com sucesso pelo usuário: ${user.uid}`,
-        );
+        enviarLog(user, request, "SALVAR_ROTULO_CLASSE", `Rótulo foi atualizado com sucesso pelo usuário: ${user.uid}`);
 
         return { message: "Rótulo atualizado com sucesso" };
     }
@@ -2546,12 +2158,7 @@ export const salvarRotuloClasse = functions.https.onCall(async (request) => {
     const dadosParaSalvar = { ...dados, ministerioId: user.ministerioId };
     await db.collection(Cll.ROTULOS).add(dadosParaSalvar);
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_ROTULO_CLASSE",
-        `Rótulo foi criado com sucesso pelo usuário: ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_ROTULO_CLASSE", `Rótulo foi criado com sucesso pelo usuário: ${user.uid}`);
 
     return { ...dadosParaSalvar };
 });
@@ -2573,20 +2180,14 @@ interface IgrejaCSVFront {
 export const salvarIgreja = functions.https.onCall(async (request) => {
     const { db, user, isSuperAdmin } = await validarUsuario(request);
     if (!isSuperAdmin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Somente o super admin pode cadastrar igrejas",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Somente o super admin pode cadastrar igrejas");
     }
 
     const { igrejaId } = request.data;
     const dados = request.data.dados as IgrejaFront;
 
     if (!dados) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Os dados da igreja são obrigatórios",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Os dados da igreja são obrigatórios");
     }
 
     if (igrejaId) {
@@ -2594,20 +2195,12 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
         const igrejaSnap = await igrejaRef.get();
 
         if (!igrejaSnap.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "A igreja não foi encontrada",
-            );
+            throw new functions.https.HttpsError("not-found", "A igreja não foi encontrada");
         }
 
         await igrejaRef.update({ nome: dados.nome });
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_IGREJA",
-            `Igreja editada pelo usuário : ${user.uid}`,
-        );
+        enviarLog(user, request, "SALVAR_IGREJA", `Igreja editada pelo usuário : ${user.uid}`);
 
         return { id: igrejaSnap.id, ...igrejaSnap.data(), nome: dados.nome };
     }
@@ -2637,18 +2230,17 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
 
         batch.create(db.collection(v).doc(newIgrejaRef.id), obj);
     });
+    batch.set(db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(newIgrejaRef.id), {
+        igrejaId: newIgrejaRef.id,
+        ministerioId: user.ministerioId,
+        classes: {},
+    });
 
     await batch.commit();
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_IGREJA",
-        `Igreja criada pelo usuário : ${user.uid}`,
-        {
-            newIgrejaRef,
-        },
-    );
+    enviarLog(user, request, "SALVAR_IGREJA", `Igreja criada pelo usuário : ${user.uid}`, {
+        newIgrejaRef,
+    });
 
     return {
         id: newIgrejaRef.id,
@@ -2656,119 +2248,96 @@ export const salvarIgreja = functions.https.onCall(async (request) => {
         ministerioId: user.ministerioId,
     };
 });
-export const onIgrejaUpdate = onDocumentUpdated(
-    "igrejas/{igrejaId}",
-    async (event) => {
-        const dadosAntigos = event.data?.before.data() as Igreja;
-        const dadosNovos = event.data?.after.data() as Igreja;
+export const onIgrejaUpdate = onDocumentUpdated("igrejas/{igrejaId}", async (event) => {
+    const dadosAntigos = event.data?.before.data() as Igreja;
+    const dadosNovos = event.data?.after.data() as Igreja;
 
-        if (!dadosAntigos || !dadosNovos) {
-            console.log("Dados ausentes encerrando trigger");
-            return;
-        }
+    if (!dadosAntigos || !dadosNovos) {
+        console.log("Dados ausentes encerrando trigger");
+        return;
+    }
 
-        if (dadosNovos.nome === dadosAntigos.nome) {
-            console.log("Os nomes não mudaram, encerrando trigger");
-            return;
-        }
+    if (dadosNovos.nome === dadosAntigos.nome) {
+        console.log("Os nomes não mudaram, encerrando trigger");
+        return;
+    }
 
-        const { igrejaId } = event.params;
-        const novoNome = { igrejaNome: dadosNovos.nome };
-        const db = admin.firestore();
+    const { igrejaId } = event.params;
+    const novoNome = { igrejaNome: dadosNovos.nome };
+    const db = admin.firestore();
 
-        console.log(
-            `Nome ${dadosAntigos.nome}, foi alterado para ${dadosNovos.nome}`,
-        );
+    console.log(`Nome ${dadosAntigos.nome}, foi alterado para ${dadosNovos.nome}`);
 
-        const collections = [
-            [Cll.ALUNOS, Cll.CACHE_ALUNOS],
-            [Cll.CLASSES, Cll.CACHE_CLASSES],
-            [Cll.LICOES],
-            [Cll.MATRICULAS, Cll.CACHE_MATRICULAS],
-            [Cll.MEMBROS, Cll.CACHE_MEMBROS],
-            [Cll.REGISTROS_AULA],
-            [Cll.USUARIOS, Cll.CACHE_USUARIOS],
-            [Cll.VISITANTES],
-            [Cll.CACHE_LICAO],
-        ];
-        const field = "igrejaId";
-        const refs: any[] = [];
-        let batch = db.batch();
-        const batches = [batch];
-        let count = 0;
+    const collections = [
+        [Cll.ALUNOS, Cll.CACHE_ALUNOS],
+        [Cll.CLASSES, Cll.CACHE_CLASSES],
+        [Cll.LICOES],
+        [Cll.MATRICULAS, Cll.CACHE_MATRICULAS],
+        [Cll.MEMBROS, Cll.CACHE_MEMBROS],
+        [Cll.REGISTROS_AULA],
+        [Cll.USUARIOS, Cll.CACHE_USUARIOS],
+        [Cll.VISITANTES],
+        [Cll.CACHE_LICAO],
+    ];
+    const field = "igrejaId";
+    const refs: any[] = [];
+    let batch = db.batch();
+    const batches = [batch];
+    let count = 0;
 
-        for (const [col, cache] of collections) {
-            const item = await db
-                .collection(col)
-                .where(field, "==", igrejaId)
-                .get();
-            item.forEach((v) => {
-                refs.push(v.ref);
+    for (const [col, cache] of collections) {
+        const item = await db.collection(col).where(field, "==", igrejaId).get();
+        item.forEach((v) => {
+            refs.push(v.ref);
 
-                if (cache) {
-                    const doc = db.collection(cache);
-                    const key =
-                        col !== "matriculas"
-                            ? igrejaId
-                            : `${igrejaId}_${v.data()?.licaoId}`;
+            if (cache) {
+                const doc = db.collection(cache);
+                const key = col !== "matriculas" ? igrejaId : `${igrejaId}_${v.data()?.licaoId}`;
 
-                    batch.update(doc.doc(key), {
-                        [`lista.${v.id}.igrejaNome`]: dadosNovos.nome,
-                    });
+                batch.update(doc.doc(key), {
+                    [`lista.${v.id}.igrejaNome`]: dadosNovos.nome,
+                });
 
-                    count++;
-                    if (count >= 499) {
-                        batch = db.batch();
-                        batches.push(batch);
-                        count = 0;
-                    }
+                count++;
+                if (count >= 499) {
+                    batch = db.batch();
+                    batches.push(batch);
+                    count = 0;
                 }
-            });
-        }
-
-        for (let ref of refs) {
-            batch.update(ref, novoNome);
-            count++;
-            if (count >= 499) {
-                batch = db.batch();
-                batches.push(batch);
-                count = 0;
             }
-        }
+        });
+    }
 
-        await Promise.all(batches.map((v) => v.commit()));
-        console.log("Ufa, fan-out finalizado, igreja alterada!");
-    },
-);
+    for (let ref of refs) {
+        batch.update(ref, novoNome);
+        count++;
+        if (count >= 499) {
+            batch = db.batch();
+            batches.push(batch);
+            count = 0;
+        }
+    }
+
+    await Promise.all(batches.map((v) => v.commit()));
+    console.log("Ufa, fan-out finalizado, igreja alterada!");
+});
 export const deletarIgreja = functions.https.onCall(async (request) => {
     const { db, isSuperAdmin, user } = await validarUsuario(request);
     const { igrejaId } = request.data;
 
     if (!igrejaId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const igrejaRef = db.collection("igrejas").doc(igrejaId);
     const igrejaSnap = await igrejaRef.get();
 
     if (!igrejaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada");
     }
 
-    if (
-        !isSuperAdmin ||
-        igrejaSnap.data()?.ministerioId !== user.ministerioId
-    ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+    if (!isSuperAdmin || igrejaSnap.data()?.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     try {
@@ -2795,9 +2364,7 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
         ];
 
         const promises = await Promise.all(
-            colecoes.map((v) =>
-                db.collection(v).where("igrejaId", "==", igrejaId).get(),
-            ),
+            colecoes.map((v) => db.collection(v).where("igrejaId", "==", igrejaId).get()),
         );
 
         const promisesRegistros = promises.map(async (v) => {
@@ -2808,21 +2375,16 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
                     const subColecoes = await doc.ref.listCollections();
                     if (subColecoes.length) {
                         for (const sub of subColecoes) {
-                            (await sub.get()).docs.forEach((v) =>
-                                refs.push(v.ref),
-                            );
+                            (await sub.get()).docs.forEach((v) => refs.push(v.ref));
                         }
                     }
                 }
             }
         });
-
         await Promise.all(promisesRegistros);
+        refs.push(db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(igrejaId));
 
-        const usuariosSnap = await db
-            .collection(Cll.USUARIOS)
-            .where("igrejaId", "==", igrejaId)
-            .get();
+        const usuariosSnap = await db.collection(Cll.USUARIOS).where("igrejaId", "==", igrejaId).get();
         const promisesUsers: any[] = [];
         if (!usuariosSnap.empty) {
             usuariosSnap.forEach((v) => {
@@ -2853,11 +2415,7 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
             user,
             request,
             "DELETAR_IGREJA",
-            `Igreja e ${
-                refs.length - 1
-            } dados associados, foram deletados com sucesso pelo usuário : ${
-                user.uid
-            }`,
+            `Igreja e ${refs.length - 1} dados associados, foram deletados com sucesso pelo usuário : ${user.uid}`,
             { igreja: igrejaSnap.data() },
         );
 
@@ -2866,40 +2424,26 @@ export const deletarIgreja = functions.https.onCall(async (request) => {
         };
     } catch (error) {
         console.log("Erro ao deletar igreja", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve um erro ao deletar a igreja. Tente novamente",
-        );
+        throw new functions.https.HttpsError("internal", "Houve um erro ao deletar a igreja. Tente novamente");
     }
 });
 export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
     const { isSuperAdmin, user, db } = await validarUsuario(request);
 
     if (!isSuperAdmin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
     const { csv } = request.data as IgrejaCSVFront;
 
     if (!csv || !csv?.length) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     let batch = db.batch();
     const batchs = [batch];
     let count = 0;
 
-    const caches = [
-        Cll.CACHE_ALUNOS,
-        Cll.CACHE_CLASSES,
-        Cll.CACHE_USUARIOS,
-        Cll.CACHE_MEMBROS,
-    ];
+    const caches = [Cll.CACHE_ALUNOS, Cll.CACHE_CLASSES, Cll.CACHE_USUARIOS, Cll.CACHE_MEMBROS];
 
     csv.forEach((v) => {
         const { nome } = v;
@@ -2917,8 +2461,12 @@ export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
                 lista: {},
             }),
         );
-
-        count += caches.length + 1;
+        batch.set(db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(newIgrejaRef.id), {
+            igrejaId: newIgrejaRef.id,
+            ministerioId: user.ministerioId,
+            classes: {},
+        });
+        count += caches.length + 2;
 
         if (count >= 499) {
             batch = db.batch();
@@ -2929,12 +2477,7 @@ export const salvarIgrejaCSV = functions.https.onCall(async (request) => {
 
     await Promise.all(batchs.map((v) => v.commit()));
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_IGREJA_CSV",
-        `Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_IGREJA_CSV", `Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`);
     console.log(`Igrejas cadastradas com sucesso pelo usuário: ${user.uid}`);
     return {
         message: "Igrejas cadastradas com sucesso!",
@@ -2954,41 +2497,29 @@ interface Usuario extends Omit<UsuarioFront, "senha"> {
     classeNome: string | null;
     igrejaNome: string;
     ministerioId: string;
+    atualizacao?: number;
 }
 
 export const salvarUsuario = functions.https.onCall(async (request) => {
-    const { db, isSecretario, user } = await validarUsuario(request);
+    const { db, isSecretario, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
+
     const { usuarioId } = request.data;
     const dados = request.data.dados as UsuarioFront;
 
-    if (
-        !dados ||
-        !dados.nome ||
-        !dados.email ||
-        !dados.role ||
-        !dados.igrejaId
-    ) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados incompletos",
-        );
+    if (!dados || !dados.nome || !dados.email || !dados.role || !dados.igrejaId) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados incompletos");
     }
 
     const igreja = await db.collection(Cll.IGREJAS).doc(dados.igrejaId).get();
     if (!igreja.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não foi encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não foi encontrada");
     }
 
     const podeCriar =
         user.role === Roles.PASTOR_PRESIDENTE ||
-        (user.role === Roles.SUPER_ADMIN &&
-            dados.role !== Roles.PASTOR_PRESIDENTE) ||
-        (user.role === Roles.PASTOR &&
-            dados.role !== Roles.SUPER_ADMIN &&
-            dados.role !== Roles.PASTOR_PRESIDENTE) ||
+        (user.role === Roles.SUPER_ADMIN && dados.role !== Roles.PASTOR_PRESIDENTE) ||
+        (user.role === Roles.PASTOR && dados.role !== Roles.SUPER_ADMIN && dados.role !== Roles.PASTOR_PRESIDENTE) ||
         (user.role === Roles.SECRETARIO_CONGREGACAO &&
             dados.role !== Roles.PASTOR &&
             dados.role !== Roles.SUPER_ADMIN &&
@@ -2998,43 +2529,37 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
             dados.role !== Roles.PASTOR &&
             dados.role !== Roles.SUPER_ADMIN &&
             dados.role !== Roles.PASTOR_PRESIDENTE) ||
-        (user.role === Roles.SECRETARIO_CLASSE &&
-            dados.role === Roles.SECRETARIO_CLASSE);
+        (user.role === Roles.SECRETARIO_CLASSE && dados.role === Roles.SECRETARIO_CLASSE);
 
     if (igreja.data()?.ministerioId !== user.ministerioId || !podeCriar) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Usuário não tem para usuários com este cargo",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Usuário não tem para usuários com este cargo");
     }
 
     if (!usuarioId && (!dados.senha || dados.senha.length < 6)) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "A senha precisa ter ao menos 6 caracteres",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "A senha precisa ter ao menos 6 caracteres");
     }
 
     let classe;
     if (dados.classeId) {
         classe = await db.collection(Cll.CLASSES).doc(dados.classeId).get();
-        if (!classe.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Classe não encontrada",
-            );
+        if (!classe.exists || classe.data()!.igrejaId !== dados.igrejaId) {
+            throw new functions.https.HttpsError("not-found", "Classe não encontrada");
         }
     }
 
-    const dadosAtualizados: any | Usuario = {
+    const token: TokenUser = {
         classeId: dados.classeId || null,
+        igrejaId: dados.igrejaId,
+        ministerioId: user.ministerioId,
+        role: dados.role,
+    };
+    const dadosAtualizados: Usuario = {
         classeNome: classe?.data()?.["nome"] || null,
         email: dados.email,
-        igrejaId: dados.igrejaId,
         igrejaNome: igreja.data()!.nome,
-        ministerioId: user.ministerioId,
         nome: dados.nome,
-        role: dados.role,
+        ...token,
+        atualizacao: Date.now(),
     };
 
     if (usuarioId) {
@@ -3043,38 +2568,34 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         const usuarioData = usuarioSnap.data() as Usuario;
 
         if (!usuarioSnap.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "O usuário não foi encontrado",
-            );
+            throw new functions.https.HttpsError("not-found", "O usuário não foi encontrado");
         }
-
         if (usuarioSnap.id === user.uid && dados.role !== user.role) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "O usuário não pode alterar seu próprio cargo",
-            );
+            throw new functions.https.HttpsError("permission-denied", "O usuário não pode alterar seu próprio cargo");
         }
 
-        if (dados.senha && !isSecretario)
-            admin.auth().updateUser(usuarioSnap.id, { password: dados.senha });
-        if (dados.email && !isSecretario)
-            admin.auth().updateUser(usuarioSnap.id, { email: dados.email });
+        const auth = admin.auth();
 
-        if (isSecretario) delete dadosAtualizados.email;
+        const atualizacaoUsuario: UpdateRequest = {
+            displayName: dados.nome,
+        };
+        if (dados.senha && !isSecretario) atualizacaoUsuario["password"] = dados.senha;
+        if (dados.email && !isSecretario) atualizacaoUsuario["email"] = dados.email;
+        if (isSecretario) delete (dadosAtualizados as any).email;
+        auth.setCustomUserClaims(usuarioSnap.id, token);
+        auth.updateUser(usuarioSnap.id, atualizacaoUsuario);
+
         const igrejaMudou = dadosAtualizados.igrejaId !== usuarioData?.igrejaId;
 
         await Promise.all([
-            usuarioRef.update(dadosAtualizados),
+            usuarioRef.update({ ...dadosAtualizados }),
             db
                 .collection(Cll.CACHE_USUARIOS)
                 .doc(igreja.id)
                 .update({
                     [`lista.${usuarioId}`]: {
                         ...usuarioData,
-                        ...(igrejaMudou
-                            ? { classeId: null, classeNome: null }
-                            : undefined),
+                        ...(igrejaMudou ? { classeId: null, classeNome: null } : undefined),
                         ...dadosAtualizados,
                         id: usuarioId,
                     },
@@ -3087,13 +2608,9 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
                 : undefined,
         ]);
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_USUARIO",
-            `Usuário editado pelo usuário ${user.uid}`,
-            { usuario: usuarioSnap.data() },
-        );
+        enviarLog(user, request, "SALVAR_USUARIO", `Usuário editado pelo usuário ${user.uid}`, {
+            usuario: usuarioSnap.data(),
+        });
 
         return {
             ...usuarioSnap.data(),
@@ -3105,9 +2622,9 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
 
     let newAuth;
     try {
-        newAuth = await admin
-            .auth()
-            .createUser({ email: dados.email, password: dados.senha });
+        newAuth = await admin.auth().createUser({ email: dados.email, password: dados.senha, displayName: dados.nome });
+        await admin.auth().setCustomUserClaims(newAuth.uid, token);
+
         const newUser = {
             ...dadosAtualizados,
             uid: newAuth.uid,
@@ -3126,13 +2643,7 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
                 }),
         ]);
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_USUARIO",
-            `Usuário salvo pelo usuário ${user.uid}`,
-            { newUser },
-        );
+        enviarLog(user, request, "SALVAR_USUARIO", `Usuário salvo pelo usuário ${user.uid}`, { newUser });
 
         return newUser;
     } catch (err: any) {
@@ -3144,29 +2655,20 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
         }
 
         if (err?.code === "auth/email-already-exists") {
-            throw new functions.https.HttpsError(
-                "already-exists",
-                "Este e-mail já está em uso por outra conta.",
-            );
+            throw new functions.https.HttpsError("already-exists", "Este e-mail já está em uso por outra conta.");
         }
 
-        throw new functions.https.HttpsError(
-            "internal",
-            "Ocorreu um erro ao criar o usuário. Tente novamente.",
-        );
+        throw new functions.https.HttpsError("internal", "Ocorreu um erro ao criar o usuário. Tente novamente.");
     }
 });
 export const deletarUsuario = functions.https.onCall(async (request) => {
-    const { user, db, isSecretario, isAdmin, isSuperAdmin } =
-        await validarUsuario(request);
+    const { user, db, isSecretario, isAdmin, isSuperAdmin, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { usuarioId } = request.data;
 
     if (!usuarioId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const usuarioRef = db.collection(Cll.USUARIOS).doc(usuarioId);
@@ -3177,52 +2679,40 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
             .auth()
             .deleteUser(usuarioId)
             .catch(() => console.log("Usuário já não existia no Auth."));
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Usuário não encontrado",
-        );
+        throw new functions.https.HttpsError("not-found", "Usuário não encontrado");
     }
+    const usuarioData = usuario.data();
 
     if (
         isSecretario ||
-        (isAdmin && user.igrejaId !== usuario.data()?.igrejaId) ||
-        (isSuperAdmin && usuario.data()?.ministerioId !== user.ministerioId) ||
-        (!isSuperAdmin &&
-            (usuario.data()?.role === Roles.PASTOR_PRESIDENTE ||
-                usuario.data()?.role === Roles.SUPER_ADMIN))
+        (isAdmin && user.igrejaId !== usuarioData?.igrejaId) ||
+        (isSuperAdmin && usuarioData?.ministerioId !== user.ministerioId) ||
+        (!isSuperAdmin && (usuarioData?.role === Roles.PASTOR_PRESIDENTE || usuarioData?.role === Roles.SUPER_ADMIN)) ||
+        (user.role === Roles.SUPER_ADMIN && usuarioData?.role === Roles.PASTOR_PRESIDENTE)
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
-    const uid = usuario.data()?.uid;
+    const uid = usuarioData?.uid;
     if (!uid) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "O usuário cadastrada está invalido.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "O usuário cadastrada está invalido.");
     }
 
     try {
+        const auth = admin.auth();
         await Promise.all([
             usuarioRef.delete(),
-            admin.auth().deleteUser(usuarioId),
+            auth.deleteUser(usuarioId),
+            auth.revokeRefreshTokens(usuarioId),
             db
                 .collection(Cll.CACHE_USUARIOS)
-                .doc(usuario.data()?.igrejaId)
+                .doc(usuarioData?.igrejaId)
                 .update({
                     [`lista.${uid}`]: FieldValue.delete(),
                 }),
         ]);
 
-        enviarLog(
-            user,
-            request,
-            "DELETAR_USUARIO",
-            `O usuário ${usuarioId} foi deletado pelo usuário ${user.uid}.`,
-        );
+        enviarLog(user, request, "DELETAR_USUARIO", `O usuário ${usuarioId} foi deletado pelo usuário ${user.uid}.`);
 
         return { message: "O usuário foi deletado com sucesso" };
     } catch (error: any) {
@@ -3235,10 +2725,7 @@ export const deletarUsuario = functions.https.onCall(async (request) => {
             };
         }
 
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve um erro ao deletar o usuário. Tente novamente.",
-        );
+        throw new functions.https.HttpsError("internal", "Houve um erro ao deletar o usuário. Tente novamente.");
     }
 });
 
@@ -3332,8 +2819,7 @@ function addTrofeusAluno(
                     semente_plantada: {
                         icon: "faSeedling",
                         titulo: "Semente Plantada",
-                        descricao:
-                            "Você esteve presente em pelo menos metade das aulas do trimestre!",
+                        descricao: "Você esteve presente em pelo menos metade das aulas do trimestre!",
                         raridade: "comum",
                         ...trofeuBase,
                     },
@@ -3388,8 +2874,7 @@ function addTrofeusAluno(
                     mordomo_tempo: {
                         icon: "faStopwatch",
                         titulo: "Mordomo do Tempo",
-                        descricao:
-                            "Pontual e fiel. Você não se atrasou nenhuma vez e manteve uma ótima frequência.",
+                        descricao: "Pontual e fiel. Você não se atrasou nenhuma vez e manteve uma ótima frequência.",
                         raridade: "rara",
                         ...trofeuBase,
                     },
@@ -3442,8 +2927,7 @@ function addTrofeusAluno(
                     espada_afiada: {
                         icon: "faBookBible",
                         titulo: "Espada Afiada",
-                        descricao:
-                            "A Palavra sempre na mão. Você trouxe a Bíblia em todas as aulas que compareceu.",
+                        descricao: "A Palavra sempre na mão. Você trouxe a Bíblia em todas as aulas que compareceu.",
                         raridade: "rara",
                         ...trofeuBase,
                     },
@@ -3480,8 +2964,7 @@ function addTrofeusAluno(
                     firme_rocha: {
                         icon: "faMountain",
                         titulo: "Firme na Rocha",
-                        descricao:
-                            "100% de frequência! Você não perdeu um único domingo neste trimestre.",
+                        descricao: "100% de frequência! Você não perdeu um único domingo neste trimestre.",
                         raridade: "epica",
                         ...trofeuBase,
                     },
@@ -3498,8 +2981,7 @@ function addTrofeusAluno(
                     quase_perfeito: {
                         icon: "faBatteryThreeQuarters",
                         titulo: "Quase Perfeito",
-                        descricao:
-                            "Faltou apenas a um único domingo em todo o trimestre. Quase gabaritou!",
+                        descricao: "Faltou apenas a um único domingo em todo o trimestre. Quase gabaritou!",
                         raridade: "epica",
                         ...trofeuBase,
                     },
@@ -3528,11 +3010,7 @@ function addTrofeusAluno(
     }
 
     // Lendário
-    if (
-        porcentagem >= 100 &&
-        porcentagem_biblia >= 100 &&
-        porcentagem_revista >= 100
-    ) {
+    if (porcentagem >= 100 && porcentagem_biblia >= 100 && porcentagem_revista >= 100) {
         batch.set(
             alunoPortalRef,
             {
@@ -3553,8 +3031,8 @@ function addTrofeusAluno(
 }
 
 export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
-    const { user, isSuperAdmin, isSecretario, db } =
-        await validarUsuario(request);
+    const { user, isSuperAdmin, isSecretario, db, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { licaoId, classeId, igrejaId } = request.data;
     const dados = request.data.dados as LicaoFront;
@@ -3567,36 +3045,24 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
         !dados.numero_aulas ||
         typeof dados.isInativa !== "boolean"
     ) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados invalidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados invalidos ou ausentes");
     }
 
     const igreja = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igreja.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada.",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada.");
     }
     const naoPodeCriar =
         (!isSuperAdmin && igrejaId !== user.igrejaId) ||
         (isSecretario && classeId !== user.classeId) ||
         (isSuperAdmin && user.ministerioId !== igreja.data()?.ministerioId);
     if (naoPodeCriar) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para criar essa lição",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para criar essa lição");
     }
 
     const classe = await db.collection(Cll.CLASSES).doc(classeId).get();
     if (!classe.exists || classe.data()?.igrejaId !== igrejaId) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Classe inválida ou não pertence à igreja selecionada.",
-        );
+        throw new functions.https.HttpsError("not-found", "Classe inválida ou não pertence à igreja selecionada.");
     }
 
     const dataInicio = new Date(dados.data_inicio + "T12:00:00");
@@ -3627,61 +3093,43 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
 
         if (licaoId) {
             const licaoRef = db.collection(Cll.LICOES).doc(licaoId);
-            const cacheRef = db
-                .collection(Cll.CACHE_LICAO)
-                .doc(`${igrejaId}_${licaoId}`);
+            const cacheRef = db.collection(Cll.CACHE_LICAO).doc(`${igrejaId}_${licaoId}`);
 
-            const [licao, cacheSnap] = await Promise.all([
-                licaoRef.get(),
-                cacheRef.get(),
-            ]);
+            const [licao, cacheSnap] = await Promise.all([licaoRef.get(), cacheRef.get()]);
 
             if (!licao.exists) {
-                throw new functions.https.HttpsError(
-                    "not-found",
-                    "A lição não foi encontrada",
-                );
+                throw new functions.https.HttpsError("not-found", "A lição não foi encontrada");
             }
+            const licaoData = licao.data();
+            const isPrimeiroAcesso = licaoData?.primeiroAcesso;
 
             const cache = cacheSnap.data() as CacheLicaoInterface;
 
-            const matriculasCache = await db
-                .collection(Cll.CACHE_MATRICULAS)
-                .doc(`${igrejaId}_${licaoId}`)
-                .get();
+            const matriculasCache = await db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${licaoId}`).get();
             if (!matriculasCache.exists) {
-                await db
-                    .collection(Cll.CACHE_MATRICULAS)
-                    .doc(`${igrejaId}_${licaoId}`)
-                    .set({
-                        igrejaId,
-                        ministerioId: dadosParaSalvar.ministerioId,
-                        licaoId,
-                        lista: {},
-                    });
+                await db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${licaoId}`).set({
+                    igrejaId,
+                    ministerioId: dadosParaSalvar.ministerioId,
+                    licaoId,
+                    lista: {},
+                });
             }
 
             const todasMatriculasMap = new Map();
-            Object.entries(matriculasCache.data()?.lista || {}).forEach(
-                ([_, v]) => {
-                    const matricula = v as any;
-                    todasMatriculasMap.set(matricula.alunoId, {
-                        id: matricula.id,
-                        alunoId: matricula.alunoId,
-                    });
-                },
-            );
+            Object.entries(matriculasCache.data()?.lista || {}).forEach(([_, v]) => {
+                const matricula = v as any;
+                todasMatriculasMap.set(matricula.alunoId, {
+                    id: matricula.id,
+                    alunoId: matricula.alunoId,
+                });
+            });
 
-            const alunosSelecionadosMap = new Map(
-                dados.alunosSelecionados.map((v) => [v.alunoId, v]),
-            );
+            const alunosSelecionadosMap = new Map(dados.alunosSelecionados.map((v) => [v.alunoId, v]));
             cache.total_matriculados = dadosParaSalvar.total_matriculados;
 
             todasMatriculasMap.forEach((v) => {
                 const matriculaRef = db.collection(Cll.MATRICULAS).doc(v.id);
-                const cacheMatriculaRef = db
-                    .collection(Cll.CACHE_MATRICULAS)
-                    .doc(`${igrejaId}_${licaoId}`);
+                const cacheMatriculaRef = db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${licaoId}`);
 
                 if (!alunosSelecionadosMap.has(v.alunoId)) {
                     batch.delete(matriculaRef);
@@ -3693,9 +3141,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                         cache.detalhes_aluno[v.alunoId].matriculado = false;
                     }
                 } else if (alunosSelecionadosMap.has(v.alunoId)) {
-                    const p = alunosSelecionadosMap.get(
-                        v.alunoId,
-                    )?.possui_revista;
+                    const p = alunosSelecionadosMap.get(v.alunoId)?.possui_revista;
                     batch.update(matriculaRef, {
                         possui_revista: p,
                     });
@@ -3705,43 +3151,21 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 }
             });
 
-            const novosAlunos = dados.alunosSelecionados.filter(
-                (v) => !todasMatriculasMap.get(v.alunoId),
-            );
+            const novosAlunos = dados.alunosSelecionados.filter((v) => !todasMatriculasMap.get(v.alunoId));
 
             const alunosMap = new Map();
             if (novosAlunos.length > 0) {
-                const alunosPromises = [];
-                for (let i = 0; i < novosAlunos.length; i += 30) {
-                    const chunk = novosAlunos
-                        .slice(i, i + 30)
-                        .map((v) => v.alunoId);
-                    alunosPromises.push(
-                        db
-                            .collection("alunos")
-                            .where(
-                                admin.firestore.FieldPath.documentId(),
-                                "in",
-                                chunk,
-                            )
-                            .get(),
-                    );
-                }
-                const alunosSnap = await Promise.all(alunosPromises);
-                const todosOsAlunos = alunosSnap.flatMap((snap) => snap.docs);
+                const cacheAlunosSnap = await db.collection(Cll.CACHE_ALUNOS).doc(dadosParaSalvar.igrejaId).get();
+                const cacheAlunosData = cacheAlunosSnap.data() as CacheDefault<AlunoInterface>;
+                Object.values(cacheAlunosData.lista)
+                    .filter((v) => alunosIds.includes(v.id))
+                    .forEach((v) => alunosMap.set(v.id, v));
 
-                todosOsAlunos.forEach((doc) =>
-                    alunosMap.set(doc.id, doc.data()),
-                );
                 novosAlunos.forEach((aluno) => {
                     const alunoData = alunosMap.get(aluno.alunoId);
                     if (alunoData) {
-                        const matriculaRef = db
-                            .collection(Cll.MATRICULAS)
-                            .doc();
-                        const cacheMatriculasRef = db
-                            .collection(Cll.CACHE_MATRICULAS)
-                            .doc(`${igrejaId}_${licaoId}`);
+                        const matriculaRef = db.collection(Cll.MATRICULAS).doc();
+                        const cacheMatriculasRef = db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${licaoId}`);
                         const dadosMatricula = {
                             alunoId: aluno.alunoId,
                             alunoNome: alunoData.nome_completo,
@@ -3769,9 +3193,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
 
                     const detalhes = cache.detalhes_aluno;
                     if (detalhes[aluno.alunoId]) {
-                        detalhes[aluno.alunoId].nome = alunosMap.get(
-                            aluno.alunoId,
-                        )?.nome_completo;
+                        detalhes[aluno.alunoId].nome = alunosMap.get(aluno.alunoId)?.nome_completo;
                         detalhes[aluno.alunoId].matriculado = true;
                     } else
                         detalhes[aluno.alunoId] = {
@@ -3790,31 +3212,88 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                             porcentagem_revista: 0,
                         };
 
-                    if (licao.data()?.ativo) {
+                    if (licaoData?.ativo) {
                         batch.set(
-                            db
-                                .collection(Cll.CACHE_PORTAL_ALUNO)
-                                .doc(aluno.alunoId),
-                            { ultimaLicaoId: licaoId },
+                            db.collection(Cll.CACHE_PORTAL_ALUNO).doc(aluno.alunoId),
+                            {
+                                ultimaLicaoId: licaoId,
+                                historico: {
+                                    [licaoId]: {
+                                        ano: dadosParaSalvar.data_inicio.toDate().getFullYear(),
+                                        classeId: dadosParaSalvar.classeId,
+                                        classeNome: dadosParaSalvar.classeNome,
+                                        data_fim: dadosParaSalvar.data_fim.toMillis(),
+                                        data_inicio: dadosParaSalvar.data_inicio.toMillis(),
+                                        licaoId,
+                                        titulo: dadosParaSalvar.titulo,
+                                    },
+                                },
+                            },
                             { merge: true },
                         );
                     }
                 });
             }
+            if (isPrimeiroAcesso) {
+                const licaoAnterior = await db
+                    .collection(Cll.LICOES)
+                    .where("ministerioId", "==", dadosParaSalvar.ministerioId)
+                    .where("igrejaId", "==", dadosParaSalvar.igrejaId)
+                    .where("classeId", "==", dadosParaSalvar.classeId)
+                    .where(admin.firestore.FieldPath.documentId(), "!=", licaoId)
+                    .orderBy("data_inicio", "desc")
+                    .limit(1)
+                    .get();
+
+                if (!licaoAnterior.empty) {
+                    const licaoAnteriorData = licaoAnterior.docs[0].data() as Licao;
+                    const licaoAnteriorId = licaoAnterior.docs[0].id;
+                    const cacheLicaoAnterior = await db
+                        .collection(Cll.CACHE_LICAO)
+                        .doc(`${dadosParaSalvar.igrejaId}_${licaoAnteriorId}`)
+                        .get();
+                    const licaoCacheData = cacheLicaoAnterior.data() as CacheLicaoInterface;
+                    const { detalhes_aluno, detalhes_aulas } = licaoCacheData;
+
+                    if (Object.keys(detalhes_aulas)?.length)
+                        for (const alunoId in detalhes_aluno) {
+                            addTrofeusAluno(
+                                db,
+                                alunoId,
+                                detalhes_aluno[alunoId],
+                                batchConquistas,
+                                licaoAnteriorData,
+                                licaoAnteriorId,
+                            );
+                        }
+                }
+            }
             batch.update(cacheRef, { ...cache });
+            dadosParaSalvar.ativo = licaoData!.ativo;
+            batch.update(licaoRef, { ...dadosParaSalvar, primeiroAcesso: false });
 
-            dadosParaSalvar.ativo = licao.data()!.ativo;
-            batch.update(licaoRef, { dadosParaSalvar, primeiroAcesso: false });
-
-            await batch.commit();
-
-            enviarLog(
-                user,
-                request,
-                "SALVAR_NOVO_TRIMESTRE",
-                `Trimestre editado pelo usuário ${user.uid}`,
-                { dadosParaSalvar, licao: licao.data() },
+            batch.set(
+                db
+                    .collection(Cll.SISTEMA)
+                    .doc(dadosParaSalvar.ministerioId)
+                    .collection("igrejas")
+                    .doc(dadosParaSalvar.igrejaId),
+                {
+                    classes: {
+                        [dadosParaSalvar.classeId]: {
+                            licoes: Date.now(),
+                        },
+                    },
+                },
+                { merge: true },
             );
+
+            await Promise.all([batch.commit(), batchConquistas.commit()]);
+
+            enviarLog(user, request, "SALVAR_NOVO_TRIMESTRE", `Trimestre editado pelo usuário ${user.uid}`, {
+                dadosParaSalvar,
+                licao: licao.data(),
+            });
 
             return { id: licaoId, ...dadosParaSalvar };
         }
@@ -3835,20 +3314,15 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 dadosParaSalvar.ativo = true;
                 batch.update(licaoAtivaDoc.ref, { ativo: false });
                 isInativa = true;
-            } else if (dataFim <= licaoAtivaData.data_inicio.toDate())
-                dadosParaSalvar.ativo = false;
+            } else if (dataFim <= licaoAtivaData.data_inicio.toDate()) dadosParaSalvar.ativo = false;
             else if (dadosParaSalvar.ativo) {
                 batch.update(licaoAtivaDoc.ref, { ativo: false });
                 isInativa = true;
             }
 
             if (isInativa) {
-                const licaoCacheSnap = await db
-                    .collection("cache_licao")
-                    .doc(`${igrejaId}_${licaoAtivaDoc.id}`)
-                    .get();
-                const licaoCacheData =
-                    licaoCacheSnap.data() as CacheLicaoInterface;
+                const licaoCacheSnap = await db.collection("cache_licao").doc(`${igrejaId}_${licaoAtivaDoc.id}`).get();
+                const licaoCacheData = licaoCacheSnap.data() as CacheLicaoInterface;
 
                 const { detalhes_aluno, detalhes_aulas } = licaoCacheData;
                 if (Object.keys(detalhes_aulas).length)
@@ -3876,27 +3350,18 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 data_prevista: Timestamp.fromDate(dataPrevista),
                 realizada: false,
                 registroRef: null,
+                ministerioId: dadosParaSalvar.ministerioId,
+                igrejaId: dadosParaSalvar.igrejaId,
+                classeId: dadosParaSalvar.classeId,
             });
         }
         const alunosMap = new Map();
         if (dados.alunosSelecionados?.length > 0) {
-            const alunosPromises = [];
-            for (let i = 0; i < alunosIds.length; i += 30) {
-                const chunk = alunosIds.slice(i, i + 30);
-                alunosPromises.push(
-                    db
-                        .collection("alunos")
-                        .where(
-                            admin.firestore.FieldPath.documentId(),
-                            "in",
-                            chunk,
-                        )
-                        .get(),
-                );
-            }
-            const alunosSnap = await Promise.all(alunosPromises);
-            const todosOsAlunos = alunosSnap.flatMap((snap) => snap.docs);
-            todosOsAlunos.forEach((doc) => alunosMap.set(doc.id, doc.data()));
+            const cacheAlunosSnap = await db.collection(Cll.CACHE_ALUNOS).doc(dadosParaSalvar.igrejaId).get();
+            const cacheAlunosData = cacheAlunosSnap.data() as CacheDefault<AlunoInterface>;
+            Object.values(cacheAlunosData.lista)
+                .filter((v) => alunosIds.includes(v.id))
+                .forEach((v) => alunosMap.set(v.id, v));
 
             const matriculas: any = {};
             dados.alunosSelecionados.forEach((aluno) => {
@@ -3932,14 +3397,11 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                         ultimaLicaoId: novaLicaoRef.id,
                         historico: {
                             [novaLicaoRef.id]: {
-                                ano: dadosParaSalvar.data_inicio
-                                    .toDate()
-                                    .getFullYear(),
+                                ano: dadosParaSalvar.data_inicio.toDate().getFullYear(),
                                 classeId: dadosParaSalvar.classeId,
                                 classeNome: dadosParaSalvar.classeNome,
                                 data_fim: dadosParaSalvar.data_fim.toMillis(),
-                                data_inicio:
-                                    dadosParaSalvar.data_inicio.toMillis(),
+                                data_inicio: dadosParaSalvar.data_inicio.toMillis(),
                                 licaoId: novaLicaoRef.id,
                                 titulo: dadosParaSalvar.titulo,
                             },
@@ -3949,9 +3411,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                 );
             });
             batch.set(
-                db
-                    .collection(Cll.CACHE_MATRICULAS)
-                    .doc(`${igrejaId}_${novaLicaoRef.id}`),
+                db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${novaLicaoRef.id}`),
                 {
                     igrejaId,
                     ministerioId: dadosParaSalvar.ministerioId,
@@ -3962,9 +3422,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             );
         } else
             batch.set(
-                db
-                    .collection(Cll.CACHE_MATRICULAS)
-                    .doc(`${igrejaId}_${novaLicaoRef.id}`),
+                db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${novaLicaoRef.id}`),
                 {
                     igrejaId,
                     ministerioId: dadosParaSalvar.ministerioId,
@@ -3979,9 +3437,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             data_fim: dadosParaSalvar.data_fim,
             data_inicio: dadosParaSalvar.data_inicio,
             ministerioId: dadosParaSalvar.ministerioId,
-            nome: `${
-                dadosParaSalvar.numero_trimestre
-            }º Trimestre de ${dataInicio.getFullYear()}`,
+            nome: `${dadosParaSalvar.numero_trimestre}º Trimestre de ${dataInicio.getFullYear()}`,
             numero_trimestre: dadosParaSalvar.numero_trimestre,
         };
         const idTrimestre = `${dadosParaSalvar.ministerioId}-${dataInicio
@@ -3990,9 +3446,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             .toLocaleDateString("pt-BR")
             .replace(/\//g, "-")}-${dadosParaSalvar.numero_trimestre}`;
 
-        batch.set(db.collection(Cll.TRIMESTRES).doc(idTrimestre), trimestre, {
-            merge: true,
-        });
+        batch.set(db.collection(Cll.TRIMESTRES).doc(idTrimestre), trimestre, { merge: true });
 
         const cache: CacheLicaoInterface = {
             classeId,
@@ -4013,228 +3467,185 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
             total_ofertas_dinheiro: 0,
             total_ofertas_pix: 0,
             detalhes_aulas: {},
-            detalhes_aluno: dados.alunosSelecionados.reduce(
-                (prev: any, current) => {
-                    prev[current.alunoId] = getNewCacheAluno(
-                        alunosMap.get(current.alunoId)?.nome_completo,
-                        current.alunoId,
-                    );
-                    return prev;
-                },
-                {},
-            ),
+            detalhes_aluno: dados.alunosSelecionados.reduce((prev: any, current) => {
+                prev[current.alunoId] = getNewCacheAluno(
+                    alunosMap.get(current.alunoId)?.nome_completo,
+                    current.alunoId,
+                );
+                return prev;
+            }, {}),
         };
+        batch.set(db.collection(Cll.CACHE_LICAO).doc(`${igrejaId}_${novaLicaoRef.id}`), cache);
         batch.set(
             db
-                .collection(Cll.CACHE_LICAO)
-                .doc(`${igrejaId}_${novaLicaoRef.id}`),
-            cache,
+                .collection(Cll.SISTEMA)
+                .doc(dadosParaSalvar.ministerioId)
+                .collection("igrejas")
+                .doc(dadosParaSalvar.igrejaId),
+            {
+                classes: {
+                    [dadosParaSalvar.classeId]: {
+                        licoes: Date.now(),
+                    },
+                },
+            },
+            { merge: true },
         );
 
         await Promise.all([batch.commit(), batchConquistas.commit()]);
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_NOVO_TRIMESTRE",
-            `Trimestre criado pelo usuário ${user.uid}`,
-            { dadosParaSalvar },
-        );
+        enviarLog(user, request, "SALVAR_NOVO_TRIMESTRE", `Trimestre criado pelo usuário ${user.uid}`, {
+            dadosParaSalvar,
+        });
 
         return { id: novaLicaoRef.id, ...dadosParaSalvar };
     } catch (error) {
         console.error("Erro ao salvar trimestre:", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Ocorreu um erro ao salvar o trimestre. Tente novamente.",
-        );
+        throw new functions.https.HttpsError("internal", "Ocorreu um erro ao salvar o trimestre. Tente novamente.");
     }
 });
-export const onLicaoUpdate = onDocumentUpdated(
-    "licoes/{licaoId}",
-    async (event) => {
-        const dadosAntigos = event.data?.before?.data() as Licao;
-        const dadosNovos = event.data?.after?.data() as Licao;
+export const onLicaoUpdate = onDocumentUpdated("licoes/{licaoId}", async (event) => {
+    const dadosAntigos = event.data?.before?.data() as Licao;
+    const dadosNovos = event.data?.after?.data() as Licao;
 
-        if (!dadosAntigos || !dadosNovos) {
-            console.log("Dados ausentes. Encerrando a trigger");
-            return;
-        }
+    if (!dadosAntigos || !dadosNovos) {
+        console.log("Dados ausentes. Encerrando a trigger");
+        return;
+    }
 
-        const dataMudou = !dadosAntigos.data_inicio.isEqual(
-            dadosNovos.data_inicio,
-        );
-        const tituloMudou = dadosAntigos.titulo !== dadosNovos.titulo;
+    const dataMudou = !dadosAntigos.data_inicio.isEqual(dadosNovos.data_inicio);
+    const tituloMudou = dadosAntigos.titulo !== dadosNovos.titulo;
 
-        if (!dataMudou && !tituloMudou) {
-            console.log("Nada mudou, encerrando trigger");
-            return;
-        }
+    if (!dataMudou && !tituloMudou) {
+        console.log("Nada mudou, encerrando trigger");
+        return;
+    }
 
-        try {
-            const { licaoId } = event.params;
-            const db = admin.firestore();
-            const batch = db.batch();
+    try {
+        const { licaoId } = event.params;
+        const db = admin.firestore();
+        const batch = db.batch();
 
-            if (tituloMudou) {
-                const novoTitulo = { licaoNome: dadosNovos.titulo };
+        if (tituloMudou) {
+            const novoTitulo = { licaoNome: dadosNovos.titulo };
 
-                console.log(
-                    `O titulo ${dadosAntigos.titulo} foi alterado para ${dadosNovos.titulo}`,
-                );
+            console.log(`O titulo ${dadosAntigos.titulo} foi alterado para ${dadosNovos.titulo}`);
 
-                const registros = await Promise.all([
-                    db
-                        .collection(Cll.MATRICULAS)
-                        .where("licaoId", "==", licaoId)
-                        .get(),
-                    db
-                        .collection(Cll.CACHE_LICAO)
-                        .where("licaoId", "==", licaoId)
-                        .get(),
-                ]);
-                registros.forEach((v) =>
-                    v.docs.forEach((v) => batch.update(v.ref, novoTitulo)),
-                );
+            const registros = await Promise.all([
+                db.collection(Cll.MATRICULAS).where("licaoId", "==", licaoId).get(),
+                db.collection(Cll.CACHE_LICAO).where("licaoId", "==", licaoId).get(),
+            ]);
+            registros.forEach((v) => v.docs.forEach((v) => batch.update(v.ref, novoTitulo)));
 
-                const cacheMatriculaRef = db
-                    .collection(Cll.CACHE_MATRICULAS)
-                    .doc(`${dadosNovos.igrejaId}_${licaoId}`);
-                const cacheMatricula = await cacheMatriculaRef.get();
-                const cacheLista = cacheMatricula.data()?.lista;
-                for (const key in cacheLista) {
-                    cacheLista[key]["licaoNome"] = dadosNovos.titulo;
-                }
-
-                batch.update(cacheMatriculaRef, { lista: cacheLista });
+            const cacheMatriculaRef = db.collection(Cll.CACHE_MATRICULAS).doc(`${dadosNovos.igrejaId}_${licaoId}`);
+            const cacheMatricula = await cacheMatriculaRef.get();
+            const cacheLista = cacheMatricula.data()?.lista;
+            for (const key in cacheLista) {
+                cacheLista[key]["licaoNome"] = dadosNovos.titulo;
             }
 
-            if (dataMudou) {
-                console.log(
-                    `Data de inicio ${dadosAntigos.data_inicio
-                        .toDate()
-                        .toLocaleDateString(
-                            "pt-BR",
-                        )} foi alterada para ${dadosNovos.data_inicio
-                        .toDate()
-                        .toLocaleDateString("pt-BR")}`,
-                );
+            batch.update(cacheMatriculaRef, { lista: cacheLista });
+        }
 
-                const ano = dadosNovos.data_inicio.toDate().getFullYear();
-                const trimestre = {
-                    ano,
-                    data_fim: dadosNovos.data_fim,
-                    data_inicio: dadosNovos.data_inicio,
-                    ministerioId: dadosNovos.ministerioId,
-                    nome: `${dadosNovos.numero_trimestre}º Trimestre de ${ano}`,
-                    numero_trimestre: dadosNovos.numero_trimestre,
-                };
-                const idTrimestre = `${
-                    dadosNovos.ministerioId
-                }-${dadosNovos.data_inicio
+        if (dataMudou) {
+            console.log(
+                `Data de inicio ${dadosAntigos.data_inicio
                     .toDate()
-                    .toLocaleDateString("pt-BR")
-                    .replace(/\//g, "-")}-${dadosNovos.data_fim
+                    .toLocaleDateString("pt-BR")} foi alterada para ${dadosNovos.data_inicio
                     .toDate()
-                    .toLocaleDateString("pt-BR")
-                    .replace(/\//g, "-")}-${dadosNovos.numero_trimestre}`;
-                batch.set(
-                    db.collection("trimestres").doc(idTrimestre),
-                    trimestre,
-                    { merge: true },
-                );
+                    .toLocaleDateString("pt-BR")}`,
+            );
 
-                const cacheLicaoRef = db
-                    .collection(Cll.CACHE_LICAO)
-                    .doc(`${dadosNovos.igrejaId}_${licaoId}`);
-                const cacheLicao = (
-                    await cacheLicaoRef.get()
-                ).data() as CacheLicaoInterface;
-                cacheLicao.data_inicio = dadosNovos.data_inicio;
-                cacheLicao.data_fim = dadosNovos.data_fim;
+            const ano = dadosNovos.data_inicio.toDate().getFullYear();
+            const trimestre = {
+                ano,
+                data_fim: dadosNovos.data_fim,
+                data_inicio: dadosNovos.data_inicio,
+                ministerioId: dadosNovos.ministerioId,
+                nome: `${dadosNovos.numero_trimestre}º Trimestre de ${ano}`,
+                numero_trimestre: dadosNovos.numero_trimestre,
+            };
+            const idTrimestre = `${dadosNovos.ministerioId}-${dadosNovos.data_inicio
+                .toDate()
+                .toLocaleDateString("pt-BR")
+                .replace(/\//g, "-")}-${dadosNovos.data_fim
+                .toDate()
+                .toLocaleDateString("pt-BR")
+                .replace(/\//g, "-")}-${dadosNovos.numero_trimestre}`;
+            batch.set(db.collection("trimestres").doc(idTrimestre), trimestre, { merge: true });
 
-                for (let i = 0; i < dadosNovos.numero_aulas; i++) {
-                    const data = dadosNovos.data_inicio.toDate();
-                    data.setDate(data.getDate() + i * 7);
-                    const dataTimestamp = Timestamp.fromDate(data);
+            const cacheLicaoRef = db.collection(Cll.CACHE_LICAO).doc(`${dadosNovos.igrejaId}_${licaoId}`);
+            const cacheLicao = (await cacheLicaoRef.get()).data() as CacheLicaoInterface;
+            cacheLicao.data_inicio = dadosNovos.data_inicio;
+            cacheLicao.data_fim = dadosNovos.data_fim;
 
-                    const licaoRef = db.collection("licoes").doc(licaoId);
-                    const aulaRef = licaoRef
-                        .collection("aulas")
-                        .doc(String(i + 1));
+            for (let i = 0; i < dadosNovos.numero_aulas; i++) {
+                const data = dadosNovos.data_inicio.toDate();
+                data.setDate(data.getDate() + i * 7);
+                const dataTimestamp = Timestamp.fromDate(data);
 
-                    const aula = (await aulaRef.get()).data();
+                const licaoRef = db.collection("licoes").doc(licaoId);
+                const aulaRef = licaoRef.collection("aulas").doc(String(i + 1));
 
-                    batch.update(aulaRef, {
-                        data_prevista: dataTimestamp,
-                    });
+                const aula = (await aulaRef.get()).data();
 
-                    if (aula?.realizada) {
-                        const dataAntiga = aula.data_prevista
-                            ?.toDate()
-                            .toLocaleDateString("pt-BR");
-                        const dataNova = dataTimestamp
-                            .toDate()
-                            .toLocaleDateString("pt-BR");
-
-                        cacheLicao.detalhes_aulas[dataNova] = {
-                            ...cacheLicao.detalhes_aulas[dataAntiga],
-                        };
-                        delete cacheLicao.detalhes_aulas[dataAntiga];
-
-                        batch.update(aula.registroRef, {
-                            data: dataTimestamp,
-                        });
-                    }
-                }
-
-                batch.update(cacheLicaoRef, {
-                    ...cacheLicao,
+                batch.update(aulaRef, {
+                    data_prevista: dataTimestamp,
                 });
+
+                if (aula?.realizada) {
+                    const dataAntiga = aula.data_prevista?.toDate().toLocaleDateString("pt-BR");
+                    const dataNova = dataTimestamp.toDate().toLocaleDateString("pt-BR");
+
+                    cacheLicao.detalhes_aulas[dataNova] = {
+                        ...cacheLicao.detalhes_aulas[dataAntiga],
+                    };
+                    delete cacheLicao.detalhes_aulas[dataAntiga];
+
+                    batch.update(aula.registroRef, {
+                        data: dataTimestamp,
+                    });
+                }
             }
 
-            await batch.commit();
-
-            console.log("Fan-out finalizado, matricula alterada!");
-        } catch (err) {
-            console.log("deu esse erro", err);
+            batch.update(cacheLicaoRef, {
+                ...cacheLicao,
+            });
         }
-    },
-);
+
+        await batch.commit();
+
+        console.log("Fan-out finalizado, matricula alterada!");
+    } catch (err) {
+        console.log("deu esse erro", err);
+    }
+});
 export const deletarLicao = functions.https.onCall(async (request) => {
-    const { db, isSuperAdmin, isSecretario, user } =
-        await validarUsuario(request);
+    const { db, isSuperAdmin, isSecretario, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { licaoId } = request.data;
 
     if (!licaoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const licaoRef = db.collection("licoes").doc(licaoId);
     const licaoSnap = await licaoRef.get();
     if (!licaoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Lição não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Lição não encontrada");
     }
+    const licaoData = licaoSnap.data();
 
     if (
-        (!isSuperAdmin && licaoSnap.data()?.igrejaId !== user.igrejaId) ||
-        (isSecretario && licaoSnap.data()?.classeId !== user.classeId) ||
-        (isSuperAdmin && licaoSnap.data()?.ministerioId !== user.ministerioId)
+        (!isSuperAdmin && licaoData?.igrejaId !== user.igrejaId) ||
+        (isSecretario && licaoData?.classeId !== user.classeId) ||
+        (isSuperAdmin && licaoData?.ministerioId !== user.ministerioId)
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão de deletar essa lição",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão de deletar essa lição");
     }
 
-    if (licaoSnap.data()?.relatorio_enviado === true) {
+    if (licaoData?.relatorio_enviado === true) {
         throw new functions.https.HttpsError(
             "permission-denied",
             "O relatório já foi enviado, solicite aos administradores do ministério para desbloquear.",
@@ -4246,21 +3657,13 @@ export const deletarLicao = functions.https.onCall(async (request) => {
         let count = 1;
         const refs = [licaoRef];
         const aulasRef = licaoRef.collection("aulas");
-        const colecoes = [
-            Cll.MATRICULAS,
-            Cll.CACHE_MATRICULAS,
-            Cll.REGISTROS_AULA,
-        ];
+        const colecoes = [Cll.MATRICULAS, Cll.CACHE_MATRICULAS, Cll.REGISTROS_AULA];
 
         const promises = await Promise.all([
-            ...colecoes.map((v) =>
-                db.collection(v).where("licaoId", "==", licaoId).get(),
-            ),
+            ...colecoes.map((v) => db.collection(v).where("licaoId", "==", licaoId).get()),
             aulasRef.get(),
         ]);
-        const licaoCacheRef = db
-            .collection(Cll.CACHE_LICAO)
-            .doc(`${licaoSnap.data()?.igrejaId}_${licaoId}`);
+        const licaoCacheRef = db.collection(Cll.CACHE_LICAO).doc(`${licaoData?.igrejaId}_${licaoId}`);
         refs.push(licaoCacheRef);
 
         const licaoCacheSnap = await licaoCacheRef.get();
@@ -4292,15 +3695,11 @@ export const deletarLicao = functions.https.onCall(async (request) => {
                 count++;
             });
         }
-        if (licaoSnap.data()?.ativo) {
+        if (licaoData?.ativo) {
             const ultimaLicao = await db
                 .collection("licoes")
-                .where("classeId", "==", licaoSnap.data()?.classeId)
-                .where(
-                    admin.firestore.FieldPath.documentId(),
-                    "!=",
-                    licaoSnap.id,
-                )
+                .where("classeId", "==", licaoData?.classeId)
+                .where(admin.firestore.FieldPath.documentId(), "!=", licaoSnap.id)
                 .orderBy("data_inicio", "desc")
                 .limit(1)
                 .get();
@@ -4321,6 +3720,18 @@ export const deletarLicao = functions.https.onCall(async (request) => {
                 });
             }
         }
+        batch.set(
+            db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(licaoData?.igrejaId),
+            {
+                classes: {
+                    [licaoData?.classeId]: {
+                        licoes: Date.now(),
+                    },
+                },
+            },
+            { merge: true },
+        );
+        count++;
         const batchs = [batch];
         for (let ref of refs) {
             batch.delete(ref);
@@ -4345,10 +3756,7 @@ export const deletarLicao = functions.https.onCall(async (request) => {
         return { message: "Lição deletada com sucesso" };
     } catch (error) {
         console.log("Erro ao deletar a lição", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve um erro ao deletar a lição. Tente novamente.",
-        );
+        throw new functions.https.HttpsError("internal", "Houve um erro ao deletar a lição. Tente novamente.");
     }
 });
 
@@ -4376,6 +3784,7 @@ interface ChamadaFront {
 }
 
 interface RegistroAulaInterface {
+    id?: string;
     atrasados: number;
     biblias: number;
     classeId: string;
@@ -4435,11 +3844,7 @@ interface CacheLicaoInterface {
 
             chamada: {
                 [alunoId: string]: {
-                    status:
-                        | "Presente"
-                        | "Atrasado"
-                        | "Falta Justificada"
-                        | "Falta";
+                    status: "Presente" | "Atrasado" | "Falta Justificada" | "Falta";
                     trouxe_licao: boolean;
                     trouxe_biblia: boolean;
                 };
@@ -4466,16 +3871,13 @@ interface CacheLicaoInterface {
 }
 
 export const salvarChamada = functions.https.onCall(async (request) => {
-    const { db, user, isSecretario, isAdmin } = await validarUsuario(request);
+    const { db, user, isSecretario, isAdmin, isTeste } = await validarUsuario(request);
 
     const { classeId, licaoId, numeroAula } = request.data;
     const dados = request.data.dados as ChamadaFront;
 
     if (!classeId || !licaoId || !numeroAula) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados invalidos",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados invalidos");
     }
 
     const licaoRef = db.collection(Cll.LICOES).doc(licaoId);
@@ -4488,29 +3890,16 @@ export const salvarChamada = functions.https.onCall(async (request) => {
     ]);
 
     if (!classe.exists || !licao.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Coleções não foram encontradas",
-        );
+        throw new functions.https.HttpsError("not-found", "Coleções não foram encontradas");
     }
-    if (
-        (isSecretario && user.classeId !== classeId) ||
-        (isAdmin && licao.data()?.igrejaId !== user.igrejaId)
-    ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer essa chamada",
-        );
+    if ((isSecretario && user.classeId !== classeId) || (isAdmin && licao.data()?.igrejaId !== user.igrejaId)) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer essa chamada");
     }
 
-    const cacheRef = db
-        .collection(Cll.CACHE_LICAO)
-        .doc(`${classe.data()!.igrejaId}_${licaoId}`);
+    const cacheRef = db.collection(Cll.CACHE_LICAO).doc(`${classe.data()!.igrejaId}_${licaoId}`);
     const cacheSnap = await cacheRef.get();
     dados.missoesPix =
-        typeof dados.missoesPix === "string"
-            ? Number(dados.missoesPix.replace(",", "."))
-            : dados.missoesPix;
+        typeof dados.missoesPix === "string" ? Number(dados.missoesPix.replace(",", ".")) : dados.missoesPix;
     dados.missoesDinheiro =
         typeof dados.missoesDinheiro === "string"
             ? Number(dados.missoesDinheiro.replace(",", "."))
@@ -4519,10 +3908,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         typeof dados.ofertaDinheiro === "string"
             ? Number(dados.ofertaDinheiro.replace(",", "."))
             : dados.ofertaDinheiro;
-    dados.ofertaPix =
-        typeof dados.ofertaPix === "string"
-            ? Number(dados.ofertaPix.replace(",", "."))
-            : dados.ofertaPix;
+    dados.ofertaPix = typeof dados.ofertaPix === "string" ? Number(dados.ofertaPix.replace(",", ".")) : dados.ofertaPix;
     const dadosParaSalvar: RegistroAulaInterface = {
         atrasados: dados.totalAtrasados,
         biblias: dados.totalBiblias,
@@ -4539,17 +3925,12 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         ofertas: { dinheiro: dados.ofertaDinheiro, pix: dados.ofertaPix },
         missoes_total: dados.missoesDinheiro + dados.missoesPix,
         ofertas_total: dados.ofertaDinheiro + dados.ofertaPix,
-        imgsPixMissoes: dados?.imgsPixMissoes?.length
-            ? dados.imgsPixMissoes
-            : null,
-        imgsPixOfertas: dados?.imgsPixOfertas?.length
-            ? dados.imgsPixOfertas
-            : null,
+        imgsPixMissoes: isTeste ? null : dados?.imgsPixMissoes?.length ? dados.imgsPixMissoes : null,
+        imgsPixOfertas: isTeste ? null : dados?.imgsPixOfertas?.length ? dados.imgsPixOfertas : null,
         presentes_chamada: dados.totalPresentes,
         total_ausentes: dados.totalAusentes,
         total_matriculados: dados.totalMatriculados,
-        total_presentes:
-            dados.totalPresentes + dados.totalAtrasados + dados.visitas,
+        total_presentes: dados.totalPresentes + dados.totalAtrasados + dados.visitas,
         visitas: dados.visitas,
         visitas_lista: dados.visitasLista,
         numero_aula: aula.data()?.numero_aula || 1,
@@ -4568,20 +3949,24 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         if (isEditando) batch.update(registrosRef, dadosParaSalvar);
         else batch.set(registrosRef, dadosParaSalvar);
 
-        if (isEditando)
-            batch.update(aulaRef, {
-                realizada: true,
-                registroRef: registrosRef,
-            });
-        else {
+        if (!isEditando) {
             batch.set(aulaRef, {
-                data_prevista: Timestamp.fromDate(
-                    new Date(dados.data_chamada + "T12:00:00"),
-                ),
+                data_prevista: Timestamp.fromDate(new Date(dados.data_chamada + "T12:00:00")),
                 numero_aula: Number(numeroAula),
                 realizada: true,
                 registroRef: registrosRef,
             });
+            batch.set(
+                db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(dadosParaSalvar.igrejaId),
+                {
+                    classes: {
+                        [dadosParaSalvar.classeId]: {
+                            aulas: Date.now(),
+                        },
+                    },
+                },
+                { merge: true },
+            );
         }
 
         const dadosDia: any = {
@@ -4614,8 +3999,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             data_fim: licao.data()?.data_fim,
             data_inicio: licao.data()?.data_inicio,
             detalhes_aulas: {
-                [dadosParaSalvar.data.toDate().toLocaleDateString("pt-BR")]:
-                    dadosDia,
+                [dadosParaSalvar.data.toDate().toLocaleDateString("pt-BR")]: dadosDia,
             },
             total_matriculados: dadosParaSalvar.total_matriculados,
         };
@@ -4629,18 +4013,12 @@ export const salvarChamada = functions.https.onCall(async (request) => {
                 const obj = {
                     alunoId: id,
                     status: dados.chamada[id],
-                    trouxe_biblia: dados.bibliasTrazidas.includes(id)
-                        ? true
-                        : false,
-                    trouxe_licao: dados.licoesTrazidas.includes(id)
-                        ? true
-                        : false,
+                    trouxe_biblia: dados.bibliasTrazidas.includes(id) ? true : false,
+                    trouxe_licao: dados.licoesTrazidas.includes(id) ? true : false,
                 };
                 alunosStatus[id] = obj;
 
-                const stts = dados.chamada[id]
-                    .toLocaleLowerCase()
-                    .replace(" ", "_");
+                const stts = dados.chamada[id].toLocaleLowerCase().replace(" ", "_");
                 dadosAlunos[id] = getNewCacheAluno("", id, { [stts]: 1 });
 
                 return obj;
@@ -4686,12 +4064,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
                     const d = dadosParaSalvar as any;
                     cacheEdit[col] =
                         (cacheEdit[col] || 0) +
-                        (colunas[col]
-                            .split(".")
-                            .reduce(
-                                (prev: any, current: any) => prev[current],
-                                d,
-                            ) || 0);
+                        (colunas[col].split(".").reduce((prev: any, current: any) => prev[current], d) || 0);
                 }
             }
 
@@ -4699,29 +4072,17 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             for (const dia in detalhes_aulas) {
                 const chamada = detalhes_aulas[dia].chamada;
                 for (const id in chamada) {
-                    const stts = chamada[id].status
-                        .toLowerCase()
-                        .replace(" ", "_");
+                    const stts = chamada[id].status.toLowerCase().replace(" ", "_");
 
                     const obj: any =
                         presencaAluno.get(id) ||
-                        getNewCacheAluno(
-                            cache.detalhes_aluno[id]?.nome || "",
-                            id,
-                            {
-                                matriculado:
-                                    cache.detalhes_aluno[id]?.matriculado ||
-                                    false,
-                            },
-                        );
+                        getNewCacheAluno(cache.detalhes_aluno[id]?.nome || "", id, {
+                            matriculado: cache.detalhes_aluno[id]?.matriculado || false,
+                        });
 
                     if (!obj?.["nome"]) {
-                        const alunoSnap = await db
-                            .collection("alunos")
-                            .doc(id)
-                            .get();
-                        if (alunoSnap.exists)
-                            obj["nome"] = alunoSnap.data()!.nome_completo;
+                        const alunoSnap = await db.collection("alunos").doc(id).get();
+                        if (alunoSnap.exists) obj["nome"] = alunoSnap.data()!.nome_completo;
                     }
 
                     const trouxeRevista = chamada[id].trouxe_licao;
@@ -4742,15 +4103,11 @@ export const salvarChamada = functions.https.onCall(async (request) => {
             for (const id in detalhes_aluno) {
                 const a = detalhes_aluno;
                 const totalPontos =
-                    (a[id].presente || 0) +
-                    (a[id].atrasado || 0) * 0.9 +
-                    (a[id].falta_justificada || 0) * 0.5;
+                    (a[id].presente || 0) + (a[id].atrasado || 0) * 0.9 + (a[id].falta_justificada || 0) * 0.5;
 
                 const porcentagem = ((totalPontos || 0) / totalAulas) * 100;
-                const porcentagemRevista =
-                    (a[id].trouxe_revista / totalAulas) * 100;
-                const porcentagemBiblia =
-                    (a[id].trouxe_biblia / totalAulas) * 100;
+                const porcentagemRevista = (a[id].trouxe_revista / totalAulas) * 100;
+                const porcentagemBiblia = (a[id].trouxe_biblia / totalAulas) * 100;
 
                 a[id].porcentagem = porcentagem;
                 a[id].porcentagem_biblia = porcentagemBiblia;
@@ -4771,13 +4128,10 @@ export const salvarChamada = functions.https.onCall(async (request) => {
 
         await batch.commit();
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_CHAMADA",
-            `Chamada salva com sucesso pelo usuário: ${user.uid}`,
-            { dadosParaSalvar, isEditando },
-        );
+        enviarLog(user, request, "SALVAR_CHAMADA", `Chamada salva com sucesso pelo usuário: ${user.uid}`, {
+            dadosParaSalvar,
+            isEditando,
+        });
 
         return {
             mensagem: "Chamada cadastrada com sucesso!",
@@ -4785,103 +4139,84 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         };
     } catch (err: any) {
         console.log("Erro ao salvar chamda", err);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Ocorreu um erro ao salvar a chamada. Tente novamente.",
-        );
+        throw new functions.https.HttpsError("internal", "Ocorreu um erro ao salvar a chamada. Tente novamente.");
     }
 });
 
-export const onSalvarChamadaUpdate = onDocumentUpdated(
-    "registros_aula/{registroId}",
-    async (event) => {
-        const dadosAntigos = event.data?.before.data() as RegistroAulaInterface;
-        const dadosNovos = event.data?.after.data() as RegistroAulaInterface;
+export const onSalvarChamadaUpdate = onDocumentUpdated("registros_aula/{registroId}", async (event) => {
+    const dadosAntigos = event.data?.before.data() as RegistroAulaInterface;
+    const dadosNovos = event.data?.after.data() as RegistroAulaInterface;
 
-        if (!dadosAntigos || !dadosNovos) {
-            console.log("Dados ausentes. Encerrando a trigger.");
+    if (!dadosAntigos || !dadosNovos) {
+        console.log("Dados ausentes. Encerrando a trigger.");
 
-            return;
-        }
+        return;
+    }
 
-        const imgsMissoesDeletar = dadosAntigos.imgsPixMissoes?.filter(
-            (v) => !dadosNovos.imgsPixMissoes?.includes(v),
-        );
-        const imgsOfertasDeletar = dadosAntigos.imgsPixOfertas?.filter(
-            (v) => !dadosNovos.imgsPixOfertas?.includes(v),
-        );
+    const imgsMissoesDeletar = dadosAntigos.imgsPixMissoes?.filter((v) => !dadosNovos.imgsPixMissoes?.includes(v));
+    const imgsOfertasDeletar = dadosAntigos.imgsPixOfertas?.filter((v) => !dadosNovos.imgsPixOfertas?.includes(v));
 
-        const imgsDeletar = [
-            ...(imgsMissoesDeletar || []),
-            ...(imgsOfertasDeletar || []),
-        ];
+    const imgsDeletar = [...(imgsMissoesDeletar || []), ...(imgsOfertasDeletar || [])];
 
-        if (imgsDeletar.length) {
-            const bucket = admin.storage().bucket();
-            const regex = /\/o\/(.*)\?/;
-            const promises = imgsDeletar
-                ?.map((v) => {
-                    const caminho = v?.match(regex);
-                    if (caminho?.length) {
-                        const url = decodeURIComponent(caminho[1]);
-                        return bucket.file(url).delete();
-                    }
-                    return;
-                })
-                .filter(Boolean);
+    if (imgsDeletar.length) {
+        const bucket = admin.storage().bucket();
+        const regex = /\/o\/(.*)\?/;
+        const promises = imgsDeletar
+            ?.map((v) => {
+                const caminho = v?.match(regex);
+                if (caminho?.length) {
+                    const url = decodeURIComponent(caminho[1]);
+                    return bucket.file(url).delete();
+                }
+                return;
+            })
+            .filter(Boolean);
 
-            await Promise.all(promises!);
+        await Promise.all(promises!);
 
-            console.log("Imagens apagadas com sucesso!");
-        } else {
-            console.log("As imagens não mudaram...");
-        }
+        console.log("Imagens apagadas com sucesso!");
+    } else {
+        console.log("As imagens não mudaram...");
+    }
 
-        console.log("Iniciando Atualização do cache");
+    console.log("Iniciando Atualização do cache");
 
-        const db = admin.firestore();
+    const db = admin.firestore();
 
-        const cacheRef = db
-            .collection("cache_licao")
-            .doc(`${dadosNovos.igrejaId}_${dadosNovos.licaoId}`);
-        const cacheSnap = await cacheRef.get();
+    const cacheRef = db.collection("cache_licao").doc(`${dadosNovos.igrejaId}_${dadosNovos.licaoId}`);
+    const cacheSnap = await cacheRef.get();
 
-        if (!cacheSnap.exists) {
-            console.log("cache não encontrado, encerrando trigger");
-            return;
-        }
+    if (!cacheSnap.exists) {
+        console.log("cache não encontrado, encerrando trigger");
+        return;
+    }
 
-        const cache = { ...cacheSnap.data() } as CacheLicaoInterface;
-        const colunas: any = {
-            total_ofertas: "ofertas_total",
-            total_ofertas_pix: "ofertas.pix",
-            total_ofertas_dinheiro: "ofertas.dinheiro",
-            total_missoes: "missoes_total",
-            total_missoes_pix: "missoes.pix",
-            total_missoes_dinheiro: "missoes.dinheiro",
-        };
+    const cache = { ...cacheSnap.data() } as CacheLicaoInterface;
+    const colunas: any = {
+        total_ofertas: "ofertas_total",
+        total_ofertas_pix: "ofertas.pix",
+        total_ofertas_dinheiro: "ofertas.dinheiro",
+        total_missoes: "missoes_total",
+        total_missoes_pix: "missoes.pix",
+        total_missoes_dinheiro: "missoes.dinheiro",
+    };
 
-        for (const key in colunas) {
-            const c = cache as any;
-            const da = dadosAntigos as any;
-            const dn = dadosNovos as any;
+    for (const key in colunas) {
+        const c = cache as any;
+        const da = dadosAntigos as any;
+        const dn = dadosNovos as any;
 
-            c[key] =
-                c[key] -
-                colunas[key]
-                    .split(".")
-                    .reduce((prev: any, current: any) => prev[current], da) +
-                colunas[key]
-                    .split(".")
-                    .reduce((prev: any, current: any) => prev[current], dn);
+        c[key] =
+            c[key] -
+            colunas[key].split(".").reduce((prev: any, current: any) => prev[current], da) +
+            colunas[key].split(".").reduce((prev: any, current: any) => prev[current], dn);
 
-            if (c[key] < 0) c[key] = 0;
-        }
+        if (c[key] < 0) c[key] = 0;
+    }
 
-        await cacheRef.update({ ...cache });
-        console.log("Dados atualizados, encerrando trigger");
-    },
-);
+    await cacheRef.update({ ...cache });
+    console.log("Dados atualizados, encerrando trigger");
+});
 
 // Matricula
 
@@ -4907,21 +4242,20 @@ interface Matriculas {
 }
 
 export const salvarMatricula = functions.https.onCall(async (request) => {
-    const { db, user } = await validarUsuario(request);
+    const { db, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { licaoId, alunoId } = request.data;
     const dados = request.data.dados as MatriculaForm;
 
     if (!licaoId || !alunoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     try {
         const matriculas = await db
             .collection(Cll.MATRICULAS)
+            .where("ministerioId", "==", user.ministerioId)
             .where("licaoId", "==", licaoId)
             .where("alunoId", "==", alunoId)
             .limit(1)
@@ -4929,9 +4263,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
 
         if (!matriculas.empty) {
             const matriculaDoc = matriculas.docs[0];
-            const data_matricula = Timestamp.fromDate(
-                new Date(dados.data_matricula + "T12:00:00"),
-            );
+            const data_matricula = Timestamp.fromDate(new Date(dados.data_matricula + "T12:00:00"));
             await Promise.all([
                 matriculaDoc.ref.update({ ...dados, data_matricula }),
                 db
@@ -4963,34 +4295,20 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
 
         const alunoRef = db.collection(Cll.ALUNOS).doc(alunoId);
         const licaoRef = db.collection(Cll.LICOES).doc(licaoId);
-        const [aluno, licao] = await Promise.all([
-            alunoRef.get(),
-            licaoRef.get(),
-        ]);
+        const [aluno, licao] = await Promise.all([alunoRef.get(), licaoRef.get()]);
 
         if (!aluno.exists || !licao.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Aluno ou Lição não encontrado",
-            );
+            throw new functions.https.HttpsError("not-found", "Aluno ou Lição não encontrado");
         }
         const igrejaId = licao.data()?.igrejaId;
-        const cacheRef = db
-            .collection(Cll.CACHE_LICAO)
-            .doc(`${igrejaId}_${licaoId}`);
+        const cacheRef = db.collection(Cll.CACHE_LICAO).doc(`${igrejaId}_${licaoId}`);
 
         const classeRef = db.collection("classes").doc(licao.data()!.classeId);
-        const [classe, cacheSnap] = await Promise.all([
-            classeRef.get(),
-            cacheRef.get(),
-        ]);
+        const [classe, cacheSnap] = await Promise.all([classeRef.get(), cacheRef.get()]);
         const cache = cacheSnap.data() as CacheLicaoInterface;
 
         if (!classe.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Classe associada à lição não foi encontrada.",
-            );
+            throw new functions.https.HttpsError("not-found", "Classe associada à lição não foi encontrada.");
         }
 
         const licaoData = licao.data() as Licao;
@@ -5001,9 +4319,7 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             classeId: classe.id,
             classeNome: classe.data()!.nome,
             classeRef: classeRef,
-            data_matricula: Timestamp.fromDate(
-                new Date(dados.data_matricula + "T12:00:00"),
-            ),
+            data_matricula: Timestamp.fromDate(new Date(dados.data_matricula + "T12:00:00")),
             igrejaId: classe.data()!.igrejaId,
             igrejaNome: classe.data()!.igrejaNome,
             licaoId,
@@ -5012,24 +4328,18 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
             ministerioId: user.ministerioId,
             possui_revista: dados.possui_revista,
         };
-        const dadosNovoAluno = getNewCacheAluno(
-            dadosParaSalvar.alunoNome,
-            alunoId,
-        );
+        const dadosNovoAluno = getNewCacheAluno(dadosParaSalvar.alunoNome, alunoId);
 
         const batch = db.batch();
 
         const matricula = db.collection("matriculas").doc();
         batch.set(matricula, dadosParaSalvar);
-        batch.update(
-            db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${licaoId}`),
-            {
-                [`lista.${matricula.id}`]: {
-                    ...dadosParaSalvar,
-                    id: matricula.id,
-                },
+        batch.update(db.collection(Cll.CACHE_MATRICULAS).doc(`${igrejaId}_${licaoId}`), {
+            [`lista.${matricula.id}`]: {
+                ...dadosParaSalvar,
+                id: matricula.id,
             },
-        );
+        });
         batch.set(
             db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId),
             {
@@ -5062,13 +4372,9 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
 
         await batch.commit();
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_MATRICULA",
-            `Matricula salva com sucesso pelo usuário: ${user.uid}`,
-            { dadosParaSalvar },
-        );
+        enviarLog(user, request, "SALVAR_MATRICULA", `Matricula salva com sucesso pelo usuário: ${user.uid}`, {
+            dadosParaSalvar,
+        });
 
         return {
             mensagem: "Aluno salvo com sucesso",
@@ -5076,43 +4382,31 @@ export const salvarMatricula = functions.https.onCall(async (request) => {
         };
     } catch (err: any) {
         console.log("Erro ao salvar", err);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Ocorreu um erro ao fazer a matricula. Tente novamente.",
-        );
+        throw new functions.https.HttpsError("internal", "Ocorreu um erro ao fazer a matricula. Tente novamente.");
     }
 });
 export const deletarMatricula = functions.https.onCall(async (request) => {
-    const { isSecretario, isSuperAdmin, db, user } =
-        await validarUsuario(request);
+    const { isSecretario, isSuperAdmin, db, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { matriculaId } = request.data;
 
     if (!matriculaId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const matriculaRef = db.collection(Cll.MATRICULAS).doc(matriculaId);
     const matriculaSnap = await matriculaRef.get();
 
     if (!matriculaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Matricula não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Matricula não encontrada");
     }
 
     if (
         (!isSuperAdmin && matriculaSnap.data()?.igrejaId !== user.igrejaId) ||
         (isSecretario && matriculaSnap.data()?.classeId !== user.classeId)
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para deletar essa matricula",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para deletar essa matricula");
     }
 
     try {
@@ -5120,9 +4414,7 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
         const matricula = matriculaSnap.data();
         const licaoRef = matricula?.licaoRef;
 
-        const cacheRef = db
-            .collection(Cll.CACHE_LICAO)
-            .doc(`${matricula?.igrejaId}_${matricula?.licaoId}`);
+        const cacheRef = db.collection(Cll.CACHE_LICAO).doc(`${matricula?.igrejaId}_${matricula?.licaoId}`);
 
         batch.update(cacheRef, {
             total_matriculados: FieldValue.increment(-1),
@@ -5133,12 +4425,9 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
             total_matriculados: FieldValue.increment(-1),
         });
         batch.delete(matriculaRef);
-        batch.update(
-            db
-                .collection(Cll.CACHE_MATRICULAS)
-                .doc(`${matricula?.igrejaId}_${matricula?.licaoId}`),
-            { [`lista.${matriculaId}`]: FieldValue.delete() },
-        );
+        batch.update(db.collection(Cll.CACHE_MATRICULAS).doc(`${matricula?.igrejaId}_${matricula?.licaoId}`), {
+            [`lista.${matriculaId}`]: FieldValue.delete(),
+        });
 
         await batch.commit();
 
@@ -5153,10 +4442,7 @@ export const deletarMatricula = functions.https.onCall(async (request) => {
         return { message: "A matricula foi deletada com sucesso." };
     } catch (error) {
         console.log("Erro ao deletar matricula", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Ocorreu um erro ao deletar a matricula. Tente novamente.",
-        );
+        throw new functions.https.HttpsError("internal", "Ocorreu um erro ao deletar a matricula. Tente novamente.");
     }
 });
 
@@ -5182,43 +4468,33 @@ interface GerarRelatorioInterface {
 }
 
 export const gerarRelatorioGrafico = functions.https.onCall(async (request) => {
-    const { user, db, isSecretario, isSuperAdmin, isAdmin } =
-        await validarUsuario(request);
+    const { user, db, isSecretario, isSuperAdmin, isAdmin } = await validarUsuario(request);
 
-    const { agrupamento, classes, dataFim, dataInicio, igrejas, metrica } =
-        request.data as GerarRelatorioInterface;
+    const { agrupamento, classes, dataFim, dataInicio, igrejas, metrica } = request.data as GerarRelatorioInterface;
 
     if (!agrupamento || !dataFim || !dataInicio || !metrica) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     let baseQuery = db
         .collection(Cll.REGISTROS_AULA)
+        .where("ministerioId", "==", user.ministerioId)
         .where("data", ">=", new Date(dataInicio + "T00:00:00"))
         .where("data", "<=", new Date(dataFim + "T23:59:59"));
 
-    if (isSecretario)
-        baseQuery = baseQuery.where("classeId", "==", user.classeId);
+    if (isSecretario) baseQuery = baseQuery.where("classeId", "==", user.classeId);
     else if (isAdmin) {
         baseQuery = baseQuery.where("igrejaId", "==", user.igrejaId);
-        if (classes?.length)
-            baseQuery = baseQuery.where("classeId", "in", classes);
+        if (classes?.length) baseQuery = baseQuery.where("classeId", "in", classes);
     } else if (isSuperAdmin) {
         baseQuery = baseQuery.where("ministerioId", "==", user.ministerioId);
 
-        if (igrejas?.length)
-            baseQuery = baseQuery.where("igrejaId", "in", igrejas);
-        if (classes?.length)
-            baseQuery = baseQuery.where("classeId", "in", classes);
+        if (igrejas?.length) baseQuery = baseQuery.where("igrejaId", "in", igrejas);
+        if (classes?.length) baseQuery = baseQuery.where("classeId", "in", classes);
     }
 
     const registroDocs = (await baseQuery.get()).docs;
-    const registros = registroDocs.map((v) =>
-        v.data(),
-    ) as RegistroAulaInterface[];
+    const registros = registroDocs.map((v) => v.data()) as RegistroAulaInterface[];
 
     if (metrica === "frequencia_alunos") {
         if (!registroDocs.length) return [];
@@ -5240,10 +4516,7 @@ export const gerarRelatorioGrafico = functions.https.onCall(async (request) => {
             if (licoes.has(registro.licaoId)) continue;
 
             const cache = (
-                await db
-                    .collection(Cll.CACHE_LICAO)
-                    .doc(`${registro.igrejaId}_${registro.licaoId}`)
-                    .get()
+                await db.collection(Cll.CACHE_LICAO).doc(`${registro.igrejaId}_${registro.licaoId}`).get()
             ).data() as CacheLicaoInterface;
 
             Object.values(cache.detalhes_aluno).forEach((v) => {
@@ -5278,12 +4551,7 @@ export const gerarRelatorioGrafico = functions.https.onCall(async (request) => {
         const promises = [];
         for (let i = 0; i < ids.length; i += 30) {
             const chunk = ids.slice(i, i + 30);
-            promises.push(
-                db
-                    .collection(Cll.LICOES)
-                    .where(admin.firestore.FieldPath.documentId(), "in", chunk)
-                    .get(),
-            );
+            promises.push(db.collection(Cll.LICOES).where(admin.firestore.FieldPath.documentId(), "in", chunk).get());
         }
 
         const licoesDocs = (await Promise.all(promises)).flatMap((v) => v.docs);
@@ -5365,8 +4633,7 @@ export const gerarRelatorioGrafico = functions.https.onCall(async (request) => {
         let chave = "";
 
         if (igrejas?.length) chave += v.igrejaNome;
-        if (classes?.length)
-            chave += chave.length ? `|${v.classeNome}` : v.classeNome;
+        if (classes?.length) chave += chave.length ? `|${v.classeNome}` : v.classeNome;
 
         return chave;
     };
@@ -5391,12 +4658,8 @@ export const gerarRelatorioGrafico = functions.https.onCall(async (request) => {
                 break;
             case "semana":
                 const data = v.data.toDate();
-                const primeiroDiaDaSemana = new Date(
-                    data.setDate(data.getDate() - data.getDay()),
-                );
-                key = `Semana de ${primeiroDiaDaSemana.toLocaleDateString(
-                    "pt-BR",
-                )}`;
+                const primeiroDiaDaSemana = new Date(data.setDate(data.getDate() - data.getDay()));
+                key = `Semana de ${primeiroDiaDaSemana.toLocaleDateString("pt-BR")}`;
                 break;
             case "trimestre":
                 key = trimestre.get(v.licaoId);
@@ -5405,27 +4668,18 @@ export const gerarRelatorioGrafico = functions.https.onCall(async (request) => {
 
         const chaveAgrupamento = getChaveAgrupamento(v);
         if (metrica === "ofertas" || metrica === "missoes") {
-            const chaveEnvioPix = chaveAgrupamento.length
-                ? `${chaveAgrupamento} - pix`
-                : "pix";
-            const chaveEnvioDinheiro = chaveAgrupamento.length
-                ? `${chaveAgrupamento} - dinheiro`
-                : "dinheiro";
+            const chaveEnvioPix = chaveAgrupamento.length ? `${chaveAgrupamento} - pix` : "pix";
+            const chaveEnvioDinheiro = chaveAgrupamento.length ? `${chaveAgrupamento} - dinheiro` : "dinheiro";
 
             const valor = agregador.get(key) || { name: key };
-            valor[chaveEnvioPix] =
-                (valor[chaveEnvioPix] || 0.0) + (v[metrica].pix || 0.0);
-            valor[chaveEnvioDinheiro] =
-                (valor[chaveEnvioDinheiro] || 0.0) +
-                (v[metrica].dinheiro || 0.0);
+            valor[chaveEnvioPix] = (valor[chaveEnvioPix] || 0.0) + (v[metrica].pix || 0.0);
+            valor[chaveEnvioDinheiro] = (valor[chaveEnvioDinheiro] || 0.0) + (v[metrica].dinheiro || 0.0);
 
             agregador.set(key, valor);
         } else {
             const valor = v[metrica as "missoes"] || 0.0;
 
-            const chaveEnvio = chaveAgrupamento.length
-                ? chaveAgrupamento
-                : metrica;
+            const chaveEnvio = chaveAgrupamento.length ? chaveAgrupamento : metrica;
             const envio = agregador.get(key) || { name: key };
             envio[chaveEnvio] = (envio[chaveEnvio] || 0.0) + valor;
             agregador.set(key, envio);
@@ -5444,53 +4698,29 @@ interface ExportCSV {
     igrejas?: string[];
     classes?: string[];
     type: "previa" | "csv";
-    colecao:
-        | "registros_aula"
-        | "alunos"
-        | "membros"
-        | "matriculas"
-        | "usuarios"
-        | "licoes"
-        | "chamada";
+    colecao: "registros_aula" | "alunos" | "membros" | "matriculas" | "usuarios" | "licoes" | "chamada";
 }
 
 export const exportarDadosCSV = functions.https.onCall(async (request) => {
-    const { db, user, isSuperAdmin, isAdmin, isSecretario } =
-        await validarUsuario(request);
+    const { db, user, isSuperAdmin, isAdmin, isSecretario } = await validarUsuario(request);
 
     const { type, classes, igrejas, colecao } = request.data as ExportCSV;
     let { data_fim, data_inicio } = request.data as ExportCSV;
 
     if (!colecao) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     if (isSecretario && colecao === "membros") {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
-    const baseQuery = db.collection(
-        colecao === "chamada" ? "registros_aula" : colecao,
-    );
+    const baseQuery = db.collection(colecao === "chamada" ? "registros_aula" : colecao);
 
     let q = baseQuery.where("ministerioId", "==", user.ministerioId);
 
-    if (
-        colecao === "matriculas" ||
-        colecao === "licoes" ||
-        colecao === "registros_aula" ||
-        colecao === "chamada"
-    ) {
+    if (colecao === "matriculas" || colecao === "licoes" || colecao === "registros_aula" || colecao === "chamada") {
         if (!data_fim || !data_inicio) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Dados inválidos ou ausentes",
-            );
+            throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
         }
 
         data_inicio = new Date(data_inicio);
@@ -5499,18 +4729,10 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
         data_fim = new Date(data_fim);
         data_fim.setHours(23, 59, 59, 59);
 
-        if (colecao === "licoes")
-            q = q
-                .where("data_inicio", ">=", data_inicio)
-                .where("data_fim", "<=", data_fim);
+        if (colecao === "licoes") q = q.where("data_inicio", ">=", data_inicio).where("data_fim", "<=", data_fim);
         else if (colecao === "matriculas")
-            q = q
-                .where("data_matricula", ">=", data_inicio)
-                .where("data_matricula", "<=", data_fim);
-        else
-            q = q
-                .where("data", ">=", data_inicio)
-                .where("data", "<=", data_fim);
+            q = q.where("data_matricula", ">=", data_inicio).where("data_matricula", "<=", data_fim);
+        else q = q.where("data", ">=", data_inicio).where("data", "<=", data_fim);
     }
 
     if (colecao !== "alunos" && colecao !== "membros") {
@@ -5536,10 +4758,7 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
         const d: any[] = [];
         const promises = dadosSnap.docs.map(async (v) => {
             const registro = v.data() as RegistroAulaInterface;
-            const chamadaSnap = await v.ref
-                .collection("chamada")
-                .doc("lista")
-                .get();
+            const chamadaSnap = await v.ref.collection("chamada").doc("lista").get();
 
             chamadaSnap.data()?.chamada.forEach((c: any) => {
                 d.push({
@@ -5560,8 +4779,7 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
     if (type === "previa") {
         dados.forEach((v) => {
             colunas.forEach((c) => {
-                if (typeof v[c]?.toDate === "function")
-                    v[c] = v[c].toDate().toLocaleDateString("pt-BR");
+                if (typeof v[c]?.toDate === "function") v[c] = v[c].toDate().toLocaleDateString("pt-BR");
                 else if (typeof v[c] === "object") v[c] = JSON.stringify(v[c]);
             });
         });
@@ -5573,17 +4791,11 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
         colunas
             .map((c) => {
                 const item = v[c];
-                if (item && typeof item.toDate === "function")
-                    return item.toDate().toLocaleDateString("pt-BR");
-                if (typeof item === "object")
-                    return String(JSON.stringify(item)).replace(/"/g, '""');
+                if (item && typeof item.toDate === "function") return item.toDate().toLocaleDateString("pt-BR");
+                if (typeof item === "object") return String(JSON.stringify(item)).replace(/"/g, '""');
 
                 const valor = String(item);
-                if (
-                    valor?.includes(";") ||
-                    valor?.includes("\n") ||
-                    valor?.includes('"')
-                )
+                if (valor?.includes(";") || valor?.includes("\n") || valor?.includes('"'))
                     return `"${item.replace(/"/g, '""')}"`;
                 return item;
             })
@@ -5596,16 +4808,12 @@ export const exportarDadosCSV = functions.https.onCall(async (request) => {
 });
 
 export const getResumoDaLicao = functions.https.onCall(async (request) => {
-    const { isSuperAdmin, isSecretario, user, db } =
-        await validarUsuario(request);
+    const { isSuperAdmin, isSecretario, user, db } = await validarUsuario(request);
 
     const { licaoId } = request.data;
 
     if (!licaoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const licaoRef = db.collection("licoes").doc(licaoId);
@@ -5616,18 +4824,13 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
         (!isSuperAdmin && licaoSnap.data()?.igrejaId !== user.igrejaId) ||
         (isSecretario && licaoSnap.data()?.classeId !== user.classeId)
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Permissão inválida",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Permissão inválida");
     }
 
     const licao = licaoSnap.data() as Licao;
     const totalAlunos = licao.total_matriculados;
 
-    const registrosRef = db
-        .collection("registros_aula")
-        .where("licaoId", "==", licaoId);
+    const registrosRef = db.collection("registros_aula").where("licaoId", "==", licaoId);
     const registroDocs = await registrosRef.get();
 
     const progresso: any = {
@@ -5652,12 +4855,8 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
     const promises = registroDocs.docs.map(async (v) => {
         const registro = v.data() as RegistroAulaInterface;
 
-        totalPresenca.push(
-            (registro.atrasados * 0.9 || 0) + (registro.presentes_chamada || 0),
-        );
-        totalArrecadado.push(
-            (registro.ofertas_total || 0) + (registro.missoes_total || 0),
-        );
+        totalPresenca.push((registro.atrasados * 0.9 || 0) + (registro.presentes_chamada || 0));
+        totalArrecadado.push((registro.ofertas_total || 0) + (registro.missoes_total || 0));
 
         const chamadaRef = await v.ref.collection("chamada").get(); ////AAAAAAAAAAA
 
@@ -5702,11 +4901,8 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
             });
 
             //Licoes
-            if (chamada.trouxe_licao === true)
-                item["licoes"]["trouxe"] = (item["licoes"]["trouxe"] || 0) + 1;
-            else
-                item["licoes"]["naoTrouxe"] =
-                    (item["licoes"]["naoTrouxe"] || 0) + 1;
+            if (chamada.trouxe_licao === true) item["licoes"]["trouxe"] = (item["licoes"]["trouxe"] || 0) + 1;
+            else item["licoes"]["naoTrouxe"] = (item["licoes"]["naoTrouxe"] || 0) + 1;
             item["licoes"]["detalhes"].push({
                 data,
                 aula,
@@ -5714,12 +4910,8 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
             });
 
             //Biblias
-            if (chamada.trouxe_biblia === true)
-                item["biblias"]["trouxe"] =
-                    (item["biblias"]["trouxe"] || 0) + 1;
-            else
-                item["biblias"]["naoTrouxe"] =
-                    (item["biblias"]["naoTrouxe"] || 0) + 1;
+            if (chamada.trouxe_biblia === true) item["biblias"]["trouxe"] = (item["biblias"]["trouxe"] || 0) + 1;
+            else item["biblias"]["naoTrouxe"] = (item["biblias"]["naoTrouxe"] || 0) + 1;
             item["biblias"]["detalhes"].push({
                 data,
                 aula,
@@ -5732,60 +4924,39 @@ export const getResumoDaLicao = functions.https.onCall(async (request) => {
 
     await Promise.all(promises);
 
-    totalPresenca = totalPresenca.reduce(
-        (prev: any, acc: any) => acc + prev,
-        0.0,
-    );
-    totalArrecadado = totalArrecadado.reduce(
-        (prev: any, acc: any) => acc + prev,
-        0,
-    );
+    totalPresenca = totalPresenca.reduce((prev: any, acc: any) => acc + prev, 0.0);
+    totalArrecadado = totalArrecadado.reduce((prev: any, acc: any) => acc + prev, 0);
 
     const frequenciaAlunos = Array.from(alunosMap.values()).map((v) => {
         const c = v["chamada"];
         const l = v["licoes"];
         const b = v["biblias"];
 
-        const totalPontos =
-            (c.presente || 0) +
-            (c.atrasado || 0) * 0.9 +
-            (c.falta_justificada || 0) * 0.5;
-        const porcentagemPresenca =
-            (totalPontos / (progresso.concluidas || 0)) * 100;
+        const totalPontos = (c.presente || 0) + (c.atrasado || 0) * 0.9 + (c.falta_justificada || 0) * 0.5;
+        const porcentagemPresenca = (totalPontos / (progresso.concluidas || 0)) * 100;
 
-        const porcentagemLicao =
-            ((l["trouxe"] || 0) / progresso.concluidas) * 100;
-        const porcentagemBiblias =
-            ((b["trouxe"] || 0) / progresso.concluidas) * 100;
+        const porcentagemLicao = ((l["trouxe"] || 0) / progresso.concluidas) * 100;
+        const porcentagemBiblias = ((b["trouxe"] || 0) / progresso.concluidas) * 100;
 
         return {
             ...v,
             chamada: {
                 ...c,
-                porcentagem:
-                    Number.parseFloat(porcentagemPresenca.toFixed(1)) || 0,
+                porcentagem: Number.parseFloat(porcentagemPresenca.toFixed(1)) || 0,
             },
             licoes: {
                 ...l,
-                porcentagem:
-                    Number.parseFloat(porcentagemLicao.toFixed(1)) || 0,
+                porcentagem: Number.parseFloat(porcentagemLicao.toFixed(1)) || 0,
             },
             biblias: {
                 ...b,
-                porcentagem:
-                    Number.parseFloat(porcentagemBiblias.toFixed(1)) || 0,
+                porcentagem: Number.parseFloat(porcentagemBiblias.toFixed(1)) || 0,
             },
         };
     });
 
     const mediaPresenca =
-        Number.parseFloat(
-            (
-                (totalPresenca /
-                    (frequenciaAlunos.length * progresso.concluidas)) *
-                100
-            ).toFixed(1),
-        ) || 0;
+        Number.parseFloat(((totalPresenca / (frequenciaAlunos.length * progresso.concluidas)) * 100).toFixed(1)) || 0;
 
     return {
         progresso,
@@ -5813,29 +4984,22 @@ interface VisitaFront {
 }
 
 export const salvarVisita = functions.https.onCall(async (request) => {
-    const { db, isSuperAdmin, user } = await validarUsuario(request);
+    const { db, isSuperAdmin, user, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
+
     const { visitaId, igrejaId, visitas, dados } = request.data as VisitaFront;
 
     if (!igrejaId || (dados && !visitaId) || (!dados && visitaId)) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     if (!isSuperAdmin && user.igrejaId !== igrejaId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para isso.");
     }
 
     const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
     if (!igrejaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada");
     }
 
     if (visitaId) {
@@ -5848,29 +5012,18 @@ export const salvarVisita = functions.https.onCall(async (request) => {
         const visita = await visitaRef.get();
 
         if (!visita.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Visita não encontrada",
-            );
+            throw new functions.https.HttpsError("not-found", "Visita não encontrada");
         }
 
         const dadosAtualizados = {
             nome_completo: dados?.nome_completo,
-            data_nascimento: data
-                ? Timestamp.fromDate(data)
-                : visita.data()?.data_nascimento,
+            data_nascimento: data ? Timestamp.fromDate(data) : visita.data()?.data_nascimento,
             contato: dados?.contato || null,
         };
 
         await visitaRef.update(dadosAtualizados);
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_VISITA",
-            `Visita atualizada pelo usuário ${user.uid}`,
-            dadosAtualizados,
-        );
+        enviarLog(user, request, "SALVAR_VISITA", `Visita atualizada pelo usuário ${user.uid}`, dadosAtualizados);
 
         return { ...dadosAtualizados };
     }
@@ -5879,18 +5032,14 @@ export const salvarVisita = functions.https.onCall(async (request) => {
         if (visitas?.length) {
             const batch = db.batch();
 
-            const nomesParaBuscar = visitas.map((v) =>
-                v.nome_completo.toLowerCase(),
-            );
+            const nomesParaBuscar = visitas.map((v) => v.nome_completo.toLowerCase());
             const visitasExistentesQuery = db
                 .collection(Cll.VISITANTES)
                 .where("igrejaId", "==", igrejaId)
                 .where("nome_completo", "in", nomesParaBuscar);
 
             const visitasSnap = await visitasExistentesQuery.get();
-            const visitantesExistentesMap = new Map(
-                visitasSnap.docs.map((doc) => [doc.data()?.nome_completo, doc]),
-            );
+            const visitantesExistentesMap = new Map(visitasSnap.docs.map((doc) => [doc.data()?.nome_completo, doc]));
 
             visitas.forEach((visita) => {
                 const nome = visita.nome_completo.toLowerCase();
@@ -5905,15 +5054,11 @@ export const salvarVisita = functions.https.onCall(async (request) => {
                     const ultima_data = visita.ultima_visita.toDate();
                     ultima_data.setUTCHours(0, 0, 0, 0);
 
-                    const isVisita =
-                        hoje.toLocaleDateString("pt-BR") ===
-                        ultima_data.toLocaleDateString("pt-BR");
+                    const isVisita = hoje.toLocaleDateString("pt-BR") === ultima_data.toLocaleDateString("pt-BR");
 
                     batch.update(visitaRef, {
                         ultima_visita: Timestamp.now(),
-                        quantidade_visitas: FieldValue.increment(
-                            isVisita ? 0 : 1,
-                        ),
+                        quantidade_visitas: FieldValue.increment(isVisita ? 0 : 1),
                         igrejaNome: igrejaSnap.data()?.nome,
                     });
                 } else {
@@ -5922,11 +5067,7 @@ export const salvarVisita = functions.https.onCall(async (request) => {
                         nome_completo: nome,
                         contato: visita.contato || null,
                         data_nascimento: visita.data_nascimento
-                            ? Timestamp.fromDate(
-                                  new Date(
-                                      visita.data_nascimento + "T12:00:00",
-                                  ),
-                              )
+                            ? Timestamp.fromDate(new Date(visita.data_nascimento + "T12:00:00"))
                             : null,
                         igrejaId,
                         igrejaNome: igrejaSnap.data()?.nome,
@@ -5958,14 +5099,12 @@ export const salvarVisita = functions.https.onCall(async (request) => {
         }
     } catch (error) {
         console.log("erro ao salvar", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve um erro ao salvar a visita",
-        );
+        throw new functions.https.HttpsError("internal", "Houve um erro ao salvar a visita");
     }
 });
 export const deletarVisita = functions.https.onCall(async (request) => {
-    const { user, db, isSuperAdmin } = await validarUsuario(request);
+    const { user, db, isSuperAdmin, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
     const { visitaId } = request.data;
     const visitaRef = db.collection(Cll.VISITANTES).doc(visitaId);
@@ -5976,20 +5115,12 @@ export const deletarVisita = functions.https.onCall(async (request) => {
     }
 
     if (!isSuperAdmin && user.igrejaId !== visitaSnap.data()?.igrejaId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para isso.");
     }
 
     await visitaRef.delete();
 
-    enviarLog(
-        user,
-        request,
-        "DELETAR_VISITA",
-        `Visita deletada pelo usuário ${user.uid}`,
-    );
+    enviarLog(user, request, "DELETAR_VISITA", `Visita deletada pelo usuário ${user.uid}`);
 
     return { message: "Visita deletada com sucesso." };
 });
@@ -6011,55 +5142,36 @@ interface CodigoConvite {
 }
 
 export const gerarCodigoConvite = functions.https.onCall(async (request) => {
-    const { db, user, isSuperAdmin } = await validarUsuario(request);
+    const { db, user, isSuperAdmin, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
     const isPastor = user.role === Roles.PASTOR;
 
     let { igrejaId, classeId, role } = request.data;
 
-    if (
-        !role ||
-        ((role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) &&
-            !classeId)
-    ) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+    if (!role || ((role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) && !classeId)) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     if (
         (!isPastor && !isSuperAdmin) ||
         (user.role === Roles.SUPER_ADMIN && role === Roles.PASTOR_PRESIDENTE) ||
-        (isPastor &&
-            (role === Roles.SUPER_ADMIN || role === Roles.PASTOR_PRESIDENTE))
+        (isPastor && (role === Roles.SUPER_ADMIN || role === Roles.PASTOR_PRESIDENTE))
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     if (isPastor) igrejaId = user.igrejaId;
 
     const igrejaSnap = await db.collection("igrejas").doc(igrejaId).get();
-    if (
-        !igrejaSnap.exists ||
-        igrejaSnap.data()?.ministerioId !== user.ministerioId
-    ) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Igreja não encontrada ou de outro ministério",
-        );
+    if (!igrejaSnap.exists || igrejaSnap.data()?.ministerioId !== user.ministerioId) {
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada ou de outro ministério");
     }
 
     let classe;
     if (role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) {
         const classeSnap = await db.collection("classes").doc(classeId).get();
         if (!classeSnap.exists || classeSnap.data()?.igrejaId !== igrejaId) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Classe não encontrada",
-            );
+            throw new functions.https.HttpsError("not-found", "Classe não encontrada");
         }
 
         classe = classeSnap.data();
@@ -6100,29 +5212,20 @@ export const validarCodigoConvite = functions.https.onCall(async (request) => {
     const { codigo } = request.data;
 
     if (!codigo) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes.",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
     }
 
     const db = admin.firestore();
     const codigoSnap = await db.collection("convites").doc(codigo).get();
 
     if (!codigoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Esse código não existe",
-        );
+        throw new functions.https.HttpsError("not-found", "Esse código não existe");
     }
 
     const codigoData = codigoSnap.data() as CodigoConvite;
 
     if (codigoData.usado || codigoData.dataExpiracao < Timestamp.now()) {
-        throw new functions.https.HttpsError(
-            "data-loss",
-            "Código já usado ou expirado",
-        );
+        throw new functions.https.HttpsError("data-loss", "Código já usado ou expirado");
     }
 
     return { codigo, igreja: codigoData.igrejaNome };
@@ -6132,167 +5235,135 @@ interface UsuarioConviteFront {
     codigo: string;
     dados: { email: string; senha: string; nome: string; confirmacao: string };
 }
+interface TokenUser {
+    igrejaId: string;
+    ministerioId: string;
+    role: Roles;
+    classeId: string | null;
+    isTeste?: boolean;
+}
 
-export const cadastrarUsuarioComConvite = functions.https.onCall(
-    async (request) => {
-        const {
-            codigo,
-            dados: { nome, email, senha },
-        } = request.data as UsuarioConviteFront;
+export const cadastrarUsuarioComConvite = functions.https.onCall(async (request) => {
+    const {
+        codigo,
+        dados: { nome, email, senha },
+    } = request.data as UsuarioConviteFront;
 
-        if (!codigo || !nome || !email || !senha) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Dados inválidos ou ausentes.",
-            );
-        }
-        if (senha.length < 6) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Senha deve ter no minimo 6 caracteres",
-            );
-        }
+    if (!codigo || !nome || !email || !senha) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
+    }
+    if (senha.length < 6) {
+        throw new functions.https.HttpsError("invalid-argument", "Senha deve ter no minimo 6 caracteres");
+    }
 
-        const db = admin.firestore();
-        const codigoRef = db.collection("convites").doc(codigo);
-        const codigoSnap = await codigoRef.get();
+    const db = admin.firestore();
+    const codigoRef = db.collection("convites").doc(codigo);
+    const codigoSnap = await codigoRef.get();
 
-        if (!codigoSnap.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Convite não encontrado",
-            );
-        }
+    if (!codigoSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "Convite não encontrado");
+    }
 
-        const codigoData = codigoSnap.data() as CodigoConvite;
-        const { igrejaId, classeId, dataExpiracao, role, criadoPorUid } =
-            codigoData;
+    const codigoData = codigoSnap.data() as CodigoConvite;
+    const { igrejaId, classeId, dataExpiracao, role, criadoPorUid } = codigoData;
 
-        if (codigoData.usado || dataExpiracao < Timestamp.now()) {
-            throw new functions.https.HttpsError(
-                "data-loss",
-                "Código usado ou expirado",
-            );
-        }
+    if (codigoData.usado || dataExpiracao < Timestamp.now()) {
+        throw new functions.https.HttpsError("data-loss", "Código usado ou expirado");
+    }
 
-        const promises = [
-            db.collection(Cll.IGREJAS).doc(igrejaId).get(),
-            db.collection(Cll.USUARIOS).doc(criadoPorUid).get(),
-        ];
-        if (classeId)
-            promises.push(db.collection(Cll.CLASSES).doc(classeId).get());
-        const [igrejaSnap, criador, classeSnap] = await Promise.all(promises);
+    const promises = [
+        db.collection(Cll.IGREJAS).doc(igrejaId).get(),
+        db.collection(Cll.USUARIOS).doc(criadoPorUid).get(),
+    ];
+    if (classeId) promises.push(db.collection(Cll.CLASSES).doc(classeId).get());
+    const [igrejaSnap, criador, classeSnap] = await Promise.all(promises);
+    const criadorData = criador.data();
 
-        if (!criador.exists) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Usuário não encontrado.",
-            );
-        }
-        if (
-            !igrejaSnap.exists ||
-            igrejaSnap.data()?.ministerioId !== criador.data()?.ministerioId
-        ) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Igreja não encontrada ou de outro ministério",
-            );
-        }
-        if (role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) {
-            if (!classeId || !classeSnap.exists) {
-                throw new functions.https.HttpsError(
-                    "not-found",
-                    "Classe não encontrada.",
-                );
-            }
-
-            if (classeSnap.data()?.igrejaId !== igrejaId) {
-                throw new functions.https.HttpsError(
-                    "invalid-argument",
-                    "Dados inválidos",
-                );
-            }
-        }
-        if (
-            criador.data()!.role !== Roles.PASTOR &&
-            criador.data()!.role !== Roles.PASTOR_PRESIDENTE &&
-            criador.data()!.role !== Roles.SUPER_ADMIN
-        ) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão par isso",
-            );
+    if (!criador.exists) {
+        throw new functions.https.HttpsError("invalid-argument", "Usuário não encontrado.");
+    }
+    if (!igrejaSnap.exists || igrejaSnap.data()?.ministerioId !== criadorData?.ministerioId) {
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada ou de outro ministério");
+    }
+    if (role === Roles.SECRETARIO_CLASSE || role === Roles.PROFESSOR) {
+        if (!classeId || !classeSnap.exists) {
+            throw new functions.https.HttpsError("not-found", "Classe não encontrada.");
         }
 
-        const dadosUsuario: Usuario = {
-            classeId: classeId || null,
-            classeNome: classeId ? classeSnap.data()?.nome : null,
-            email,
-            igrejaId,
-            igrejaNome: igrejaSnap.data()!.nome,
-            ministerioId: igrejaSnap.data()!.ministerioId,
-            nome,
-            role: role as Roles,
+        if (classeSnap.data()?.igrejaId !== igrejaId) {
+            throw new functions.https.HttpsError("invalid-argument", "Dados inválidos");
+        }
+    }
+    if (
+        criadorData!.role !== Roles.PASTOR &&
+        criadorData!.role !== Roles.PASTOR_PRESIDENTE &&
+        criadorData!.role !== Roles.SUPER_ADMIN
+    ) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão par isso");
+    }
+
+    const token: TokenUser = {
+        classeId: classeId || null,
+        igrejaId,
+        ministerioId: igrejaSnap.data()!.ministerioId,
+        role: role as Roles,
+    };
+
+    const dadosUsuario: Usuario = {
+        ...token,
+        classeNome: classeId ? classeSnap.data()?.nome : null,
+        email,
+        igrejaNome: igrejaSnap.data()!.nome,
+        nome,
+        atualizacao: Date.now(),
+    };
+
+    let newAuth;
+    try {
+        const auth = admin.auth();
+        newAuth = await auth.createUser({ email, password: senha, displayName: nome });
+        await auth.setCustomUserClaims(newAuth.uid, token);
+
+        const newUser = {
+            ...dadosUsuario,
+            uid: newAuth.uid,
+            id: newAuth.uid,
         };
-
-        let newAuth;
-        try {
-            newAuth = await admin.auth().createUser({ email, password: senha });
-            const newUser = {
-                ...dadosUsuario,
-                uid: newAuth.uid,
-                id: newAuth.uid,
-            };
-            await Promise.all([
-                db.collection(Cll.USUARIOS).doc(newAuth.uid).set(newUser),
-                codigoRef.update({
-                    usado: true,
-                    usadoPorUid: newAuth.uid,
+        await Promise.all([
+            db.collection(Cll.USUARIOS).doc(newAuth.uid).set(newUser),
+            codigoRef.update({
+                usado: true,
+                usadoPorUid: newAuth.uid,
+            }),
+            db
+                .collection(Cll.CACHE_USUARIOS)
+                .doc(igrejaId)
+                .update({
+                    [`lista.${newUser.uid}`]: {
+                        ...newUser,
+                        id: newAuth.uid,
+                    },
                 }),
-                db
-                    .collection(Cll.CACHE_USUARIOS)
-                    .doc(igrejaId)
-                    .update({
-                        [`lista.${newUser.uid}`]: {
-                            ...newUser,
-                            id: newAuth.uid,
-                        },
-                    }),
-            ]);
+        ]);
 
-            const c = criador.data();
+        enviarLog(criadorData as any, request, "SALVAR_USUARIO", `Usuário salvo pelo usuário `, { newUser });
 
-            enviarLog(
-                c as any,
-                request,
-                "SALVAR_USUARIO",
-                `Usuário salvo pelo usuário `,
-                { newUser },
-            );
+        return { message: "usuário cadastrado com sucesso" };
+    } catch (err: any) {
+        console.log("Erro ao criar usuário, iniciando rollback...", err);
 
-            return { message: "usuário cadastrado com sucesso" };
-        } catch (err: any) {
-            console.log("Erro ao criar usuário, iniciando rollback...", err);
-
-            if (newAuth) {
-                admin.auth().deleteUser(newAuth.uid);
-                console.log("Excluindo usuário fantasma");
-            }
-
-            if (err?.code === "auth/email-already-exists") {
-                throw new functions.https.HttpsError(
-                    "already-exists",
-                    "Este e-mail já está em uso por outra conta.",
-                );
-            }
-
-            throw new functions.https.HttpsError(
-                "internal",
-                "Ocorreu um erro ao criar o usuário. Tente novamente.",
-            );
+        if (newAuth) {
+            admin.auth().deleteUser(newAuth.uid);
+            console.log("Excluindo usuário fantasma");
         }
-    },
-);
+
+        if (err?.code === "auth/email-already-exists") {
+            throw new functions.https.HttpsError("already-exists", "Este e-mail já está em uso por outra conta.");
+        }
+
+        throw new functions.https.HttpsError("internal", "Ocorreu um erro ao criar o usuário. Tente novamente.");
+    }
+});
 
 export const limparconvitesexpiradoseenviaraniversario = onSchedule(
     {
@@ -6301,24 +5372,16 @@ export const limparconvitesexpiradoseenviaraniversario = onSchedule(
     },
     async (event) => {
         const db = admin.firestore();
-        console.log(
-            "INICIANDO TAREFA AGENDADA: Limpeza de convites expirados e atualizando notificacoes...",
-        );
+        console.log("INICIANDO TAREFA AGENDADA: Limpeza de convites expirados e atualizando notificacoes...");
 
         try {
             const agora = Timestamp.now();
-            const query = db
-                .collection("convites")
-                .where("dataExpiracao", "<", agora);
+            const query = db.collection("convites").where("dataExpiracao", "<", agora);
             const convitesExpiradosSnap = await query.get();
 
-            console.log(
-                `Encontrados ${convitesExpiradosSnap.size} convites expirados para deletar.`,
-            );
+            console.log(`Encontrados ${convitesExpiradosSnap.size} convites expirados para deletar.`);
 
-            const refsParaDeletar = convitesExpiradosSnap.docs.map(
-                (doc) => doc.ref,
-            );
+            const refsParaDeletar = convitesExpiradosSnap.docs.map((doc) => doc.ref);
 
             let batch = db.batch();
             const batches = [batch];
@@ -6364,22 +5427,16 @@ export const limparconvitesexpiradoseenviaraniversario = onSchedule(
                 const isData = dataNascimento >= hoje && dataNascimento <= hoje;
                 return isData;
             });
-            const listaMembrosAniversariantes = listaMembros.filter(
-                (v: any) => {
-                    if (v.alunoId) return false;
-                    const dataNascimento = v.data_nascimento.toDate();
-                    dataNascimento.setFullYear(hoje.getFullYear());
-                    dataNascimento.setHours(0, 0, 0, 0);
-                    const isData =
-                        dataNascimento >= hoje && dataNascimento <= hoje;
-                    return isData;
-                },
-            );
+            const listaMembrosAniversariantes = listaMembros.filter((v: any) => {
+                if (v.alunoId) return false;
+                const dataNascimento = v.data_nascimento.toDate();
+                dataNascimento.setFullYear(hoje.getFullYear());
+                dataNascimento.setHours(0, 0, 0, 0);
+                const isData = dataNascimento >= hoje && dataNascimento <= hoje;
+                return isData;
+            });
 
-            if (
-                !listaAniversariantes.length &&
-                !listaMembrosAniversariantes.length
-            ) {
+            if (!listaAniversariantes.length && !listaMembrosAniversariantes.length) {
                 console.log("Sem aniversariantes, encerrando.");
                 return;
             }
@@ -6387,33 +5444,24 @@ export const limparconvitesexpiradoseenviaraniversario = onSchedule(
             let mensagem = "Hoje é aniversário de:";
             listaAniversariantes.forEach((v: any) => {
                 if (v.nome_completo) {
-                    const [dia, mes, _] = v.data_nascimento
-                        .toDate()
-                        .toLocaleDateString("pt-BR")
-                        .split("/");
+                    const [dia, mes, _] = v.data_nascimento.toDate().toLocaleDateString("pt-BR").split("/");
                     mensagem += `\n\n ${v.nome_completo} (${dia}/${mes} - ${getIdade(v.data_nascimento) + 1} anos)`;
                 }
             });
             listaMembrosAniversariantes.forEach((v: any) => {
                 if (v.nome_completo) {
-                    const [dia, mes, _] = v.data_nascimento
-                        .toDate()
-                        .toLocaleDateString("pt-BR")
-                        .split("/");
+                    const [dia, mes, _] = v.data_nascimento.toDate().toLocaleDateString("pt-BR").split("/");
                     mensagem += `\n\n ${v.nome_completo} (${dia}/${mes} - ${getIdade(v.data_nascimento) + 1} anos)`;
                 }
             });
 
-            await fetch(
-                `${url}/waInstance${instanceId}/sendMessage/${apiToken}`,
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        chatId: idGrupo,
-                        message: mensagem,
-                    }),
-                },
-            ).catch((v) => console.log("erro eo enviar", v));
+            await fetch(`${url}/waInstance${instanceId}/sendMessage/${apiToken}`, {
+                method: "POST",
+                body: JSON.stringify({
+                    chatId: idGrupo,
+                    message: mensagem,
+                }),
+            }).catch((v) => console.log("erro eo enviar", v));
 
             console.log("Tudo finalizado!");
         } catch (error) {
@@ -6428,64 +5476,48 @@ interface BaixarComprovantesFront {
     dados: string[];
 }
 
-export const baixarTodosComprovantes = functions.https.onCall(
-    async (request) => {
-        const { isSuperAdmin, user, db } = await validarUsuario(request);
+export const baixarTodosComprovantes = functions.https.onCall(async (request) => {
+    const { isSuperAdmin, user, db, isTeste } = await validarUsuario(request);
+    throwIsTeste(isTeste);
 
-        const { igrejaId, dados } = request.data as BaixarComprovantesFront;
+    const { igrejaId, dados } = request.data as BaixarComprovantesFront;
 
-        if (!dados || !igrejaId || !dados.length) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Dados inválidos ou ausentes.",
-            );
-        }
+    if (!dados || !igrejaId || !dados.length) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
+    }
 
-        const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
+    const igrejaSnap = await db.collection(Cll.IGREJAS).doc(igrejaId).get();
 
-        if (!igrejaSnap.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Igreja não encontrada.",
-            );
-        }
+    if (!igrejaSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "Igreja não encontrada.");
+    }
 
-        if (
-            (isSuperAdmin &&
-                igrejaSnap.data()?.ministerioId !== user.ministerioId) ||
-            (!isSuperAdmin && igrejaId !== user.igrejaId)
-        ) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão para isso.",
-            );
-        }
+    if (
+        (isSuperAdmin && igrejaSnap.data()?.ministerioId !== user.ministerioId) ||
+        (!isSuperAdmin && igrejaId !== user.igrejaId)
+    ) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para isso.");
+    }
 
-        const fetchs = await Promise.all(dados.map((v) => fetch(v)));
-        const imagens = await Promise.all(fetchs.map((v) => v.arrayBuffer()));
+    const fetchs = await Promise.all(dados.map((v) => fetch(v)));
+    const imagens = await Promise.all(fetchs.map((v) => v.arrayBuffer()));
 
-        const zip = new JSZip();
+    const zip = new JSZip();
 
-        imagens.forEach((v, i) => {
-            const url = new URL(dados[i]);
-            const path = decodeURIComponent(url.pathname);
-            const nome = path.substring(path.lastIndexOf("/") + 1);
-            zip.file(nome, v);
-        });
+    imagens.forEach((v, i) => {
+        const url = new URL(dados[i]);
+        const path = decodeURIComponent(url.pathname);
+        const nome = path.substring(path.lastIndexOf("/") + 1);
+        zip.file(nome, v);
+    });
 
-        const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+    const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
 
-        enviarLog(
-            user,
-            request,
-            "BAIXAR_COMPROVANTES",
-            `Comprovantes zipados com sucesso pelo usuário: ${user.uid}`,
-        );
+    enviarLog(user, request, "BAIXAR_COMPROVANTES", `Comprovantes zipados com sucesso pelo usuário: ${user.uid}`);
 
-        const file = zipBuffer.toString("base64");
-        return { file };
-    },
-);
+    const file = zipBuffer.toString("base64");
+    return { file };
+});
 
 export const limparimagenscomprovantes = onSchedule(
     {
@@ -6494,9 +5526,7 @@ export const limparimagenscomprovantes = onSchedule(
     },
     async (event) => {
         const bucket = admin.storage().bucket();
-        console.log(
-            "INICIANDO TAREFA AGENDADA: Limpeza de imagens com mais de 360 dias...",
-        );
+        console.log("INICIANDO TAREFA AGENDADA: Limpeza de imagens com mais de 360 dias...");
 
         try {
             const [files] = await bucket.getFiles({
@@ -6515,9 +5545,7 @@ export const limparimagenscomprovantes = onSchedule(
                 .map((v) => v.delete());
 
             await Promise.all(promises);
-            console.log(
-                "Limpeza de imagens fora do prazo finalizada com sucesso!",
-            );
+            console.log("Limpeza de imagens fora do prazo finalizada com sucesso!");
         } catch (error) {
             console.error("ERRO na limpeza de imagens:", error);
             return;
@@ -6533,39 +5561,23 @@ interface SalvarNotificacaoFront {
 
 export const salvarNotificacao = functions.https.onCall(async (request) => {
     const { db, user } = await validarUsuario(request);
-    const { permissao, usuarioId, token } =
-        request.data as SalvarNotificacaoFront;
+    const { permissao, usuarioId, token } = request.data as SalvarNotificacaoFront;
 
     const podeEnviar = permissao === "granted";
 
-    if (
-        !permissao ||
-        !usuarioId ||
-        user.uid !== usuarioId ||
-        (podeEnviar && !token)
-    ) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+    if (!permissao || !usuarioId || user.uid !== usuarioId || (podeEnviar && !token)) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const promises = [];
 
-    const tokensRef = db
-        .collection("usuarios")
-        .doc(user.uid)
-        .collection("tokens");
+    const tokensRef = db.collection("usuarios").doc(user.uid).collection("tokens");
     const tokensSnap = await tokensRef.get();
     const tokens = tokensSnap.docs.map((v) => v.id);
 
     if (podeEnviar) {
         if (!tokens.includes(token!)) {
-            promises.push(
-                tokensRef
-                    .doc(token!)
-                    .create({ token, data_criacao: Timestamp.now() }),
-            );
+            promises.push(tokensRef.doc(token!).create({ token, data_criacao: Timestamp.now() }));
             tokens.push(token!);
         }
     } else if (user?.tokens === 1) {
@@ -6580,50 +5592,32 @@ export const salvarNotificacao = functions.https.onCall(async (request) => {
             .collection("usuarios")
             .doc(user.uid)
             .update({
-                tokens: podeEnviar
-                    ? tokens.length
-                    : user?.tokens
-                      ? FieldValue.increment(-1)
-                      : 0,
+                tokens: podeEnviar ? tokens.length : user?.tokens ? FieldValue.increment(-1) : 0,
             }),
     ]);
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_NOTIFICACAO",
-        `Atualização de notificação realizada por ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_NOTIFICACAO", `Atualização de notificação realizada por ${user.uid}`);
 
     return { message: "Permissão de notificação atualizado com sucesso" };
 });
 
 export const enviarNotificacao = functions.https.onCall(async (request) => {
-    const { user, isSecretario, isSuperAdmin, db } =
-        await validarUsuario(request);
+    const { user, isSecretario, isSuperAdmin, db } = await validarUsuario(request);
     const { destinarios, titulo, mensagem } = request.data as any;
 
     if (!titulo || !mensagem || !destinarios) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     if (
-        (!isSuperAdmin &&
-            (destinarios === Roles.SUPER_ADMIN ||
-                destinarios === Roles.PASTOR_PRESIDENTE)) ||
+        (!isSuperAdmin && (destinarios === Roles.SUPER_ADMIN || destinarios === Roles.PASTOR_PRESIDENTE)) ||
         user.role === Roles.SECRETARIO_CLASSE ||
         (isSecretario &&
             destinarios !== "todos" &&
             destinarios !== Roles.PROFESSOR &&
             destinarios !== Roles.SECRETARIO_CLASSE)
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     let q = db.collection("usuarios").where("tokens", ">", 0);
@@ -6691,12 +5685,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
                 console.log("erro", v.error);
                 console.log("stack", v.error?.stack);
 
-                if (
-                    v.error &&
-                    v!.error.code.includes(
-                        "messaging/registration-token-not-registered",
-                    )
-                ) {
+                if (v.error && v!.error.code.includes("messaging/registration-token-not-registered")) {
                     const token = tokens[i];
                     const userId = tokensMap.get(token);
                     usuariosComErro.add(userId);
@@ -6707,12 +5696,7 @@ export const enviarNotificacao = functions.https.onCall(async (request) => {
                         1,
                     );
 
-                    return db
-                        .collection("usuarios")
-                        .doc(userId)
-                        .collection("tokens")
-                        .doc(token)
-                        .delete();
+                    return db.collection("usuarios").doc(userId).collection("tokens").doc(token).delete();
                 }
 
                 return;
@@ -6748,231 +5732,182 @@ interface NovoTrimestreAulasFront {
     };
 }
 
-export const salvarLicaoAulaPreparo = functions.https.onCall(
-    async (request) => {
-        const { isSuperAdmin, db, user } = await validarUsuario(request);
-        if (!isSuperAdmin) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão para fazer isso.",
-            );
+export const salvarLicaoAulaPreparo = functions.https.onCall(async (request) => {
+    const { isSuperAdmin, db, user } = await validarUsuario(request);
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
+    }
+
+    const {
+        licaoPreparoId,
+        dados: { data_inicio, numero_aulas, titulo, trimestre, img },
+    } = request.data as NovoTrimestreAulasFront;
+
+    if (!data_inicio || !numero_aulas || !titulo || !trimestre) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
+    }
+
+    const dataAtual = new Date(data_inicio + "T12:00:00");
+    const dataFinal = new Date(data_inicio + "T12:00:00");
+    dataFinal.setDate(dataAtual.getDate() + (numero_aulas - 1) * 7);
+
+    const dadosAtualizados: { [key: string]: any } = {
+        data_inicio: Timestamp.fromDate(dataAtual),
+        data_final: Timestamp.fromDate(dataFinal),
+        numero_aulas,
+        ministerioId: user.ministerioId,
+        titulo,
+        trimestre,
+        img: img ? img : null,
+    };
+
+    if (licaoPreparoId) {
+        const licaoRef = db.collection(Cll.LICOES_PREPARO).doc(licaoPreparoId);
+        const licaoSnap = await licaoRef.get();
+
+        if (!licaoSnap.exists || user.ministerioId !== licaoSnap.data()?.ministerioId) {
+            throw new functions.https.HttpsError("not-found", "Lição não encontrada ou ministério inválido");
         }
 
-        const {
-            licaoPreparoId,
-            dados: { data_inicio, numero_aulas, titulo, trimestre, img },
-        } = request.data as NovoTrimestreAulasFront;
+        if (licaoSnap.data()?.numero_aulas !== numero_aulas) {
+            const aulasMap = new Map(Array.from(Object.entries(licaoSnap.data()?.status_aulas || {})));
 
-        if (!data_inicio || !numero_aulas || !titulo || !trimestre) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Dados inválidos ou ausentes",
-            );
+            const status_aulas = Array.from({ length: numero_aulas }).map((_, i) => {
+                return [String(i + 1), aulasMap.get(String(i + 1)) || false];
+            });
+
+            dadosAtualizados["status_aulas"] = Object.fromEntries(status_aulas);
         }
 
-        const dataAtual = new Date(data_inicio + "T12:00:00");
-        const dataFinal = new Date(data_inicio + "T12:00:00");
-        dataFinal.setDate(dataAtual.getDate() + (numero_aulas - 1) * 7);
-
-        const dadosAtualizados: { [key: string]: any } = {
-            data_inicio: Timestamp.fromDate(dataAtual),
-            data_final: Timestamp.fromDate(dataFinal),
-            numero_aulas,
-            ministerioId: user.ministerioId,
-            titulo,
-            trimestre,
-            img: img ? img : null,
-        };
-
-        if (licaoPreparoId) {
-            const licaoRef = db
-                .collection("licoes_preparo")
-                .doc(licaoPreparoId);
-            const licaoSnap = await licaoRef.get();
-
-            if (
-                !licaoSnap.exists ||
-                user.ministerioId !== licaoSnap.data()?.ministerioId
-            ) {
-                throw new functions.https.HttpsError(
-                    "not-found",
-                    "Lição não encontrada ou ministério inválido",
-                );
-            }
-
-            if (licaoSnap.data()?.numero_aulas !== numero_aulas) {
-                const aulasMap = new Map(
-                    Array.from(
-                        Object.entries(licaoSnap.data()?.status_aulas || {}),
-                    ),
-                );
-
-                const status_aulas = Array.from({ length: numero_aulas }).map(
-                    (_, i) => {
-                        return [
-                            String(i + 1),
-                            aulasMap.get(String(i + 1)) || false,
-                        ];
-                    },
-                );
-
-                dadosAtualizados["status_aulas"] =
-                    Object.fromEntries(status_aulas);
-            }
-
-            await licaoRef.update(dadosAtualizados);
-
-            enviarLog(
-                user,
-                request,
-                "SALVAR_LICAO_AULAS_PREPARO",
-                `Lição atualizada com sucesso pelo usuário: ${user.uid}`,
-                { dadosAtualizados },
-            );
-
-            return { message: `Lição atualizada com sucesso.` };
-        }
-
-        const dadosParaSalvar = {
-            ...dadosAtualizados,
-            status_aulas: Object.fromEntries(
-                Array.from({ length: numero_aulas }).map((_, i) => [
-                    String(i + 1),
-                    false,
-                ]),
-            ),
-            ativo: true,
-            ultima_aula: null,
-        };
-
-        const licaoPreparoRef = db.collection("licoes_preparo").doc();
-        const batch = db.batch();
-        batch.create(licaoPreparoRef, dadosParaSalvar);
-        const licoesAnteriores = await db
-            .collection("licoes_preparo")
-            .where("ativo", "==", true)
-            .get();
-
-        if (!licoesAnteriores.empty) {
-            licoesAnteriores.docs.forEach((v) =>
-                batch.update(v.ref, { ativo: false }),
-            );
-        }
-
-        Array.from({ length: numero_aulas }).forEach((_, i) => {
-            const aula = i + 1;
-            const aulaRef = licaoPreparoRef
-                .collection("aulas")
-                .doc(String(aula));
-            const dadosAula = {
-                aula,
-                titulo_aula: null,
-                link_youtube: null,
-                trimestre: `${trimestre}º Trimestre de ${dataAtual.getFullYear()}`,
-                total_visualizacoes: 0,
-                realizado: false,
-            };
-
-            batch.create(aulaRef, dadosAula);
-        });
-
-        await batch.commit();
+        await Promise.all([
+            licaoRef.update(dadosAtualizados),
+            db.collection(Cll.SISTEMA).doc(user.ministerioId).set({ preparo: Date.now() }, { merge: true }),
+        ]);
 
         enviarLog(
             user,
             request,
             "SALVAR_LICAO_AULAS_PREPARO",
-            `Lição cadastrada com sucesso pelo usuário: ${user.uid}`,
-            { dadosParaSalvar },
+            `Lição atualizada com sucesso pelo usuário: ${user.uid}`,
+            { dadosAtualizados },
         );
 
         return { message: `Lição atualizada com sucesso.` };
-    },
-);
+    }
 
-export const deletarLicaoAulaPreparo = functions.https.onCall(
-    async (request) => {
-        const { db, isSuperAdmin, user } = await validarUsuario(request);
+    const dadosParaSalvar = {
+        ...dadosAtualizados,
+        status_aulas: Object.fromEntries(Array.from({ length: numero_aulas }).map((_, i) => [String(i + 1), false])),
+        ativo: true,
+        ultima_aula: null,
+    };
 
-        if (!isSuperAdmin) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão para fazer isso",
-            );
+    const licaoPreparoRef = db.collection(Cll.LICOES_PREPARO).doc();
+    const batch = db.batch();
+    batch.create(licaoPreparoRef, dadosParaSalvar);
+    const licoesAnteriores = await db.collection(Cll.LICOES_PREPARO).where("ativo", "==", true).get();
+
+    if (!licoesAnteriores.empty) {
+        licoesAnteriores.docs.forEach((v) => batch.update(v.ref, { ativo: false }));
+    }
+
+    Array.from({ length: numero_aulas }).forEach((_, i) => {
+        const aula = i + 1;
+        const aulaRef = licaoPreparoRef.collection("aulas").doc(String(aula));
+        const dadosAula = {
+            aula,
+            titulo_aula: null,
+            link_youtube: null,
+            trimestre: `${trimestre}º Trimestre de ${dataAtual.getFullYear()}`,
+            total_visualizacoes: 0,
+            realizado: false,
+            ministerioId: user.ministerioId,
+        };
+
+        batch.create(aulaRef, dadosAula);
+    });
+
+    batch.set(db.collection(Cll.SISTEMA).doc(user.ministerioId), { preparo: Date.now() }, { merge: true });
+    await batch.commit();
+
+    enviarLog(user, request, "SALVAR_LICAO_AULAS_PREPARO", `Lição cadastrada com sucesso pelo usuário: ${user.uid}`, {
+        dadosParaSalvar,
+    });
+
+    return { message: `Lição atualizada com sucesso.` };
+});
+
+export const deletarLicaoAulaPreparo = functions.https.onCall(async (request) => {
+    const { db, isSuperAdmin, user } = await validarUsuario(request);
+
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
+    }
+
+    const { licaoPreparoId } = request.data;
+    if (!licaoPreparoId) {
+        throw new functions.https.HttpsError("invalid-argument", "Argumentos inválidos ou ausentes");
+    }
+
+    const licaoRef = db.collection(Cll.LICOES_PREPARO).doc(licaoPreparoId);
+    const licaoSnap = await licaoRef.get();
+    const licaoAnterior = await db
+        .collection(Cll.LICOES_PREPARO)
+        .where(admin.firestore.FieldPath.documentId(), "!=", licaoPreparoId)
+        .where("ministerioId", "==", user.ministerioId)
+        .orderBy("data_inicio", "desc")
+        .limit(1)
+        .get();
+
+    if (!licaoSnap.exists || user.ministerioId !== licaoSnap.data()?.ministerioId) {
+        throw new functions.https.HttpsError("not-found", "Lição não encontrada ou de outro ministério");
+    }
+
+    const refs = [licaoRef];
+
+    const aulasSnaps = await licaoRef.collection("aulas").get();
+
+    const promises = aulasSnaps.docs.map(async (v) => {
+        refs.push(v.ref);
+
+        const usuariosSnaps = await v.ref.collection("visualizacoes").get();
+        if (!usuariosSnaps.empty) refs.push(...usuariosSnaps.docs.map((v) => v.ref));
+    });
+
+    await Promise.all(promises);
+
+    let batch = db.batch();
+    let count = 0;
+    if (!licaoAnterior.empty && licaoSnap.data()?.ativo === true) {
+        batch.update(licaoAnterior.docs[0].ref, { ativo: true });
+        count++;
+    }
+    batch.set(db.collection(Cll.SISTEMA).doc(user.ministerioId), { preparo: Date.now() }, { merge: true });
+    count++;
+
+    const batchs = [batch];
+    for (let i = 0; i < refs.length; i++) {
+        batch.delete(refs[i]);
+        count++;
+
+        if (count >= 499) {
+            batch = db.batch();
+            batchs.push(batch);
+            count = 0;
         }
+    }
 
-        const { licaoPreparoId } = request.data;
-        if (!licaoPreparoId) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Argumentos inválidos ou ausentes",
-            );
-        }
+    await Promise.all(batchs.map((v) => v.commit()));
 
-        const licaoRef = db.collection("licoes_preparo").doc(licaoPreparoId);
-        const licaoSnap = await licaoRef.get();
-        const licaoAnterior = await db
-            .collection("licoes_preparo")
-            .where(admin.firestore.FieldPath.documentId(), "!=", licaoPreparoId)
-            .where("ministerioId", "==", user.ministerioId)
-            .orderBy("data_inicio", "desc")
-            .limit(1)
-            .get();
+    enviarLog(
+        user,
+        request,
+        "DELETAR_LICAO_AULAS_PREPARO",
+        `Lição e todos os dados associados, foram deletados com sucesso pelo usuário: ${user.uid}`,
+    );
 
-        if (
-            !licaoSnap.exists ||
-            user.ministerioId !== licaoSnap.data()?.ministerioId
-        ) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Lição não encontrada ou de outro ministério",
-            );
-        }
-
-        const refs = [licaoRef];
-
-        const aulasSnaps = await licaoRef.collection("aulas").get();
-
-        const promises = aulasSnaps.docs.map(async (v) => {
-            refs.push(v.ref);
-
-            const usuariosSnaps = await v.ref.collection("visualizacoes").get();
-            if (!usuariosSnaps.empty)
-                refs.push(...usuariosSnaps.docs.map((v) => v.ref));
-        });
-
-        await Promise.all(promises);
-
-        let batch = db.batch();
-        let count = 0;
-        if (!licaoAnterior.empty && licaoSnap.data()?.ativo === true) {
-            batch.update(licaoAnterior.docs[0].ref, { ativo: true });
-            count++;
-        }
-        const batchs = [batch];
-        for (let i = 0; i < refs.length; i++) {
-            batch.delete(refs[i]);
-            count++;
-
-            if (count >= 499) {
-                batch = db.batch();
-                batchs.push(batch);
-                count = 0;
-            }
-        }
-
-        await Promise.all(batchs.map((v) => v.commit()));
-
-        enviarLog(
-            user,
-            request,
-            "DELETAR_LICAO_AULAS_PREPARO",
-            `Lição e todos os dados associados, foram deletados com sucesso pelo usuário: ${user.uid}`,
-        );
-
-        return { message: `Lição deletada com sucesso.` };
-    },
-);
+    return { message: `Lição deletada com sucesso.` };
+});
 
 interface AulaPreparoFront {
     licaoId: string;
@@ -6990,38 +5925,24 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
     } = request.data as AulaPreparoFront;
 
     if (!aulaId || !licaoId || !link_youtube || !titulo_aula) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
-    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
+    const licaoRef = db.collection(Cll.LICOES_PREPARO).doc(licaoId);
     const aulaRef = licaoRef.collection("aulas").doc(aulaId);
-    const [aulaSnap, licaoSnap] = await Promise.all([
-        aulaRef.get(),
-        licaoRef.get(),
-    ]);
+    const [aulaSnap, licaoSnap] = await Promise.all([aulaRef.get(), licaoRef.get()]);
 
     if (!aulaSnap.exists || !licaoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Lição ou aula não foram encontrados",
-        );
+        throw new functions.https.HttpsError("not-found", "Lição ou aula não foram encontrados");
     }
 
     if (!isSuperAdmin || licaoSnap.data()?.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     let link = link_youtube;
     if (!link_youtube.includes("embed")) {
-        link =
-            "https://youtube.com/embed" +
-            link.slice(link_youtube.lastIndexOf("/"));
+        link = "https://youtube.com/embed" + link.slice(link_youtube.lastIndexOf("/"));
     }
 
     const status_aulas = {
@@ -7030,16 +5951,13 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
     };
 
     const ultima_aula = Object.entries(status_aulas).reduce(
-        (prev, [aula, status]) =>
-            status && Number(aula) > prev ? Number(aula) : prev,
+        (prev, [aula, status]) => (status && Number(aula) > prev ? Number(aula) : prev),
         0,
     );
 
     await licaoRef.update({
         status_aulas,
-        ultima_aula: ultima_aula
-            ? licaoRef.collection("aulas").doc(String(ultima_aula))
-            : null,
+        ultima_aula: ultima_aula ? licaoRef.collection("aulas").doc(String(ultima_aula)) : null,
     });
     await aulaRef.update({
         link_youtube: link,
@@ -7048,14 +5966,9 @@ export const salvarAulaPreparo = functions.https.onCall(async (request) => {
         realizado: true,
     });
 
-    await aulaRef.collection("visualizacoes").doc("lista").set({ lista: {} });
+    await aulaRef.collection("visualizacoes").doc("lista").set({ ministerioId: user.ministerioId, lista: {} });
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_AULA_PREPARO",
-        `Aula salva com sucesso por ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_AULA_PREPARO", `Aula salva com sucesso por ${user.uid}`);
 
     return { message: `Aula salva com sucesso!` };
 });
@@ -7066,31 +5979,19 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
     const { aulaId, licaoId } = request.data;
 
     if (!aulaId || !licaoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const licaoRef = db.collection("licoes_preparo").doc(licaoId);
     const aulaRef = licaoRef.collection("aulas").doc(aulaId);
-    const [aulaSnap, licaoSnap] = await Promise.all([
-        aulaRef.get(),
-        licaoRef.get(),
-    ]);
+    const [aulaSnap, licaoSnap] = await Promise.all([aulaRef.get(), licaoRef.get()]);
 
     if (!aulaSnap.exists || !licaoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Lição ou aula não foram encontrados",
-        );
+        throw new functions.https.HttpsError("not-found", "Lição ou aula não foram encontrados");
     }
 
     if (!isSuperAdmin || licaoSnap.data()?.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     const status_aulas = {
@@ -7099,16 +6000,13 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
     };
 
     const ultima_aula = Object.entries(status_aulas).reduce(
-        (prev, [aula, status]) =>
-            status && Number(aula) > prev ? Number(aula) : prev,
+        (prev, [aula, status]) => (status && Number(aula) > prev ? Number(aula) : prev),
         0,
     );
 
     await licaoRef.update({
         status_aulas,
-        ultima_aula: ultima_aula
-            ? licaoRef.collection("aulas").doc(String(ultima_aula))
-            : null,
+        ultima_aula: ultima_aula ? licaoRef.collection("aulas").doc(String(ultima_aula)) : null,
     });
     await aulaRef.update({
         link_youtube: null,
@@ -7118,12 +6016,7 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
     const visualizacoesDocs = await aulaRef.collection("visualizacoes").get();
     await Promise.all(visualizacoesDocs.docs.map((v) => v.ref.delete()));
 
-    enviarLog(
-        user,
-        request,
-        "DELETAR_AULA_PREPARO",
-        `Aula deletada com sucesso por ${user.uid}`,
-    );
+    enviarLog(user, request, "DELETAR_AULA_PREPARO", `Aula deletada com sucesso por ${user.uid}`);
 
     return { message: `Aula deletada com sucesso!` };
 });
@@ -7140,36 +6033,19 @@ export const registrarVisualizacao = functions.https.onCall(async (request) => {
     const { licaoId, aulaId } = request.data;
 
     if (!licaoId || !aulaId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
-    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
+    const licaoRef = db.collection(Cll.LICOES_PREPARO).doc(licaoId);
     const aulaRef = licaoRef.collection("aulas").doc(aulaId);
+    const userRef = db.collection(Cll.USUARIOS).doc(user.uid);
 
-    const [licaoSnap, aulaSnap] = await Promise.all([
-        licaoRef.get(),
-        aulaRef.get(),
-    ]);
-
-    if (!licaoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Lição não encontrada",
-        );
-    } else if (!aulaSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Aula não encontrada",
-        );
-    }
+    const userSnap = await userRef.get();
 
     const dadosParaSalvar = {
         nome: user.nome,
-        igreja: user.igrejaNome,
-        classe: user.classeNome,
+        igreja: userSnap.data()!.igrejaNome,
+        classe: userSnap.data()?.classeNome,
         ultima_visualizacao: Timestamp.now(),
     };
 
@@ -7211,108 +6087,78 @@ interface FormularioFront {
         estrutura: FormEstruturaFront[];
     };
 }
-export const salvarFormularioPedido = functions.https.onCall(
-    async (request) => {
-        const { db, isSuperAdmin, user } = await validarUsuario(request);
+export const salvarFormularioPedido = functions.https.onCall(async (request) => {
+    const { db, isSuperAdmin, user } = await validarUsuario(request);
 
-        if (!isSuperAdmin) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão para isso.",
-            );
-        }
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para isso.");
+    }
 
-        const {
-            dados: {
-                data_fim,
-                data_inicio,
-                tipo,
-                titulo,
-                estrutura,
-                descricao,
-                nomeModelo,
-            },
-            modeloId,
-        } = request.data as FormularioFront;
+    const {
+        dados: { data_fim, data_inicio, tipo, titulo, estrutura, descricao, nomeModelo },
+        modeloId,
+    } = request.data as FormularioFront;
 
-        if (
-            !data_fim ||
-            !data_inicio ||
-            (tipo !== "formulario" && tipo !== "modelo") ||
-            !titulo ||
-            !estrutura
-        ) {
-            throw new functions.https.HttpsError(
-                "invalid-argument",
-                "Dados inválidos ou ausentes.",
-            );
-        }
+    if (!data_fim || !data_inicio || (tipo !== "formulario" && tipo !== "modelo") || !titulo || !estrutura) {
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes.");
+    }
 
-        const dadosPedido: any = {
-            titulo,
-            descricao,
-            data_inicio: Timestamp.fromDate(
-                new Date(data_inicio + "T12:00:00"),
-            ),
-            data_fim: Timestamp.fromDate(new Date(data_fim + "T12:00:00")),
-            tipo,
-            nomeModelo,
-        };
+    const dadosPedido: any = {
+        titulo,
+        descricao,
+        data_inicio: Timestamp.fromDate(new Date(data_inicio + "T12:00:00")),
+        data_fim: Timestamp.fromDate(new Date(data_fim + "T12:00:00")),
+        tipo,
+        nomeModelo: nomeModelo || null,
+    };
 
-        if (modeloId) {
-            const pedidoRef = db.collection("pedidos").doc(modeloId);
-            const pedidoSnap = await pedidoRef.get();
+    if (modeloId) {
+        const pedidoRef = db.collection("pedidos").doc(modeloId);
+        const pedidoSnap = await pedidoRef.get();
 
-            if (pedidoSnap.exists) {
-                const pedidoData = pedidoSnap.data();
+        if (pedidoSnap.exists) {
+            const pedidoData = pedidoSnap.data();
+            if (pedidoData?.ministerioId !== user.ministerioId) {
+                throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
+            }
 
-                if (pedidoData?.tipo === "formulario") {
-                    await pedidoRef.update(dadosPedido);
+            if (pedidoData?.tipo === "formulario") {
+                await pedidoRef.update(dadosPedido);
 
-                    const estrururaSnap = await pedidoRef
-                        .collection("estrutura")
-                        .doc("dados")
-                        .get();
-                    await estrururaSnap.ref.update("estrutura", estrutura);
+                await pedidoRef.collection("estrutura").doc("dados").update("estrutura", estrutura);
+                await db.collection(Cll.SISTEMA).doc(user.ministerioId).set({ pedidos: Date.now() }, { merge: true });
 
-                    enviarLog(
-                        user,
-                        request,
-                        "SALVAR_FORMULARIO_PEDIDO",
-                        `Formulário atualizado com sucesso pelo usuário: ${user.uid}`,
-                    );
+                enviarLog(
+                    user,
+                    request,
+                    "SALVAR_FORMULARIO_PEDIDO",
+                    `Formulário atualizado com sucesso pelo usuário: ${user.uid}`,
+                );
 
-                    return { id: modeloId };
-                } else if (tipo === "modelo") {
-                    throw new functions.https.HttpsError(
-                        "invalid-argument",
-                        "Modelo já existe",
-                    );
-                }
+                return { id: modeloId };
+            } else if (tipo === "modelo") {
+                throw new functions.https.HttpsError("invalid-argument", "Modelo já existe");
             }
         }
+    }
 
-        dadosPedido.ministerioId = user.ministerioId;
+    dadosPedido.ministerioId = user.ministerioId;
 
-        const batch = db.batch();
-        const pedidoRef = db.collection("pedidos").doc();
-        batch.set(pedidoRef, dadosPedido);
-        batch.set(pedidoRef.collection("estrutura").doc("dados"), {
-            estrutura: estrutura || [],
-        });
+    const batch = db.batch();
+    const pedidoRef = db.collection("pedidos").doc();
+    batch.set(pedidoRef, dadosPedido);
+    batch.set(pedidoRef.collection("estrutura").doc("dados"), {
+        estrutura: estrutura || [],
+        ministerioId: user.ministerioId,
+    });
+    batch.set(db.collection(Cll.SISTEMA).doc(user.ministerioId), { pedidos: Date.now() }, { merge: true });
 
-        await batch.commit();
+    await batch.commit();
 
-        enviarLog(
-            user,
-            request,
-            "SALVAR_FORMULARIO_PEDIDO",
-            `Formulário salvo com sucesso pelo usuário: ${user.uid}`,
-        );
+    enviarLog(user, request, "SALVAR_FORMULARIO_PEDIDO", `Formulário salvo com sucesso pelo usuário: ${user.uid}`);
 
-        return { id: pedidoRef.id, tipo: dadosPedido?.tipo };
-    },
-);
+    return { id: pedidoRef.id, tipo: dadosPedido?.tipo };
+});
 
 interface SalvarRespostaPedidoFront {
     modeloId: string;
@@ -7324,36 +6170,21 @@ export const salvarRespostaPedido = functions.https.onCall(async (request) => {
     const { db, isSecretario, user } = await validarUsuario(request);
 
     if (isSecretario) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
-    const { modeloId, respostas, total_ofertas } =
-        request.data as SalvarRespostaPedidoFront;
+    const { modeloId, respostas, total_ofertas } = request.data as SalvarRespostaPedidoFront;
     if (!modeloId || !respostas || typeof total_ofertas !== "number") {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const [modeloSnap, estruturaSnap] = await Promise.all([
         db.collection("pedidos").doc(modeloId).get(),
-        db
-            .collection("pedidos")
-            .doc(modeloId)
-            .collection("estrutura")
-            .doc("dados")
-            .get(),
+        db.collection("pedidos").doc(modeloId).collection("estrutura").doc("dados").get(),
     ]);
 
     if (!modeloSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Modelo não encontrado",
-        );
+        throw new functions.https.HttpsError("not-found", "Modelo não encontrado");
     }
 
     const modelo = modeloSnap.data();
@@ -7362,10 +6193,7 @@ export const salvarRespostaPedido = functions.https.onCall(async (request) => {
     dataAtual.setHours(11, 0, 0, 0);
 
     if (dataAtual > dataEncerramento) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "O formulário já foi encerrado",
-        );
+        throw new functions.https.HttpsError("permission-denied", "O formulário já foi encerrado");
     }
 
     const { estrutura } = estruturaSnap.data() as {
@@ -7399,17 +6227,9 @@ export const salvarRespostaPedido = functions.https.onCall(async (request) => {
         },
     };
 
-    await db
-        .collection("pedidos_respostas")
-        .doc(`${modeloId}_${user.igrejaId}`)
-        .set(dadosParaSalvar, { merge: true });
+    await db.collection("pedidos_respostas").doc(`${modeloId}_${user.igrejaId}`).set(dadosParaSalvar, { merge: true });
 
-    enviarLog(
-        user,
-        request,
-        "SALVAR_RESPOSTA_PEDIDO",
-        `Formulário salvo com sucesso por ${user.uid}`,
-    );
+    enviarLog(user, request, "SALVAR_RESPOSTA_PEDIDO", `Formulário salvo com sucesso por ${user.uid}`);
 
     return { message: "Formulário salvo com sucesso" };
 });
@@ -7418,10 +6238,7 @@ export const pegarRankingPublico = functions.https.onCall(async (request) => {
     const { igrejaId, licaoId } = request.data;
 
     if (!igrejaId || !licaoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados ausentes");
     }
     const db = admin.firestore();
     const [cacheLicaoSnap, licaoSnap] = await Promise.all([
@@ -7430,10 +6247,7 @@ export const pegarRankingPublico = functions.https.onCall(async (request) => {
     ]);
 
     if (!licaoSnap.exists || !cacheLicaoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados não encontrados",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados não encontrados");
     }
 
     const licaoData = licaoSnap.data() as Licao;
@@ -7484,10 +6298,7 @@ export const getLinkPortalAluno = functions.https.onCall(async (request) => {
 
     const { alunoId, igrejaId, ministerioId } = request.data;
     if (ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     const alunoHex = Buffer.from(alunoId).toString("hex");
@@ -7543,34 +6354,21 @@ interface CachePortalAlunoInterface {
 
 export const getPortalAluno = functions.https.onCall(async (request) => {
     const userUid = request.auth?.uid;
-    const { dataNascimento, alunoHash, igrejaHash, alunoId, licaoId } =
-        request.data;
+    const { dataNascimento, alunoHash, igrejaHash, alunoId, licaoId } = request.data;
     let dadosCachePortal;
 
     const db = admin.firestore();
     if (userUid && alunoId) {
         const { isSuperAdmin, user } = await validarUsuario(request);
-        const alunoPortal = await db
-            .collection(Cll.CACHE_PORTAL_ALUNO)
-            .doc(alunoId)
-            .get();
+        const alunoPortal = await db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId).get();
 
         if (!alunoPortal.exists) {
-            throw new functions.https.HttpsError(
-                "not-found",
-                "Dados inválidos ou ausentes",
-            );
+            throw new functions.https.HttpsError("not-found", "Dados inválidos ou ausentes");
         }
 
         const aluno = alunoPortal.data() as CachePortalAlunoInterface;
-        if (
-            (!isSuperAdmin && aluno.igrejaId !== user.igrejaId) ||
-            user.ministerioId !== aluno.ministerioId
-        ) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão para acessar isso.",
-            );
+        if ((!isSuperAdmin && aluno.igrejaId !== user.igrejaId) || user.ministerioId !== aluno.ministerioId) {
+            throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para acessar isso.");
         }
 
         dadosCachePortal = aluno;
@@ -7582,16 +6380,12 @@ export const getPortalAluno = functions.https.onCall(async (request) => {
         const alunoId = Buffer.from(alunoIdDecode, "hex").toString("utf8");
         const igrejaId = Buffer.from(igrejaIdDecode, "hex").toString("utf8");
 
-        const alunoSnap = await db
-            .collection(Cll.CACHE_PORTAL_ALUNO)
-            .doc(alunoId)
-            .get();
+        const alunoSnap = await db.collection(Cll.CACHE_PORTAL_ALUNO).doc(alunoId).get();
         const alunoPortal = alunoSnap.data() as CachePortalAlunoInterface;
 
         if (
             !alunoSnap.exists ||
-            alunoPortal.data_nascimento.toDate().toLocaleDateString("pt-BR") !==
-                dataNascimento ||
+            alunoPortal.data_nascimento.toDate().toLocaleDateString("pt-BR") !== dataNascimento ||
             alunoPortal.igrejaId !== igrejaId
         ) {
             throw new functions.https.HttpsError(
@@ -7612,9 +6406,7 @@ export const getPortalAluno = functions.https.onCall(async (request) => {
         const [cacheLicaoSnap, licaoSnap] = await Promise.all([
             db
                 .collection(Cll.CACHE_LICAO)
-                .doc(
-                    `${dadosCachePortal.igrejaId}_${licaoId || dadosCachePortal.ultimaLicaoId}`,
-                )
+                .doc(`${dadosCachePortal.igrejaId}_${licaoId || dadosCachePortal.ultimaLicaoId}`)
                 .get(),
             db
                 .collection(Cll.LICOES)
@@ -7638,15 +6430,12 @@ export const getPortalAluno = functions.https.onCall(async (request) => {
             };
 
             const chamada: any = {};
-            for (const [data, detalhes] of Object.entries(
-                cacheLicao.detalhes_aulas,
-            )) {
+            for (const [data, detalhes] of Object.entries(cacheLicao.detalhes_aulas)) {
                 chamada[data] = detalhes.chamada?.[dadosCachePortal.alunoId];
             }
 
             licao["chamada"] = chamada;
-            licao["detalhes_aluno"] =
-                cacheLicao.detalhes_aluno[dadosCachePortal.alunoId];
+            licao["detalhes_aluno"] = cacheLicao.detalhes_aluno[dadosCachePortal.alunoId];
 
             dadosResposta["licao_atual"] = licao;
         }
@@ -7656,21 +6445,9 @@ export const getPortalAluno = functions.https.onCall(async (request) => {
 });
 
 export const setTrofeuAlunos = functions.https.onCall(async (request) => {
-    const { db, user, isSecretario, isSuperAdmin } =
-        await validarUsuario(request);
+    const { db, user, isSecretario, isSuperAdmin } = await validarUsuario(request);
 
-    const {
-        trimestre,
-        licaoId,
-        licaoNome,
-        classeId,
-        classeNome,
-        data,
-        alunos,
-        titulo,
-        descricao,
-        icon,
-    } = request.data;
+    const { trimestre, licaoId, licaoNome, classeId, classeNome, data, alunos, titulo, descricao, icon } = request.data;
 
     if (
         !trimestre ||
@@ -7684,10 +6461,7 @@ export const setTrofeuAlunos = functions.https.onCall(async (request) => {
         !descricao ||
         !icon
     ) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
     const licaoSnap = await db.collection(Cll.LICOES).doc(licaoId).get();
@@ -7698,10 +6472,7 @@ export const setTrofeuAlunos = functions.https.onCall(async (request) => {
         (isSecretario && licao?.classeId !== user.classeId) ||
         licao?.ministerioId !== user.ministerioId
     ) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso.",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso.");
     }
 
     const batch = db.batch();
@@ -7766,482 +6537,407 @@ interface LicaoGlobalInterface {
     igrejas: string[];
 }
 
-export const cadastrarNovaLicaoGlobal = functions.https.onCall(
-    async (request) => {
-        const { user, isSuperAdmin, db } = await validarUsuario(request);
+export const cadastrarNovaLicaoGlobal = functions.https.onCall(async (request) => {
+    const { user, isSuperAdmin, db } = await validarUsuario(request);
 
-        if (!isSuperAdmin) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Você não tem permissão para fazer isso",
-            );
-        }
+    if (!isSuperAdmin) {
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
+    }
 
-        const {
-            data_inicio,
+    const { data_inicio, igrejas, numero_aulas, numero_trimestre, rotuloId, titulo, img, pdf, licaoId } =
+        request.data as FormNovoTrimestreGlobal;
+
+    if (!data_inicio || !igrejas.length || !numero_aulas || !numero_trimestre || !rotuloId || !titulo) {
+        throw new functions.https.HttpsError("permission-denied", "Dados inválidos ou ausentes.");
+    }
+
+    try {
+        let batch = db.batch();
+        const batches = [batch];
+        let count = 0;
+        const useBatch = (
+            ref: admin.firestore.DocumentReference<any>,
+            obj: { [key: string]: any },
+            type: "update" | "set",
+            merge?: any,
+        ) => {
+            if (type === "update") batch.update(ref, obj);
+            else batch.set(ref, obj, merge);
+            count++;
+            if (count >= 499) {
+                batch = db.batch();
+                count = 0;
+                batches.push(batch);
+            }
+        };
+        const batchUpdate = (ref: admin.firestore.DocumentReference<any>, obj: { [key: string]: any }) =>
+            useBatch(ref, obj, "update");
+        const batchSet = (ref: admin.firestore.DocumentReference<any>, obj: { [key: string]: any }, merge = {}) =>
+            useBatch(ref, obj, "set", merge);
+
+        // Cadastrando nova lição
+        const dataInicio = new Date(data_inicio + "T12:00:00");
+        const dataFim = new Date(dataInicio);
+        dataFim.setDate(dataFim.getDate() + (numero_aulas - 1) * 7);
+
+        const dadosLicaoG: LicaoGlobalInterface = {
+            ativo: true,
+            data_inicio: Timestamp.fromDate(dataInicio),
+            data_fim: Timestamp.fromDate(dataFim),
             igrejas,
+            img: img ? img : null,
+            pdf: pdf ? pdf : null,
+            ministerioId: user.ministerioId,
             numero_aulas,
             numero_trimestre,
             rotuloId,
             titulo,
-            img,
-            pdf,
-            licaoId,
-        } = request.data as FormNovoTrimestreGlobal;
+        };
 
-        if (
-            !data_inicio ||
-            !igrejas.length ||
-            !numero_aulas ||
-            !numero_trimestre ||
-            !rotuloId ||
-            !titulo
-        ) {
-            throw new functions.https.HttpsError(
-                "permission-denied",
-                "Dados inválidos ou ausentes.",
-            );
-        }
+        if (licaoId) {
+            const licaoSnap = await db.collection(Cll.LICOES_GLOBAIS).doc(licaoId).get();
 
-        try {
-            let batch = db.batch();
-            const batches = [batch];
-            let count = 0;
-            const useBatch = (
-                ref: admin.firestore.DocumentReference<any>,
-                obj: { [key: string]: any },
-                type: "update" | "set",
-                merge?: any,
-            ) => {
-                if (type === "update") batch.update(ref, obj);
-                else batch.set(ref, obj, merge);
-                count++;
-                if (count >= 499) {
-                    batch = db.batch();
-                    count = 0;
-                    batches.push(batch);
-                }
-            };
-            const batchUpdate = (
-                ref: admin.firestore.DocumentReference<any>,
-                obj: { [key: string]: any },
-            ) => useBatch(ref, obj, "update");
-            const batchSet = (
-                ref: admin.firestore.DocumentReference<any>,
-                obj: { [key: string]: any },
-                merge = {},
-            ) => useBatch(ref, obj, "set", merge);
+            if (!licaoSnap.exists) {
+                throw new functions.https.HttpsError("not-found", "Lição não encontrada");
+            }
+            const licao = licaoSnap.data() as LicaoGlobalInterface;
 
-            // Cadastrando nova lição
-            const dataInicio = new Date(data_inicio + "T12:00:00");
-            const dataFim = new Date(dataInicio);
-            dataFim.setDate(dataFim.getDate() + (numero_aulas - 1) * 7);
+            batchUpdate(licaoSnap.ref, {
+                ...dadosLicaoG,
+                rotuloId: licao.rotuloId,
+                ativo: licao.ativo,
+            });
 
-            const dadosLicaoG: LicaoGlobalInterface = {
-                ativo: true,
-                data_inicio: Timestamp.fromDate(dataInicio),
-                data_fim: Timestamp.fromDate(dataFim),
-                igrejas,
-                img: img ? img : null,
-                pdf: pdf ? pdf : null,
-                ministerioId: user.ministerioId,
-                numero_aulas,
-                numero_trimestre,
-                rotuloId,
-                titulo,
-            };
+            const igrejasNovas = igrejas.filter((v) => !licao.igrejas.includes(v));
 
-            if (licaoId) {
-                const licaoSnap = await db
-                    .collection(Cll.LICOES_GLOBAIS)
-                    .doc(licaoId)
+            if (igrejasNovas.length) {
+                const classesSnap = await db
+                    .collection(Cll.CLASSES)
+                    .where("ministerioId", "==", dadosLicaoG.ministerioId)
+                    .where("igrejaId", "in", igrejasNovas)
+                    .where("rotuloId", "==", rotuloId)
                     .get();
+                if (!classesSnap.empty) {
+                    const classes = classesSnap.docs.map((v) => ({
+                        id: v.id,
+                        ...v.data(),
+                    }));
+                    const promise = classes.map(async (v: any) => {
+                        const novaLicao = {
+                            ativo: true,
+                            classeId: v.id,
+                            classeNome: v.nome,
+                            data_inicio: dadosLicaoG.data_inicio,
+                            data_fim: dadosLicaoG.data_fim,
+                            igrejaId: v.igrejaId,
+                            igrejaNome: v.igrejaNome,
+                            img: dadosLicaoG.img,
+                            ministerioId: v.ministerioId,
+                            numero_aulas: dadosLicaoG.numero_aulas,
+                            numero_trimestre: dadosLicaoG.numero_trimestre,
+                            titulo: dadosLicaoG.titulo,
+                            total_matriculados: 0,
+                            licaoGlobalId: licaoId,
+                            primeiroAcesso: true,
+                            pdf: dadosLicaoG.pdf,
+                        };
 
-                if (!licaoSnap.exists) {
-                    throw new functions.https.HttpsError(
-                        "not-found",
-                        "Lição não encontrada",
-                    );
-                }
-                const licao = licaoSnap.data() as LicaoGlobalInterface;
-
-                batchUpdate(licaoSnap.ref, {
-                    ...dadosLicaoG,
-                    rotuloId: licao.rotuloId,
-                    ativo: licao.ativo,
-                });
-
-                const igrejasNovas = igrejas.filter(
-                    (v) => !licao.igrejas.includes(v),
-                );
-
-                if (igrejasNovas.length) {
-                    const classesSnap = await db
-                        .collection(Cll.CLASSES)
-                        .where("igrejaId", "in", igrejasNovas)
-                        .where("rotuloId", "==", rotuloId)
-                        .get();
-                    if (!classesSnap.empty) {
-                        const classes = classesSnap.docs.map((v) => ({
-                            id: v.id,
-                            ...v.data(),
-                        }));
-                        const promise = classes.map(async (v: any) => {
-                            const novaLicao = {
-                                ativo: true,
-                                classeId: v.id,
-                                classeNome: v.nome,
-                                data_inicio: dadosLicaoG.data_inicio,
-                                data_fim: dadosLicaoG.data_fim,
-                                igrejaId: v.igrejaId,
-                                igrejaNome: v.igrejaNome,
-                                img: dadosLicaoG.img,
-                                ministerioId: v.ministerioId,
-                                numero_aulas: dadosLicaoG.numero_aulas,
-                                numero_trimestre: dadosLicaoG.numero_trimestre,
-                                titulo: dadosLicaoG.titulo,
-                                total_matriculados: 0,
-                                licaoGlobalId: licaoId,
-                                primeiroAcesso: true,
-                                pdf: dadosLicaoG.pdf,
-                            };
-
-                            const [ultimaLicaoSnap, mesmaData] =
-                                await Promise.all([
-                                    db
-                                        .collection(Cll.LICOES)
-                                        .where("classeId", "==", v.id)
-                                        .where("ativo", "==", true)
-                                        .limit(1)
-                                        .get(),
-                                    db
-                                        .collection(Cll.LICOES)
-                                        .where("classeId", "==", v.id)
-                                        .where("data_inicio", "==", dataInicio)
-                                        .get(),
-                                ]);
-
-                            if (!mesmaData.empty) return;
-                            if (!ultimaLicaoSnap.empty) {
-                                const ultimaLicao =
-                                    ultimaLicaoSnap.docs[0].data() as Licao;
-                                if (
-                                    ultimaLicao.data_inicio.toDate() >
-                                    dataInicio
-                                )
-                                    novaLicao.ativo = false;
-                                else
-                                    batchUpdate(ultimaLicaoSnap.docs[0].ref, {
-                                        ativo: false,
-                                    });
-                            }
-
-                            const novaLicaoRef = db
+                        const [ultimaLicaoSnap, mesmaData] = await Promise.all([
+                            db
                                 .collection(Cll.LICOES)
-                                .doc();
-                            batchSet(novaLicaoRef, novaLicao);
-                            for (let i = 0; i < numero_aulas; i++) {
-                                const dataPrevista = new Date(dataInicio);
-                                dataPrevista.setDate(
-                                    dataPrevista.getDate() + i * 7,
-                                );
+                                .where("classeId", "==", v.id)
+                                .where("ativo", "==", true)
+                                .limit(1)
+                                .get(),
+                            db
+                                .collection(Cll.LICOES)
+                                .where("classeId", "==", v.id)
+                                .where("data_inicio", "==", dataInicio)
+                                .get(),
+                        ]);
 
-                                const aulaRef = novaLicaoRef
-                                    .collection("aulas")
-                                    .doc(String(i + 1));
-                                batch.set(aulaRef, {
-                                    numero_aula: i + 1,
-                                    data_prevista:
-                                        Timestamp.fromDate(dataPrevista),
-                                    realizada: false,
-                                    registroRef: null,
+                        if (!mesmaData.empty) return;
+                        if (!ultimaLicaoSnap.empty) {
+                            const ultimaLicao = ultimaLicaoSnap.docs[0].data() as Licao;
+                            if (ultimaLicao.data_inicio.toDate() > dataInicio) novaLicao.ativo = false;
+                            else
+                                batchUpdate(ultimaLicaoSnap.docs[0].ref, {
+                                    ativo: false,
                                 });
-                            }
+                        }
 
-                            const cache: CacheLicaoInterface = {
-                                classeId: v.id,
-                                classeNome: v.nome,
-                                data_fim: dadosLicaoG.data_fim,
-                                data_inicio: dadosLicaoG.data_inicio,
+                        const novaLicaoRef = db.collection(Cll.LICOES).doc();
+                        batchSet(novaLicaoRef, novaLicao);
+                        for (let i = 0; i < numero_aulas; i++) {
+                            const dataPrevista = new Date(dataInicio);
+                            dataPrevista.setDate(dataPrevista.getDate() + i * 7);
+
+                            const aulaRef = novaLicaoRef.collection("aulas").doc(String(i + 1));
+                            batch.set(aulaRef, {
+                                numero_aula: i + 1,
+                                data_prevista: Timestamp.fromDate(dataPrevista),
+                                realizada: false,
+                                registroRef: null,
                                 ministerioId: dadosLicaoG.ministerioId,
-                                igrejaId: v.igrejaId,
-                                igrejaNome: v.igrejaNome,
-                                licaoId: novaLicaoRef.id,
-                                licaoNome: novaLicao.titulo,
-                                pico_presenca: 0,
-                                total_matriculados: 0,
-                                total_missoes: 0,
-                                total_missoes_dinheiro: 0,
-                                total_missoes_pix: 0,
-                                total_ofertas: 0,
-                                total_ofertas_dinheiro: 0,
-                                total_ofertas_pix: 0,
-                                detalhes_aulas: {},
-                                detalhes_aluno: {},
-                            };
-                            batchSet(
-                                db
-                                    .collection(Cll.CACHE_LICAO)
-                                    .doc(`${v.igrejaId}_${novaLicaoRef.id}`),
-                                cache,
-                            );
-                        });
-                        await Promise.all(promise);
-                    }
-                }
+                                igrejaId: novaLicao.igrejaId,
+                                classeId: novaLicao.classeId,
+                            });
+                        }
 
-                const licoesParaAtualizar = await db
-                    .collection(Cll.LICOES)
-                    .where("licaoGlobalId", "==", licaoId)
-                    .get();
-                if (!licoesParaAtualizar.empty) {
-                    const licoes = licoesParaAtualizar.docs
-                        .map((v) => ({ id: v.id, ...v.data() }) as Licao)
-                        .filter((v) => igrejas.includes(v.igrejaId));
-
-                    const update = {
-                        data_inicio: dadosLicaoG.data_inicio,
-                        data_fim: dadosLicaoG.data_fim,
-                        img: dadosLicaoG.img,
-                        pdf: dadosLicaoG.pdf,
-                        numero_aulas,
-                        numero_trimestre,
-                        titulo,
-                    };
-                    licoes.forEach((v) => {
-                        batchUpdate(
-                            db.collection(Cll.LICOES).doc(v.id),
-                            update,
+                        const cache: CacheLicaoInterface = {
+                            classeId: v.id,
+                            classeNome: v.nome,
+                            data_fim: dadosLicaoG.data_fim,
+                            data_inicio: dadosLicaoG.data_inicio,
+                            ministerioId: dadosLicaoG.ministerioId,
+                            igrejaId: v.igrejaId,
+                            igrejaNome: v.igrejaNome,
+                            licaoId: novaLicaoRef.id,
+                            licaoNome: novaLicao.titulo,
+                            pico_presenca: 0,
+                            total_matriculados: 0,
+                            total_missoes: 0,
+                            total_missoes_dinheiro: 0,
+                            total_missoes_pix: 0,
+                            total_ofertas: 0,
+                            total_ofertas_dinheiro: 0,
+                            total_ofertas_pix: 0,
+                            detalhes_aulas: {},
+                            detalhes_aluno: {},
+                        };
+                        batchSet(db.collection(Cll.CACHE_LICAO).doc(`${v.igrejaId}_${novaLicaoRef.id}`), cache);
+                        batchSet(
+                            db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(v.igrejaId),
+                            {
+                                classes: {
+                                    [v.id]: {
+                                        licoes: Date.now(),
+                                    },
+                                },
+                            },
+                            { merge: true },
                         );
                     });
+                    await Promise.all(promise);
                 }
-
-                await Promise.all(batches.map((v) => v.commit()));
-                enviarLog(
-                    user,
-                    request,
-                    "CADASTRAR_NOVA_LICAO_GLOBAL",
-                    `Dados atualizados com sucesso por ${user.uid}`,
-                    licao,
-                );
-
-                return { message: "Dados atualizados com sucesso!" };
             }
 
-            const ultimaLicaoSnap = await db
-                .collection(Cll.LICOES_GLOBAIS)
-                .where("rotuloId", "==", dadosLicaoG.rotuloId)
-                .where("ativo", "==", true)
-                .limit(1)
-                .get();
-            if (!ultimaLicaoSnap.empty) {
-                const ultimaLicao = ultimaLicaoSnap.docs[0];
-                const ultimaLicaoData =
-                    ultimaLicao.data() as LicaoGlobalInterface;
+            const licoesParaAtualizar = await db.collection(Cll.LICOES).where("licaoGlobalId", "==", licaoId).get();
+            if (!licoesParaAtualizar.empty) {
+                const licoes = licoesParaAtualizar.docs
+                    .map((v) => ({ id: v.id, ...v.data() }) as Licao)
+                    .filter((v) => igrejas.includes(v.igrejaId));
 
-                if (ultimaLicaoData.data_inicio.toDate() > dataInicio)
-                    dadosLicaoG.ativo = false;
-                else batchUpdate(ultimaLicao.ref, { ativo: false });
-            }
-
-            const licaoRef = db.collection(Cll.LICOES_GLOBAIS).doc();
-            batchSet(licaoRef, dadosLicaoG);
-
-            //Cadastrando Trimestre
-            const trimestre = {
-                ano: dataInicio.getFullYear(),
-                data_fim: dadosLicaoG.data_fim,
-                data_inicio: dadosLicaoG.data_inicio,
-                ministerioId: dadosLicaoG.ministerioId,
-                nome: `${
-                    dadosLicaoG.numero_trimestre
-                }º Trimestre de ${dataInicio.getFullYear()}`,
-                numero_trimestre: dadosLicaoG.numero_trimestre,
-            };
-            const idTrimestre = `${dadosLicaoG.ministerioId}-${dataInicio
-                .toLocaleDateString("pt-BR")
-                .replace(/\//g, "-")}-${dataFim
-                .toLocaleDateString("pt-BR")
-                .replace(/\//g, "-")}-${dadosLicaoG.numero_trimestre}`;
-            batchSet(
-                db.collection(Cll.TRIMESTRES).doc(idTrimestre),
-                trimestre,
-                { merge: true },
-            );
-
-            // Cadastrando nas classes
-            const classesDocs = await db
-                .collection(Cll.CLASSES)
-                .where("ministerioId", "==", user.ministerioId)
-                .where("rotuloId", "==", rotuloId)
-                .get();
-            const classes = classesDocs.docs
-                .map(
-                    (v) =>
-                        ({ id: v.id, ...v.data() }) as Classe & { id: string },
-                )
-                .filter((v: any) => igrejas.includes(v.igrejaId));
-
-            const promise = classes.map(async (v) => {
-                const novaLicao = {
-                    ativo: true,
-                    classeId: v.id,
-                    classeNome: v.nome,
+                const update = {
                     data_inicio: dadosLicaoG.data_inicio,
                     data_fim: dadosLicaoG.data_fim,
-                    igrejaId: v.igrejaId,
-                    igrejaNome: v.igrejaNome,
                     img: dadosLicaoG.img,
-                    ministerioId: v.ministerioId,
-                    numero_aulas: dadosLicaoG.numero_aulas,
-                    numero_trimestre: dadosLicaoG.numero_trimestre,
-                    titulo: dadosLicaoG.titulo,
-                    total_matriculados: 0,
-                    licaoGlobalId: licaoRef.id,
-                    primeiroAcesso: true,
                     pdf: dadosLicaoG.pdf,
+                    numero_aulas,
+                    numero_trimestre,
+                    titulo,
                 };
-
-                const [ultimaLicaoSnap, mesmaData] = await Promise.all([
-                    db
-                        .collection(Cll.LICOES)
-                        .where("classeId", "==", v.id)
-                        .where("ativo", "==", true)
-                        .limit(1)
-                        .get(),
-                    db
-                        .collection(Cll.LICOES)
-                        .where("classeId", "==", v.id)
-                        .where("data_inicio", "==", dataInicio)
-                        .get(),
-                ]);
-
-                if (!mesmaData.empty) {
-                    return;
-                }
-                if (!ultimaLicaoSnap.empty) {
-                    const ultimaLicao = ultimaLicaoSnap.docs[0].data() as Licao;
-                    if (ultimaLicao.data_inicio.toDate() > dataInicio) {
-                        novaLicao.ativo = false;
-                    } else
-                        batchUpdate(ultimaLicaoSnap.docs[0].ref, {
-                            ativo: false,
-                        });
-                }
-
-                const novaLicaoRef = db.collection(Cll.LICOES).doc();
-                batchSet(novaLicaoRef, novaLicao);
-
-                for (let i = 0; i < numero_aulas; i++) {
-                    const dataPrevista = new Date(dataInicio);
-                    dataPrevista.setDate(dataPrevista.getDate() + i * 7);
-
-                    const aulaRef = novaLicaoRef
-                        .collection("aulas")
-                        .doc(String(i + 1));
-                    batchSet(aulaRef, {
-                        numero_aula: i + 1,
-                        data_prevista: Timestamp.fromDate(dataPrevista),
-                        realizada: false,
-                        registroRef: null,
-                    });
-                }
-
-                const cache: CacheLicaoInterface = {
-                    classeId: v.id,
-                    classeNome: v.nome,
-                    data_fim: dadosLicaoG.data_fim,
-                    data_inicio: dadosLicaoG.data_inicio,
-                    ministerioId: dadosLicaoG.ministerioId,
-                    igrejaId: v.igrejaId,
-                    igrejaNome: v.igrejaNome,
-                    licaoId: novaLicaoRef.id,
-                    licaoNome: novaLicao.titulo,
-                    pico_presenca: 0,
-                    total_matriculados: 0,
-                    total_missoes: 0,
-                    total_missoes_dinheiro: 0,
-                    total_missoes_pix: 0,
-                    total_ofertas: 0,
-                    total_ofertas_dinheiro: 0,
-                    total_ofertas_pix: 0,
-                    detalhes_aulas: {},
-                    detalhes_aluno: {},
-                };
-                batchSet(
-                    db
-                        .collection(Cll.CACHE_LICAO)
-                        .doc(`${v.igrejaId}_${novaLicaoRef.id}`),
-                    cache,
-                );
-            });
-            await Promise.all(promise);
+                licoes.forEach((v) => {
+                    batchUpdate(db.collection(Cll.LICOES).doc(v.id), update);
+                    batchSet(
+                        db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(v.igrejaId),
+                        {
+                            classes: {
+                                [v.classeId]: {
+                                    licoes: Date.now(),
+                                },
+                            },
+                        },
+                        { merge: true },
+                    );
+                });
+            }
 
             await Promise.all(batches.map((v) => v.commit()));
-
             enviarLog(
                 user,
                 request,
                 "CADASTRAR_NOVA_LICAO_GLOBAL",
-                `Dados cadastrados com sucesso por ${user.uid}`,
+                `Dados atualizados com sucesso por ${user.uid}`,
+                licao,
             );
 
-            return { message: "Lições cadastradas com sucesso!" };
-        } catch (err: any) {
-            console.log("houve um erro ao cadastrar a lição", err);
-            throw new functions.https.HttpsError(
-                "internal",
-                "Houve um erro ao cadastrar a lição",
-            );
+            return { message: "Dados atualizados com sucesso!" };
         }
-    },
-);
+
+        const ultimaLicaoSnap = await db
+            .collection(Cll.LICOES_GLOBAIS)
+            .where("rotuloId", "==", dadosLicaoG.rotuloId)
+            .where("ativo", "==", true)
+            .limit(1)
+            .get();
+        if (!ultimaLicaoSnap.empty) {
+            const ultimaLicao = ultimaLicaoSnap.docs[0];
+            const ultimaLicaoData = ultimaLicao.data() as LicaoGlobalInterface;
+
+            if (ultimaLicaoData.data_inicio.toDate() > dataInicio) dadosLicaoG.ativo = false;
+            else batchUpdate(ultimaLicao.ref, { ativo: false });
+        }
+
+        const licaoRef = db.collection(Cll.LICOES_GLOBAIS).doc();
+        batchSet(licaoRef, dadosLicaoG);
+
+        //Cadastrando Trimestre
+        const trimestre = {
+            ano: dataInicio.getFullYear(),
+            data_fim: dadosLicaoG.data_fim,
+            data_inicio: dadosLicaoG.data_inicio,
+            ministerioId: dadosLicaoG.ministerioId,
+            nome: `${dadosLicaoG.numero_trimestre}º Trimestre de ${dataInicio.getFullYear()}`,
+            numero_trimestre: dadosLicaoG.numero_trimestre,
+        };
+        const idTrimestre = `${dadosLicaoG.ministerioId}-${dataInicio
+            .toLocaleDateString("pt-BR")
+            .replace(/\//g, "-")}-${dataFim
+            .toLocaleDateString("pt-BR")
+            .replace(/\//g, "-")}-${dadosLicaoG.numero_trimestre}`;
+        batchSet(db.collection(Cll.TRIMESTRES).doc(idTrimestre), trimestre, { merge: true });
+
+        // Cadastrando nas classes
+        const classesDocs = await db
+            .collection(Cll.CLASSES)
+            .where("ministerioId", "==", user.ministerioId)
+            .where("rotuloId", "==", rotuloId)
+            .get();
+        const classes = classesDocs.docs
+            .map((v) => ({ id: v.id, ...v.data() }) as Classe & { id: string })
+            .filter((v: any) => igrejas.includes(v.igrejaId));
+
+        const promise = classes.map(async (v) => {
+            const novaLicao = {
+                ativo: true,
+                classeId: v.id,
+                classeNome: v.nome,
+                data_inicio: dadosLicaoG.data_inicio,
+                data_fim: dadosLicaoG.data_fim,
+                igrejaId: v.igrejaId,
+                igrejaNome: v.igrejaNome,
+                img: dadosLicaoG.img,
+                ministerioId: v.ministerioId,
+                numero_aulas: dadosLicaoG.numero_aulas,
+                numero_trimestre: dadosLicaoG.numero_trimestre,
+                titulo: dadosLicaoG.titulo,
+                total_matriculados: 0,
+                licaoGlobalId: licaoRef.id,
+                primeiroAcesso: true,
+                pdf: dadosLicaoG.pdf,
+            };
+
+            const [ultimaLicaoSnap, mesmaData] = await Promise.all([
+                db.collection(Cll.LICOES).where("classeId", "==", v.id).where("ativo", "==", true).limit(1).get(),
+                db.collection(Cll.LICOES).where("classeId", "==", v.id).where("data_inicio", "==", dataInicio).get(),
+            ]);
+
+            if (!mesmaData.empty) {
+                return;
+            }
+            if (!ultimaLicaoSnap.empty) {
+                const ultimaLicao = ultimaLicaoSnap.docs[0].data() as Licao;
+                if (ultimaLicao.data_inicio.toDate() > dataInicio) {
+                    novaLicao.ativo = false;
+                } else
+                    batchUpdate(ultimaLicaoSnap.docs[0].ref, {
+                        ativo: false,
+                    });
+            }
+
+            const novaLicaoRef = db.collection(Cll.LICOES).doc();
+            batchSet(novaLicaoRef, novaLicao);
+
+            for (let i = 0; i < numero_aulas; i++) {
+                const dataPrevista = new Date(dataInicio);
+                dataPrevista.setDate(dataPrevista.getDate() + i * 7);
+
+                const aulaRef = novaLicaoRef.collection("aulas").doc(String(i + 1));
+                batchSet(aulaRef, {
+                    numero_aula: i + 1,
+                    data_prevista: Timestamp.fromDate(dataPrevista),
+                    realizada: false,
+                    registroRef: null,
+                    ministerioId: novaLicao.ministerioId,
+                    igrejaId: novaLicao.igrejaId,
+                    classeId: novaLicao.classeId,
+                });
+            }
+
+            const cache: CacheLicaoInterface = {
+                classeId: v.id,
+                classeNome: v.nome,
+                data_fim: dadosLicaoG.data_fim,
+                data_inicio: dadosLicaoG.data_inicio,
+                ministerioId: dadosLicaoG.ministerioId,
+                igrejaId: v.igrejaId,
+                igrejaNome: v.igrejaNome,
+                licaoId: novaLicaoRef.id,
+                licaoNome: novaLicao.titulo,
+                pico_presenca: 0,
+                total_matriculados: 0,
+                total_missoes: 0,
+                total_missoes_dinheiro: 0,
+                total_missoes_pix: 0,
+                total_ofertas: 0,
+                total_ofertas_dinheiro: 0,
+                total_ofertas_pix: 0,
+                detalhes_aulas: {},
+                detalhes_aluno: {},
+            };
+            batchSet(db.collection(Cll.CACHE_LICAO).doc(`${v.igrejaId}_${novaLicaoRef.id}`), cache);
+            batchSet(
+                db.collection(Cll.SISTEMA).doc(user.ministerioId).collection("igrejas").doc(v.igrejaId),
+                {
+                    classes: {
+                        [v.id]: {
+                            licoes: Date.now(),
+                        },
+                    },
+                },
+                { merge: true },
+            );
+        });
+        await Promise.all(promise);
+
+        await Promise.all(batches.map((v) => v.commit()));
+
+        enviarLog(user, request, "CADASTRAR_NOVA_LICAO_GLOBAL", `Dados cadastrados com sucesso por ${user.uid}`);
+
+        return { message: "Lições cadastradas com sucesso!" };
+    } catch (err: any) {
+        console.log("houve um erro ao cadastrar a lição", err);
+        throw new functions.https.HttpsError("internal", "Houve um erro ao cadastrar a lição");
+    }
+});
 export const apagarLicaoGlobal = functions.https.onCall(async (request) => {
     const { user, isSuperAdmin, db } = await validarUsuario(request);
 
     if (!isSuperAdmin) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não pode fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não pode fazer isso");
     }
 
     const { licaoId } = request.data;
     if (!licaoId) {
-        throw new functions.https.HttpsError(
-            "invalid-argument",
-            "Dados inválidos ou ausentes",
-        );
+        throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
-    const licaoSnap = await db
-        .collection(Cll.LICOES_GLOBAIS)
-        .doc(licaoId)
-        .get();
+    const licaoSnap = await db.collection(Cll.LICOES_GLOBAIS).doc(licaoId).get();
     if (!licaoSnap.exists) {
-        throw new functions.https.HttpsError(
-            "not-found",
-            "Lição não encontrada",
-        );
+        throw new functions.https.HttpsError("not-found", "Lição não encontrada");
     }
 
     const licaoG = licaoSnap.data() as LicaoGlobalInterface;
     if (licaoG.ministerioId !== user.ministerioId) {
-        throw new functions.https.HttpsError(
-            "permission-denied",
-            "Você não tem permissão para fazer isso",
-        );
+        throw new functions.https.HttpsError("permission-denied", "Você não tem permissão para fazer isso");
     }
 
     try {
         let batch = db.batch();
         let count = 0;
         const batches = [batch];
-        const useBatch = (
-            ref: admin.firestore.DocumentReference<any>,
-            tipo: "delete" | "update",
-            obj = {},
-        ) => {
+        const useBatch = (ref: admin.firestore.DocumentReference<any>, tipo: "delete" | "update", obj = {}) => {
             if (tipo === "delete") batch.delete(ref);
             else batch.update(ref, obj);
 
@@ -8253,12 +6949,9 @@ export const apagarLicaoGlobal = functions.https.onCall(async (request) => {
                 batches.push(batch);
             }
         };
-        const batchUpdate = (
-            ref: admin.firestore.DocumentReference<any>,
-            obj: { [key: string]: any },
-        ) => useBatch(ref, "update", obj);
-        const batchDelete = (ref: admin.firestore.DocumentReference<any>) =>
-            useBatch(ref, "delete");
+        const batchUpdate = (ref: admin.firestore.DocumentReference<any>, obj: { [key: string]: any }) =>
+            useBatch(ref, "update", obj);
+        const batchDelete = (ref: admin.firestore.DocumentReference<any>) => useBatch(ref, "delete");
 
         const [licoesDocs, licaoAnteriorDocs] = await Promise.all([
             db
@@ -8300,12 +6993,7 @@ export const apagarLicaoGlobal = functions.https.onCall(async (request) => {
                 }
             }
 
-            enviarLog(
-                user,
-                request,
-                "APAGAR_LICAO_GLOBAL",
-                `Lição deletada com sucesso pelo usuário ${user.uid}`,
-            );
+            enviarLog(user, request, "APAGAR_LICAO_GLOBAL", `Lição deletada com sucesso pelo usuário ${user.uid}`);
             return { message: "Lição deletada com sucesso!" };
         }
         const licoesIds = licoesDocs.docs.map((v) => v.id);
@@ -8313,12 +7001,7 @@ export const apagarLicaoGlobal = functions.https.onCall(async (request) => {
         const promises = [];
         for (let i = 0; i < licoesDocs.size; i += 30) {
             const chunck = licoesIds.slice(i, i + 30);
-            promises.push(
-                db
-                    .collection(Cll.CACHE_LICAO)
-                    .where("licaoId", "in", chunck)
-                    .get(),
-            );
+            promises.push(db.collection(Cll.CACHE_LICAO).where("licaoId", "in", chunck).get());
         }
 
         console.log("temos um total de", licoesIds.length);
@@ -8339,11 +7022,7 @@ export const apagarLicaoGlobal = functions.https.onCall(async (request) => {
             batchDelete(db.collection(Cll.LICOES).doc(v.licaoId));
         });
         const aulasAnteriores = licoes.map(async (v) => {
-            const aulasDocs = await db
-                .collection(Cll.LICOES)
-                .doc(v.licaoId)
-                .collection("aulas")
-                .get();
+            const aulasDocs = await db.collection(Cll.LICOES).doc(v.licaoId).collection("aulas").get();
 
             if (aulasDocs.empty) return;
 
@@ -8377,18 +7056,16 @@ export const apagarLicaoGlobal = functions.https.onCall(async (request) => {
 
         await batch.commit();
 
-        enviarLog(
-            user,
-            request,
-            "APAGAR_LICAO_GLOBAL",
-            `Lição deletada com sucesso pelo usuário ${user.uid}`,
-        );
+        enviarLog(user, request, "APAGAR_LICAO_GLOBAL", `Lição deletada com sucesso pelo usuário ${user.uid}`);
         return { message: "Lição deletada com sucesso!" };
     } catch (error: any) {
         console.log("erro ao deletar lição", error);
-        throw new functions.https.HttpsError(
-            "internal",
-            "Houve um erro ao deletar a lição",
-        );
+        throw new functions.https.HttpsError("internal", "Houve um erro ao deletar a lição");
     }
+});
+
+export const getTokenDemo = functions.https.onCall(async (resquest) => {
+    const usuarioTeste = process.env.CHAVE_TESTE;
+    const token = await admin.auth().createCustomToken(usuarioTeste!);
+    return { token };
 });

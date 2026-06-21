@@ -8,12 +8,9 @@ import Loading from "../../layout/loading/Loading";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faFaceSmileBeam,
-    faFileCsv,
-    faTable,
-} from "@fortawesome/free-solid-svg-icons";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { faFaceSmileBeam, faFileCsv, faTable } from "@fortawesome/free-solid-svg-icons";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../../utils/firebase";
 
 function baixarArquivoCSV(csvString: string, nomeArquivo: string) {
     const blob = new Blob(["\uFEFF" + csvString], {
@@ -55,7 +52,6 @@ const variantsItem: Variants = {
     exit: { opacity: 0, y: -20 },
 };
 
-const functions = getFunctions();
 const exportarDadosCSV = httpsCallable(functions, "exportarDadosCSV");
 
 function RelatorioCSV() {
@@ -134,15 +130,10 @@ function RelatorioCSV() {
 
                 <div className="relatorio-csv__filtros">
                     <div className="relatorio-csv__input-central">
-                        <p className="relatorio-csv__input--title">
-                            Qual relatório você deseja exportar?
-                        </p>
+                        <p className="relatorio-csv__input--title">Qual relatório você deseja exportar?</p>
                         <Dropdown
                             lista={tipos}
-                            current={
-                                tipos.find((v) => v.id === current)?.nome ||
-                                null
-                            }
+                            current={tipos.find((v) => v.id === current)?.nome || null}
                             onSelect={(v) => setCurrent(v?.id || null)}
                             isAll={false}
                             selectId={current || ""}
@@ -161,98 +152,66 @@ function RelatorioCSV() {
                                     exit="exit"
                                     onSubmit={handleSubmit(onSubmit)}
                                 >
-                                    {current !== "alunos" &&
-                                        current !== "usuarios" &&
-                                        current !== "membros" && (
-                                            <div className="relatorio-csv__input-group">
-                                                <AnimatePresence>
-                                                    <motion.div
-                                                        variants={variantsItem}
-                                                        key={
-                                                            "relatorio-csv-data-inicio"
-                                                        }
-                                                        className="relatorio-csv__input"
+                                    {current !== "alunos" && current !== "usuarios" && current !== "membros" && (
+                                        <div className="relatorio-csv__input-group">
+                                            <AnimatePresence>
+                                                <motion.div
+                                                    variants={variantsItem}
+                                                    key={"relatorio-csv-data-inicio"}
+                                                    className="relatorio-csv__input"
+                                                >
+                                                    <label
+                                                        htmlFor="relatorio-csv-data-inicio"
+                                                        className="relatorio-csv__input--title"
                                                     >
-                                                        <label
-                                                            htmlFor="relatorio-csv-data-inicio"
-                                                            className="relatorio-csv__input--title"
-                                                        >
-                                                            Data Inicio
-                                                        </label>
-                                                        <input
-                                                            type="date"
-                                                            id="relatorio-csv-data-inicio"
-                                                            className={
-                                                                errors.data_inicio &&
-                                                                "input-error"
-                                                            }
-                                                            {...register(
-                                                                "data_inicio",
-                                                                {
-                                                                    required:
-                                                                        "A data de início é obrigatória",
-                                                                },
-                                                            )}
-                                                        />
+                                                        Data Inicio
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        id="relatorio-csv-data-inicio"
+                                                        className={errors.data_inicio && "input-error"}
+                                                        {...register("data_inicio", {
+                                                            required: "A data de início é obrigatória",
+                                                        })}
+                                                    />
 
-                                                        {errors.data_inicio && (
-                                                            <motion.div className="relatorio-csv__input--erro">
-                                                                <p>
-                                                                    {
-                                                                        errors
-                                                                            .data_inicio
-                                                                            .message
-                                                                    }
-                                                                </p>
-                                                            </motion.div>
-                                                        )}
-                                                    </motion.div>
-                                                </AnimatePresence>
+                                                    {errors.data_inicio && (
+                                                        <motion.div className="relatorio-csv__input--erro">
+                                                            <p>{errors.data_inicio.message}</p>
+                                                        </motion.div>
+                                                    )}
+                                                </motion.div>
+                                            </AnimatePresence>
 
-                                                <AnimatePresence>
-                                                    <motion.div
-                                                        variants={variantsItem}
-                                                        key={
-                                                            "relatorio-csv-data-fim"
-                                                        }
-                                                        className="relatorio-csv__input"
+                                            <AnimatePresence>
+                                                <motion.div
+                                                    variants={variantsItem}
+                                                    key={"relatorio-csv-data-fim"}
+                                                    className="relatorio-csv__input"
+                                                >
+                                                    <label
+                                                        htmlFor="relatorio-csv-data-fim"
+                                                        className="relatorio-csv__input--title"
                                                     >
-                                                        <label
-                                                            htmlFor="relatorio-csv-data-fim"
-                                                            className="relatorio-csv__input--title"
-                                                        >
-                                                            Data Fim
-                                                        </label>
-                                                        <input
-                                                            type="date"
-                                                            className={
-                                                                errors.data_fim &&
-                                                                "input-error"
-                                                            }
-                                                            id="relatorio-csv-data-fim"
-                                                            {...register(
-                                                                "data_fim",
-                                                                {
-                                                                    required:
-                                                                        "A data de fim é obrigatória",
-                                                                },
-                                                            )}
-                                                        />
-                                                        {errors.data_fim && (
-                                                            <motion.div className="relatorio-csv__input--erro">
-                                                                <p>
-                                                                    {
-                                                                        errors
-                                                                            .data_fim
-                                                                            .message
-                                                                    }
-                                                                </p>
-                                                            </motion.div>
-                                                        )}
-                                                    </motion.div>
-                                                </AnimatePresence>
-                                            </div>
-                                        )}
+                                                        Data Fim
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        className={errors.data_fim && "input-error"}
+                                                        id="relatorio-csv-data-fim"
+                                                        {...register("data_fim", {
+                                                            required: "A data de fim é obrigatória",
+                                                        })}
+                                                    />
+                                                    {errors.data_fim && (
+                                                        <motion.div className="relatorio-csv__input--erro">
+                                                            <p>{errors.data_fim.message}</p>
+                                                        </motion.div>
+                                                    )}
+                                                </motion.div>
+                                            </AnimatePresence>
+                                        </div>
+                                    )}
 
                                     <div className="relatorio-csv__input-group">
                                         {isSuperAdmin.current && (
@@ -261,27 +220,17 @@ function RelatorioCSV() {
                                                 key="relatorio-csv-igrejas"
                                                 className="relatorio-csv__input"
                                             >
-                                                <p className="relatorio-csv__input--title">
-                                                    Igrejas
-                                                </p>
+                                                <p className="relatorio-csv__input--title">Igrejas</p>
                                                 <Controller
                                                     control={control}
                                                     name="igrejas"
                                                     render={({ field }) => (
                                                         <MultiSelectDropdown
                                                             lista={igrejas}
-                                                            currentListIds={
-                                                                field.value ||
-                                                                []
-                                                            }
+                                                            currentListIds={field.value || []}
                                                             onChange={(v) => {
-                                                                field.onChange(
-                                                                    v,
-                                                                );
-                                                                setValue(
-                                                                    "classes",
-                                                                    [],
-                                                                );
+                                                                field.onChange(v);
+                                                                setValue("classes", []);
                                                             }}
                                                             texto="Todas as igrejas"
                                                         />
@@ -290,58 +239,38 @@ function RelatorioCSV() {
                                             </motion.div>
                                         )}
 
-                                        {!isSecretario.current &&
-                                            current !== "alunos" &&
-                                            current !== "membros" && (
-                                                <motion.div
-                                                    variants={variantsItem}
-                                                    key="relatorio-csv-classes"
-                                                    className="relatorio-csv__input"
-                                                >
-                                                    <p className="relatorio-csv__input--title">
-                                                        classes
-                                                    </p>
-                                                    <Controller
-                                                        control={control}
-                                                        name="classes"
-                                                        render={({ field }) => (
-                                                            <MultiSelectDropdown
-                                                                lista={
-                                                                    classesMemo
-                                                                }
-                                                                currentListIds={
-                                                                    field.value ||
-                                                                    []
-                                                                }
-                                                                onChange={(v) =>
-                                                                    field.onChange(
-                                                                        v,
-                                                                    )
-                                                                }
-                                                                texto="Todas as classes"
-                                                            />
-                                                        )}
-                                                    />
-                                                </motion.div>
-                                            )}
+                                        {!isSecretario.current && current !== "alunos" && current !== "membros" && (
+                                            <motion.div
+                                                variants={variantsItem}
+                                                key="relatorio-csv-classes"
+                                                className="relatorio-csv__input"
+                                            >
+                                                <p className="relatorio-csv__input--title">classes</p>
+                                                <Controller
+                                                    control={control}
+                                                    name="classes"
+                                                    render={({ field }) => (
+                                                        <MultiSelectDropdown
+                                                            lista={classesMemo}
+                                                            currentListIds={field.value || []}
+                                                            onChange={(v) => field.onChange(v)}
+                                                            texto="Todas as classes"
+                                                        />
+                                                    )}
+                                                />
+                                            </motion.div>
+                                        )}
                                     </div>
 
-                                    <motion.div
-                                        variants={variantsItem}
-                                        className="relatorio-csv__buttons"
-                                    >
-                                        <div className="relatorios-graficos__csv">
+                                    <motion.div variants={variantsItem} className="relatorio-csv__buttons">
+                                        <div className="relatorio-csv__button relatorio-csv__button--ver-previa ">
                                             <button
                                                 title="Ver Prévia"
                                                 type="submit"
-                                                onClick={() =>
-                                                    setValue("type", "previa")
-                                                }
+                                                onClick={() => setValue("type", "previa")}
                                             >
                                                 <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faTable}
-                                                    />
+                                                    <FontAwesomeIcon icon={faTable} />
                                                 </span>
                                                 Ver Prévia
                                             </button>
@@ -350,14 +279,10 @@ function RelatorioCSV() {
                                             <button
                                                 title="Gerar Arquivo CSV"
                                                 type="submit"
-                                                onClick={() =>
-                                                    setValue("type", "csv")
-                                                }
+                                                onClick={() => setValue("type", "csv")}
                                             >
                                                 <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faFileCsv}
-                                                    />
+                                                    <FontAwesomeIcon icon={faFileCsv} />
                                                 </span>
                                                 Gerar Relatório
                                             </button>
@@ -418,9 +343,7 @@ function RelatorioCSV() {
                                 {previaLinhas!.map((v, i) => (
                                     <tr key={"tr" + i}>
                                         {previaColunas.map((c, ind) => (
-                                            <td key={"td" + ind}>
-                                                {v[c] || "-"}
-                                            </td>
+                                            <td key={"td" + ind}>{v[c] || "-"}</td>
                                         ))}
                                     </tr>
                                 ))}
@@ -431,8 +354,7 @@ function RelatorioCSV() {
                     !!previaColunas && (
                         <div className="relatorio-csv__vazio">
                             <p>
-                                Nenhum resultado encontrado. Faça uma nova
-                                consulta!
+                                Nenhum resultado encontrado. Faça uma nova consulta!
                                 <span>
                                     <FontAwesomeIcon icon={faFaceSmileBeam} />
                                 </span>

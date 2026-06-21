@@ -30,6 +30,7 @@ function ResumoChamada({
     const ofertaDinheiro = useWatch({ name: "ofertaDinheiro", control });
     const missoesPix = useWatch({ name: "missoesPix", control });
     const missoesDinheiro = useWatch({ name: "missoesDinheiro", control });
+
     const totalMatriculados = useWatch({ name: "totalMatriculados", control });
 
     const dadosProcessados = useMemo(() => {

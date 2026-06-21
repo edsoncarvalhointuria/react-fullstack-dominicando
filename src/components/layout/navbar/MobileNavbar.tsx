@@ -38,8 +38,7 @@ const NotificacaoAluno = ({
         <div className="mobile-notificacao__aluno">
             {data === "hoje" ? (
                 <p>
-                    Hoje é aniversário de <strong>{aluno.alunoNome}</strong>.
-                    Não esqueça de parabenizar!
+                    Hoje é aniversário de <strong>{aluno.alunoNome}</strong>. Não esqueça de parabenizar!
                 </p>
             ) : data === "amanhã" ? (
                 <p>
@@ -136,13 +135,7 @@ const NotificaoContainer = ({
                 </div>
                 <div className="mobile-notificacao__alunos">
                     {notificacoes.map((v) => {
-                        return (
-                            <NotificacaoAluno
-                                key={v.alunoId}
-                                aluno={v}
-                                onRemoveItem={onRemoveItem}
-                            />
-                        );
+                        return <NotificacaoAluno key={v.alunoId} aluno={v} onRemoveItem={onRemoveItem} />;
                     })}
                 </div>
             </motion.div>
@@ -167,8 +160,7 @@ function MobileNavbar({
     const [openAlert, setOpenAlert] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const $header = useRef<HTMLDivElement>(null);
-    const { notificacoes, fetchNotificacoes, removerNotificacoes } =
-        useDataContext();
+    const { notificacoes, fetchNotificacoes, removerNotificacoes } = useDataContext();
     useEffect(() => {
         if (!openMenu) {
             setShowDropdown(false);
@@ -183,9 +175,7 @@ function MobileNavbar({
             animate={"visible"}
         >
             <button
-                className={`header-mobile__hamburguer ${
-                    openMenu ? "header-mobile__hamburguer--open" : ""
-                }`}
+                className={`header-mobile__hamburguer ${openMenu ? "header-mobile__hamburguer--open" : ""}`}
                 onClick={() => {
                     setOpenMenu((v) => !v);
                     setOpenAlert(false);
@@ -198,13 +188,20 @@ function MobileNavbar({
                 <span></span>
             </button>
 
-            <Link to={"/dashboard"} className="header-mobile__img">
-                <motion.img
-                    variants={variantsItens}
-                    src="/logo-atualizada.svg"
-                    alt="Logo Domicando"
-                />
-            </Link>
+            <motion.div
+                className="header-mobile__img"
+                whileTap={{ rotate: 360, scale: 0.9 }}
+                transition={{ ease: "backOut", duration: 0.5 }}
+            >
+                <Link to={"/dashboard"} className="header-mobile__img">
+                    <motion.img
+                        variants={variantsItens}
+                        transition={{ ease: "backOut", duration: 0.7 }}
+                        src="/logo-atualizada.svg"
+                        alt="Logo Domicando"
+                    />
+                </Link>
+            </motion.div>
 
             <AnimatePresence>
                 {openMenu && (
@@ -230,12 +227,8 @@ function MobileNavbar({
                             }}
                         >
                             <div className="nav-mobile__conta">
-                                <p className="nav-mobile__conta--nome">
-                                    Olá, {userName}!
-                                </p>
-                                <p className="nav-mobile__conta--email">
-                                    {userEmail}
-                                </p>
+                                <p className="nav-mobile__conta--nome">Olá, {userName}!</p>
+                                <p className="nav-mobile__conta--email">{userEmail}</p>
 
                                 <div className="nav-mobile__conta--links">
                                     <Link
@@ -260,17 +253,10 @@ function MobileNavbar({
                             <ul className="nav-mobile__links">
                                 {OPCOES.map((v, i) =>
                                     v.dropdown ? (
-                                        <motion.li
-                                            key={v.texto + i}
-                                            onTap={() =>
-                                                setShowDropdown((v) => !v)
-                                            }
-                                        >
+                                        <motion.li key={v.texto + i} onTap={() => setShowDropdown((v) => !v)}>
                                             <p className="nav-mobile__link--dropdown">
                                                 {v.texto}
-                                                <FontAwesomeIcon
-                                                    icon={faCaretDown}
-                                                />
+                                                <FontAwesomeIcon icon={faCaretDown} />
                                             </p>
 
                                             <AnimatePresence>
@@ -296,34 +282,23 @@ function MobileNavbar({
                                                             setOpenMenu(false);
                                                         }}
                                                     >
-                                                        {v.dropdown.map(
-                                                            (d, i) => (
-                                                                <NavLink
-                                                                    key={
-                                                                        d.texto +
-                                                                        i
+                                                        {v.dropdown.map((d, i) => (
+                                                            <NavLink
+                                                                key={d.texto + i}
+                                                                to={d.caminho!}
+                                                                className={({ isActive }) => {
+                                                                    if (isActive) {
+                                                                        $header.current?.classList.add(
+                                                                            "dropdown-active",
+                                                                        );
+                                                                        return "nav-mobile__link nav-mobile__link--active";
                                                                     }
-                                                                    to={
-                                                                        d.caminho!
-                                                                    }
-                                                                    className={({
-                                                                        isActive,
-                                                                    }) => {
-                                                                        if (
-                                                                            isActive
-                                                                        ) {
-                                                                            $header.current?.classList.add(
-                                                                                "dropdown-active",
-                                                                            );
-                                                                            return "nav-mobile__link nav-mobile__link--active";
-                                                                        }
-                                                                        return "nav-mobile__link";
-                                                                    }}
-                                                                >
-                                                                    {d.texto}
-                                                                </NavLink>
-                                                            ),
-                                                        )}
+                                                                    return "nav-mobile__link";
+                                                                }}
+                                                            >
+                                                                {d.texto}
+                                                            </NavLink>
+                                                        ))}
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>
@@ -339,9 +314,7 @@ function MobileNavbar({
                                                 to={v.caminho!}
                                                 className={({ isActive }) => {
                                                     if (isActive) {
-                                                        $header.current?.classList.remove(
-                                                            "dropdown-active",
-                                                        );
+                                                        $header.current?.classList.remove("dropdown-active");
                                                         return "nav-mobile__link nav-mobile__link--active";
                                                     }
                                                     return "nav-mobile__link";
@@ -349,9 +322,7 @@ function MobileNavbar({
                                             >
                                                 {v.icon && (
                                                     <span>
-                                                        <FontAwesomeIcon
-                                                            icon={v.icon}
-                                                        />
+                                                        <FontAwesomeIcon icon={v.icon} />
                                                     </span>
                                                 )}
                                                 <span>{v.texto}</span>
@@ -362,19 +333,13 @@ function MobileNavbar({
                             </ul>
 
                             <motion.div whileTap={{ scale: 0.95 }}>
-                                <button
-                                    className="nav-mobile__sair"
-                                    onClick={logout}
-                                >
+                                <button className="nav-mobile__sair" onClick={logout}>
                                     Sair
                                 </button>
                             </motion.div>
                         </motion.nav>
 
-                        <div
-                            className="header-mobile--nav-close"
-                            onClick={() => setOpenMenu(false)}
-                        ></div>
+                        <div className="header-mobile--nav-close" onClick={() => setOpenMenu(false)}></div>
                     </>
                 )}
             </AnimatePresence>
@@ -387,9 +352,7 @@ function MobileNavbar({
                 }}
             >
                 <FontAwesomeIcon
-                    className={`header-mobile__notificacao ${
-                        openAlert ? "header-mobile__notificacao--open" : ""
-                    }`}
+                    className={`header-mobile__notificacao ${openAlert ? "header-mobile__notificacao--open" : ""}`}
                     icon={faBell}
                 />
 

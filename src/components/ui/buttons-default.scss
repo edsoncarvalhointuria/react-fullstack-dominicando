@@ -1,0 +1,66 @@
+@use "@/styles/variables" as v;
+@use "sass:color";
+
+.buttons-default {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    button {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 0.8rem;
+        font-size: 1.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease-out;
+
+        &:active {
+            transform: scale(0.99);
+        }
+
+        span {
+            transition: ease-in-out 0.3s all;
+        }
+    }
+
+    &--cadastro {
+        background-color: v.$cor-primaria-itens;
+        color: white;
+
+        &:disabled {
+            background-color: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        &:hover:not(:disabled) {
+            background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
+            transform: scale(1.03);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+
+            & .buttons-default--cadastro--animation {
+                transform: scale(1.2) rotate(90deg);
+            }
+        }
+    }
+    &--csv {
+        background-color: v.$cor-primaria-fundo;
+        color: v.$cor-primaria-texto;
+        border: 1px solid #d1d5db;
+
+        &:disabled:not(:disabled) {
+            background-color: #d1d5db;
+            cursor: not-allowed;
+        }
+        &:hover {
+            transform: scale(1.03);
+            border-color: v.$cor-primaria-itens;
+            color: v.$cor-primaria-itens;
+            background-color: color.scale(v.$cor-primaria-itens, $alpha: -90%);
+        }
+    }
+}

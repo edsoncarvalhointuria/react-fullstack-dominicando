@@ -9,4 +9,31 @@
         transform: translate(-50%, -50%);
         max-width: 30rem;
     }
+
+    &-video {
+        position: fixed;
+        z-index: 1000;
+        inset: 0;
+        background-color: #f0f0f0;
+
+        &__container {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        &__video {
+            border-radius: 50%;
+            overflow: hidden;
+            width: 30rem;
+
+            video {
+                object-fit: cover;
+            }
+        }
+    }
 }

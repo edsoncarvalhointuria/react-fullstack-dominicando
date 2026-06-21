@@ -1,5 +1,11 @@
 import { limparLocalStorage } from "./adicionarIdsLocalStorage";
 
+const limpar = [
+    "show-coach-pedidos-resposta",
+    "ja-viu-trofeus-coach",
+    "ja-viu-historico-coach",
+    "ja-viu-visao-geral-coach",
+];
 export const limparCache = async () => {
     try {
         limparLocalStorage();
@@ -15,6 +21,8 @@ export const limparCache = async () => {
 
         localStorage.setItem("chace-v1", "true");
 
+        Object.keys(localStorage).forEach((v) => v.startsWith("sistema_") && localStorage.removeItem(v));
+        limpar.forEach((v) => localStorage.removeItem(v));
         setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
         console.error("Erro ao limpar cache:", err);

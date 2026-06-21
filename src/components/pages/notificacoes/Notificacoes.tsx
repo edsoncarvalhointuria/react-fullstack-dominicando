@@ -4,18 +4,14 @@ import { ROLES } from "../../../roles/Roles";
 import "./notificacoes.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMessage, faPaperPlane } from "@fortawesome/free-solid-svg-icons";
-import {
-    Controller,
-    FormProvider,
-    useForm,
-    type FieldError,
-} from "react-hook-form";
+import { Controller, FormProvider, useForm, type FieldError } from "react-hook-form";
 import Dropdown from "../../ui/Dropdown";
 import { AnimatePresence, motion } from "framer-motion";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import AlertModal from "../../ui/AlertModal";
 import Loading from "../../layout/loading/Loading";
 import { useNavigate } from "react-router-dom";
+import { functions } from "../../../utils/firebase";
 
 interface NotificacaoForm {
     destinarios: string;
@@ -40,7 +36,6 @@ const ErroComponent = ({ error }: { error: FieldError | undefined }) => {
     );
 };
 
-const functions = getFunctions();
 const enviarNotificacao = httpsCallable(functions, "enviarNotificacao");
 
 function Notificacoes() {
@@ -114,24 +109,14 @@ function Notificacoes() {
         if (!user) return [];
         let d = DESTINATARIOS;
 
-        if (user.role === ROLES.SUPER_ADMIN)
-            d = d.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE);
-        if (!isSuperAdmin.current)
-            d = d.filter(
-                (v) =>
-                    v.id !== ROLES.PASTOR_PRESIDENTE &&
-                    v.id !== ROLES.SUPER_ADMIN
-            );
-        if (isSecretario.current)
-            d = d.filter(
-                (v) => v.id === "todos" || v.id === ROLES.SECRETARIO_CLASSE
-            );
+        if (user.role === ROLES.SUPER_ADMIN) d = d.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE);
+        if (!isSuperAdmin.current) d = d.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE && v.id !== ROLES.SUPER_ADMIN);
+        if (isSecretario.current) d = d.filter((v) => v.id === "todos" || v.id === ROLES.SECRETARIO_CLASSE);
 
         return d;
     }, [user, DESTINATARIOS]);
     useEffect(() => {
-        if (user && user.role === ROLES.SECRETARIO_CLASSE)
-            navigate("/dashboard");
+        if (user && user.role === ROLES.SECRETARIO_CLASSE) navigate("/dashboard");
     }, [user]);
     if (isLoading) return <Loading />;
     return (
@@ -148,10 +133,7 @@ function Notificacoes() {
 
                 <div className="notificacoes-page__body">
                     <FormProvider {...methods}>
-                        <form
-                            className="notificacoes-page__form"
-                            onSubmit={handleSubmit(onSubmit)}
-                        >
+                        <form className="notificacoes-page__form" onSubmit={handleSubmit(onSubmit)}>
                             <div className="notificacoes-page__dados">
                                 <div className="notificacoes-page__destinatario">
                                     <p>Destinatários</p>
@@ -160,23 +142,17 @@ function Notificacoes() {
                                         control={control}
                                         name="destinarios"
                                         rules={{
-                                            required:
-                                                "O destinatário é obrigatório",
+                                            required: "O destinatário é obrigatório",
                                         }}
                                         render={({ field }) => (
                                             <Dropdown
                                                 current={
-                                                    destinatariosMemo.find(
-                                                        (v) =>
-                                                            v.id === field.value
-                                                    )?.nome || null
+                                                    destinatariosMemo.find((v) => v.id === field.value)?.nome || null
                                                 }
                                                 lista={destinatariosMemo}
                                                 isAll={false}
                                                 selectId={field.value}
-                                                onSelect={(v) =>
-                                                    field.onChange(v?.id)
-                                                }
+                                                onSelect={(v) => field.onChange(v?.id)}
                                                 isErro={!!errors.destinarios}
                                             />
                                         )}
@@ -187,9 +163,7 @@ function Notificacoes() {
 
                                 <div className="notificacoes-page__titulo">
                                     <div className="notificacoes-page__titulo--container">
-                                        <label htmlFor="notificacoes-titulo">
-                                            Título
-                                        </label>
+                                        <label htmlFor="notificacoes-titulo">Título</label>
                                         <input
                                             type="text"
                                             id="notificacoes-titulo"
@@ -199,17 +173,11 @@ function Notificacoes() {
                                                     message: "Título inválido",
                                                 },
                                             })}
-                                            className={
-                                                errors.titulo && "input-error"
-                                            }
+                                            className={errors.titulo && "input-error"}
                                         />
                                         <ErroComponent error={errors.titulo} />
                                     </div>
-                                    <div
-                                        className={`notificacoes-page__qtd ${
-                                            titulo.length > 65 && "qtd-erro"
-                                        }`}
-                                    >
+                                    <div className={`notificacoes-page__qtd ${titulo.length > 65 && "qtd-erro"}`}>
                                         <p>
                                             <span>{titulo.length}</span>/65
                                         </p>
@@ -218,31 +186,20 @@ function Notificacoes() {
 
                                 <div className="notificacoes-page__mensagem">
                                     <div className="notificacoes-page__mensagem--container">
-                                        <label htmlFor="notificacoes-mensagem">
-                                            Mensagem
-                                        </label>
+                                        <label htmlFor="notificacoes-mensagem">Mensagem</label>
                                         <textarea
-                                            className={
-                                                errors.mensagem && "input-error"
-                                            }
+                                            className={errors.mensagem && "input-error"}
                                             id="notificacoes-mensagem"
                                             {...register("mensagem", {
                                                 maxLength: {
                                                     value: 240,
-                                                    message:
-                                                        "Mensagem Inválida",
+                                                    message: "Mensagem Inválida",
                                                 },
                                             })}
                                         ></textarea>
-                                        <ErroComponent
-                                            error={errors.mensagem}
-                                        />
+                                        <ErroComponent error={errors.mensagem} />
                                     </div>
-                                    <div
-                                        className={`notificacoes-page__qtd ${
-                                            mensagem.length > 240 && "qtd-erro"
-                                        }`}
-                                    >
+                                    <div className={`notificacoes-page__qtd ${mensagem.length > 240 && "qtd-erro"}`}>
                                         <p>
                                             <span>{mensagem.length}</span>/240
                                         </p>
@@ -257,10 +214,7 @@ function Notificacoes() {
                                 <div className="notificacoes-page__preview--container">
                                     <div className="notificacoes-page__preview--top">
                                         <div className="notificacoes-page__preview--img">
-                                            <img
-                                                src="/web-app-manifest-192x192.png"
-                                                alt="Logo Dominicando"
-                                            />
+                                            <img src="/web-app-manifest-192x192.png" alt="Logo Dominicando" />
                                         </div>
 
                                         <div className="notificacoes-page__preview--now">

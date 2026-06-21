@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import "./matricula-modal.scss";
-import type {
-    AlunoInterface,
-    CacheAlunoInteface,
-} from "../../interfaces/AlunoInterface";
+import type { AlunoInterface, CacheAlunoInteface } from "../../interfaces/AlunoInterface";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../utils/firebase";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faAddressCard,
-    faPlus,
-    faXmark,
-} from "@fortawesome/free-solid-svg-icons";
+import { faAddressCard, faPlus, faXmark } from "@fortawesome/free-solid-svg-icons";
 import SearchInput from "./SearchInput";
 import { AnimatePresence } from "framer-motion";
 import CadastroAlunoModal from "./CadastroAlunoModal";
@@ -42,10 +35,7 @@ function MatriculaModal({
             (v) =>
                 v.nome_completo.toLowerCase().includes(pesquisa) ||
                 v.contato?.toLocaleLowerCase()?.includes(pesquisa) ||
-                v.data_nascimento
-                    .toDate()
-                    .toLocaleDateString("pt-BR")
-                    .includes(pesquisa),
+                v.data_nascimento.toDate().toLocaleDateString("pt-BR").includes(pesquisa),
         );
         return a;
     }, [alunos, pesquisa]);
@@ -61,16 +51,10 @@ function MatriculaModal({
             return Object.values(a.lista);
         };
         const getMatriculados = async (igrejaId: string, licaoId: string) => {
-            const matriculasColl = doc(
-                db,
-                "cache_matriculas",
-                `${igrejaId}_${licaoId}`,
-            );
+            const matriculasColl = doc(db, "cache_matriculas", `${igrejaId}_${licaoId}`);
             const matriculasSnap = await getDoc(matriculasColl);
             if (!matriculasSnap.exists()) return [];
-            const matriculas = Object.values(
-                (matriculasSnap.data() as CacheMatriculasInterface).lista,
-            );
+            const matriculas = Object.values((matriculasSnap.data() as CacheMatriculasInterface).lista);
 
             return matriculas.map((v) => v.alunoId);
         };
@@ -92,10 +76,7 @@ function MatriculaModal({
                             </span>
                             <h2>Matricular Novo Aluno</h2>
                         </div>
-                        <div
-                            className="matricula-modal__close"
-                            onClick={() => onClose()}
-                        >
+                        <div className="matricula-modal__close" onClick={() => onClose()}>
                             <span>
                                 <FontAwesomeIcon icon={faXmark} />
                             </span>
@@ -118,10 +99,7 @@ function MatriculaModal({
 
                         <div className="matricula-modal__lista">
                             <div className="matricula-modal__lista-pesquisa">
-                                <SearchInput
-                                    texto="Aluno"
-                                    onSearch={(v) => setPesquisa(v)}
-                                />
+                                <SearchInput texto="Aluno" onSearch={setPesquisa} />
                             </div>
 
                             <div className="matricula-modal__alunos">
@@ -145,19 +123,10 @@ function MatriculaModal({
                                                     <tr
                                                         key={v.id}
                                                         className="matricula-modal__aluno"
-                                                        onClick={() =>
-                                                            setAluno(v)
-                                                        }
+                                                        onClick={() => setAluno(v)}
                                                     >
-                                                        <td
-                                                            data-label="Nome"
-                                                            className="matricula-modal__aluno--nome"
-                                                        >
-                                                            <p>
-                                                                {
-                                                                    v.nome_completo
-                                                                }
-                                                            </p>
+                                                        <td data-label="Nome" className="matricula-modal__aluno--nome">
+                                                            <p>{v.nome_completo}</p>
                                                         </td>
 
                                                         <td
@@ -165,32 +134,21 @@ function MatriculaModal({
                                                             className="matricula-modal__aluno--nascimento"
                                                         >
                                                             <p>
-                                                                {v.data_nascimento
-                                                                    .toDate()
-                                                                    .toLocaleDateString(
-                                                                        "pt-BR",
-                                                                    )}
+                                                                {v.data_nascimento.toDate().toLocaleDateString("pt-BR")}
                                                             </p>
                                                         </td>
                                                         <td
                                                             data-label="Contato"
                                                             className="matricula-modal__aluno--contato"
                                                         >
-                                                            <p>
-                                                                {v.contato ||
-                                                                    "-"}
-                                                            </p>
+                                                            <p>{v.contato || "-"}</p>
                                                         </td>
                                                         <td
                                                             data-label="Cadatrar"
                                                             className="matricula-modal__aluno--contato"
                                                         >
                                                             <span>
-                                                                <FontAwesomeIcon
-                                                                    icon={
-                                                                        faPlus
-                                                                    }
-                                                                />
+                                                                <FontAwesomeIcon icon={faPlus} />
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -205,14 +163,10 @@ function MatriculaModal({
                                         <button
                                             className="matricula-modal__cadastrar--button"
                                             title="Cadastrar Novo Aluno"
-                                            onClick={() =>
-                                                setShowCadastradarAluno(true)
-                                            }
+                                            onClick={() => setShowCadastradarAluno(true)}
                                         >
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faPlus}
-                                                />
+                                                <FontAwesomeIcon icon={faPlus} />
                                             </span>
                                             Cadastre um novo aluno
                                         </button>

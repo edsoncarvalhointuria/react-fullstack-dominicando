@@ -1,23 +1,12 @@
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import "./cadastro-aluno-modal.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faCalendar,
-    faChevronDown,
-    faXmark,
-} from "@fortawesome/free-solid-svg-icons";
+import { faCalendar, faChevronDown, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FormProvider, useForm, type FieldError } from "react-hook-form";
 import { useEffect, useState } from "react";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../utils/firebase";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { db, functions } from "../../utils/firebase";
+import { httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import type { TrimestresInterface } from "../../interfaces/TrimestresInterface";
@@ -33,7 +22,6 @@ interface Trimestre {
     numero_trimestre: number;
 }
 
-const functions = getFunctions();
 const atualizarTrimestre = httpsCallable(functions, "atualizarTrimestre");
 
 const variantsForm: Variants = {
@@ -122,17 +110,13 @@ function AlterarTrimestre({
             } as TrimestresInterface;
 
             const numero_aulas =
-                (trimestre.data_fim.toDate().getTime() -
-                    trimestre.data_inicio.toDate().getTime()) /
+                (trimestre.data_fim.toDate().getTime() - trimestre.data_inicio.toDate().getTime()) /
                     (1000 * 60 * 60 * 24) /
                     7 +
                 1;
 
             reset({
-                data_inicio: trimestre.data_inicio
-                    .toDate()
-                    .toISOString()
-                    .split("T")[0],
+                data_inicio: trimestre.data_inicio.toDate().toISOString().split("T")[0],
                 numero_trimestre: trimestre.numero_trimestre,
                 numero_aulas,
             });
@@ -189,101 +173,63 @@ function AlterarTrimestre({
                             <FontAwesomeIcon icon={faCalendar} />
                             <h2>Atualizar Trimestre</h2>
                         </div>
-                        <button
-                            className="cadastro-aluno__close"
-                            onClick={onCancel}
-                        >
+                        <button className="cadastro-aluno__close" onClick={onCancel}>
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
 
                     <div className="novo-trimestre__body">
                         <FormProvider {...methods}>
-                            <form
-                                className="novo-trimestre__form"
-                                onSubmit={handleSubmit(onSubmit)}
-                            >
+                            <form className="novo-trimestre__form" onSubmit={handleSubmit(onSubmit)}>
                                 <div className="novo-trimestre__input-group">
                                     <div className="novo-trimestre__input">
-                                        <label htmlFor="data_inicio">
-                                            Data de Início
-                                        </label>
+                                        <label htmlFor="data_inicio">Data de Início</label>
                                         <input
                                             type="date"
                                             id="data_inicio"
-                                            className={
-                                                errors.data_inicio
-                                                    ? "input-error"
-                                                    : ""
-                                            }
+                                            className={errors.data_inicio ? "input-error" : ""}
                                             {...register("data_inicio", {
-                                                required:
-                                                    "A data de início é obrigatória.",
+                                                required: "A data de início é obrigatória.",
                                                 validate: (value) => {
                                                     if (!value) return true;
-                                                    const dia = new Date(
-                                                        value,
-                                                    ).getUTCDay();
-                                                    return (
-                                                        dia === 0 ||
-                                                        "A data de início precisa ser um domingo!"
-                                                    );
+                                                    const dia = new Date(value).getUTCDay();
+                                                    return dia === 0 || "A data de início precisa ser um domingo!";
                                                 },
                                             })}
                                         />
-                                        <ErroComponent
-                                            field={errors.data_inicio}
-                                        />
+                                        <ErroComponent field={errors.data_inicio} />
                                     </div>
                                     <div className="novo-trimestre__input">
-                                        <label htmlFor="novo-trimestre-trimestre">
-                                            Nº do Trimestre
-                                        </label>
+                                        <label htmlFor="novo-trimestre-trimestre">Nº do Trimestre</label>
                                         <input
                                             type="number"
                                             step={1}
                                             id="novo-trimestre-trimestre"
-                                            className={
-                                                errors.numero_trimestre
-                                                    ? "input-error"
-                                                    : ""
-                                            }
+                                            className={errors.numero_trimestre ? "input-error" : ""}
                                             {...register("numero_trimestre", {
-                                                required:
-                                                    "O Nº do trimestre é obrigatório.",
+                                                required: "O Nº do trimestre é obrigatório.",
                                                 min: {
                                                     value: 1,
-                                                    message:
-                                                        "Número do trimestre está inválido",
+                                                    message: "Número do trimestre está inválido",
                                                 },
                                                 max: {
                                                     value: 4,
-                                                    message:
-                                                        "Número do trimestre está inválido",
+                                                    message: "Número do trimestre está inválido",
                                                 },
                                                 valueAsNumber: true,
                                             })}
                                         />
-                                        <ErroComponent
-                                            field={errors.numero_trimestre}
-                                        />
+                                        <ErroComponent field={errors.numero_trimestre} />
                                     </div>
                                 </div>
                                 <div className="novo-trimestre__input">
-                                    <label htmlFor="numero_aulas">
-                                        Quantidade de Aulas
-                                    </label>
+                                    <label htmlFor="numero_aulas">Quantidade de Aulas</label>
                                     <input
                                         type="number"
                                         id="numero_aulas"
-                                        className={
-                                            errors.numero_aulas
-                                                ? "input-error"
-                                                : ""
-                                        }
+                                        className={errors.numero_aulas ? "input-error" : ""}
                                         {...register("numero_aulas", {
-                                            required:
-                                                "A quantidade de aulas é obrigatória",
+                                            required: "A quantidade de aulas é obrigatória",
                                             valueAsNumber: true,
                                             min: {
                                                 value: 1,
@@ -291,16 +237,10 @@ function AlterarTrimestre({
                                             },
                                         })}
                                     />
-                                    <ErroComponent
-                                        field={errors.numero_aulas}
-                                    />
+                                    <ErroComponent field={errors.numero_aulas} />
                                 </div>
 
-                                <ListaDeAulas
-                                    control={control}
-                                    nameAulas="numero_aulas"
-                                    nameData="data_inicio"
-                                />
+                                <ListaDeAulas control={control} nameAulas="numero_aulas" nameData="data_inicio" />
 
                                 <AnimatePresence>
                                     {licoes.length ? (
@@ -308,20 +248,14 @@ function AlterarTrimestre({
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0 }}
-                                            onTap={() =>
-                                                setIsOpenLicoes((v) => !v)
-                                            }
-                                            className={`alterar-trimestre__licoes ${
-                                                isOpenLicoes ? "is-open" : ""
-                                            }`}
+                                            onTap={() => setIsOpenLicoes((v) => !v)}
+                                            className={`alterar-trimestre__licoes ${isOpenLicoes ? "is-open" : ""}`}
                                             key={"licoes-aulas"}
                                         >
                                             <h3>
                                                 Lições
                                                 <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faChevronDown}
-                                                    />
+                                                    <FontAwesomeIcon icon={faChevronDown} />
                                                 </span>
                                             </h3>
                                             <AnimatePresence>
@@ -346,19 +280,13 @@ function AlterarTrimestre({
                                                         className="alterar-trimestre__licoes-lista"
                                                     >
                                                         {licoes.map((v) => (
-                                                            <motion.li
-                                                                key={v.id}
-                                                            >
+                                                            <motion.li key={v.id}>
                                                                 <div className="alterar-trimestre__licoes-lista__infos">
                                                                     <p className="alterar-trimestre__licoes-lista__info">
-                                                                        {
-                                                                            v.igrejaNome
-                                                                        }
+                                                                        {v.igrejaNome}
                                                                     </p>
                                                                     <p className="alterar-trimestre__licoes-lista__info">
-                                                                        {
-                                                                            v.classeNome
-                                                                        }
+                                                                        {v.classeNome}
                                                                     </p>
                                                                 </div>
                                                                 <motion.button
@@ -369,8 +297,7 @@ function AlterarTrimestre({
                                                                         )
                                                                     }
                                                                 >
-                                                                    Ir para
-                                                                    lição
+                                                                    Ir para lição
                                                                 </motion.button>
                                                             </motion.li>
                                                         ))}
@@ -381,17 +308,13 @@ function AlterarTrimestre({
                                     ) : (
                                         <div className="alterar-trimestre__licoes">
                                             <p className="alterar-trimestre__licoes--vazio">
-                                                Não existem lições registradas
-                                                com essa data
+                                                Não existem lições registradas com essa data
                                             </p>
                                         </div>
                                     )}
                                 </AnimatePresence>
 
-                                <motion.div
-                                    variants={variantsItem}
-                                    className="novo-trimestre__actions"
-                                >
+                                <motion.div variants={variantsItem} className="novo-trimestre__actions">
                                     <button
                                         type="button"
                                         className="button-secondary"
@@ -402,19 +325,11 @@ function AlterarTrimestre({
                                     </button>
 
                                     {licoes.length ? (
-                                        <button
-                                            type="submit"
-                                            className="button-primary"
-                                            disabled={isEnviando}
-                                        >
+                                        <button type="submit" className="button-primary" disabled={isEnviando}>
                                             Atualizar Trimestre
                                         </button>
                                     ) : (
-                                        <button
-                                            type="submit"
-                                            className="button-delete"
-                                            disabled={isEnviando}
-                                        >
+                                        <button type="submit" className="button-delete" disabled={isEnviando}>
                                             Deletar Trimestre
                                         </button>
                                     )}

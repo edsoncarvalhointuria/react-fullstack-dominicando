@@ -46,6 +46,7 @@ interface ModalCsvProps {
     listaColunas: string[];
     firebaseFunction: (value: any) => Promise<{ data: any }>;
     igreja?: boolean;
+    igrejaId?: string;
 }
 
 function downloadModelo(listaColunas: string[]) {
@@ -70,6 +71,7 @@ function ImportarCSVModal({
     listaColunas,
     firebaseFunction,
     onSave,
+    igrejaId,
     igreja = false,
 }: ModalCsvProps) {
     const [isEnviando, setIsEnviando] = useState(false);
@@ -86,7 +88,11 @@ function ImportarCSVModal({
     const { isSecretario } = useAuthContext();
     const { igrejas } = useDataContext();
 
-    const methods = useForm<CSVForm>();
+    const methods = useForm<CSVForm>({
+        defaultValues: {
+            igrejaId: igrejas.find((v) => v.id === igrejaId)?.id,
+        },
+    });
     const {
         handleSubmit,
         register,
@@ -145,10 +151,8 @@ function ImportarCSVModal({
                             onCancel: onCancel,
                             cancelText: "Cancelar",
                             confirmText: "Ok",
-                            icon: (
-                                <FontAwesomeIcon icon={faTriangleExclamation} />
-                            ),
-                        })
+                            icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
+                        }),
                     )
                     .finally(() => setIsEnviando(false));
             },
@@ -179,11 +183,7 @@ function ImportarCSVModal({
                 animate={"visible"}
                 exit={"exit"}
             >
-                <motion.div
-                    className="importar-csv"
-                    variants={variantsModal}
-                    onClick={(v) => v.stopPropagation()}
-                >
+                <motion.div className="importar-csv" variants={variantsModal} onClick={(v) => v.stopPropagation()}>
                     <LoadingModal isEnviando={isEnviando} />
                     <div className="importar-csv__header">
                         <div className="importar-csv__title">
@@ -193,10 +193,7 @@ function ImportarCSVModal({
                             <h2>Importar CSV</h2>
                         </div>
 
-                        <button
-                            className="importar-csv__close"
-                            onClick={() => onCancel()}
-                        >
+                        <button className="importar-csv__close" onClick={() => onCancel()}>
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
@@ -206,12 +203,9 @@ function ImportarCSVModal({
                             <div className="importar-csv__modelo--aviso">
                                 <p>
                                     <span>
-                                        <FontAwesomeIcon
-                                            icon={faCircleExclamation}
-                                        />
+                                        <FontAwesomeIcon icon={faCircleExclamation} />
                                     </span>
-                                    Atenção: os nomes das colunas não podem ser
-                                    alterados.
+                                    Atenção: os nomes das colunas não podem ser alterados.
                                 </p>
                             </div>
                             <motion.button
@@ -227,10 +221,7 @@ function ImportarCSVModal({
                         </div>
 
                         <FormProvider {...methods}>
-                            <form
-                                className="importar-csv__form"
-                                onSubmit={handleSubmit(onSubmit)}
-                            >
+                            <form className="importar-csv__form" onSubmit={handleSubmit(onSubmit)}>
                                 {igreja && (
                                     <div className="importar-csv__input importar-csv__input--igreja">
                                         <p>Igreja:</p>
@@ -238,22 +229,13 @@ function ImportarCSVModal({
                                             control={control}
                                             name="igrejaId"
                                             rules={{
-                                                required:
-                                                    "A igreja é obrigatória",
+                                                required: "A igreja é obrigatória",
                                             }}
                                             render={({ field }) => (
                                                 <Dropdown
                                                     lista={igrejas}
-                                                    current={
-                                                        igrejas.find(
-                                                            (v) =>
-                                                                v.id ===
-                                                                field.value
-                                                        )?.nome || null
-                                                    }
-                                                    onSelect={(v) =>
-                                                        field.onChange(v?.id)
-                                                    }
+                                                    current={igrejas.find((v) => v.id === field.value)?.nome || null}
+                                                    onSelect={(v) => field.onChange(v?.id)}
                                                     isAll={false}
                                                     isErro={!!errors.igrejaId}
                                                     selectId={field.value}
@@ -270,28 +252,18 @@ function ImportarCSVModal({
                                 <div className="importar-csv__input">
                                     <label htmlFor="importar-csv-file">
                                         <span>
-                                            <FontAwesomeIcon
-                                                icon={faFileCirclePlus}
-                                            />
+                                            <FontAwesomeIcon icon={faFileCirclePlus} />
                                         </span>
-                                        {arquivo && arquivo[0]
-                                            ? arquivo[0].name
-                                            : "Clique aqui para adicionar o CSV"}
+                                        {arquivo && arquivo[0] ? arquivo[0].name : "Clique aqui para adicionar o CSV"}
                                     </label>
                                     <input
                                         type="file"
                                         id="importar-csv-file"
                                         accept=".csv"
                                         {...register("csv", {
-                                            required:
-                                                "É necessário anexar o arquivo.",
+                                            required: "É necessário anexar o arquivo.",
                                             validate: (v: any) => {
-                                                return (
-                                                    v[0]?.type?.includes(
-                                                        "csv"
-                                                    ) ||
-                                                    "O arquivo precisa ser um CSV"
-                                                );
+                                                return v[0]?.type?.includes("csv") || "O arquivo precisa ser um CSV";
                                             },
                                         })}
                                     />

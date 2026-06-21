@@ -16,18 +16,18 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Dropdown from "../../ui/Dropdown";
 import { useEffect, useState, type ReactNode } from "react";
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { db, functions } from "../../../utils/firebase";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useAuthContext } from "../../../context/AuthContext";
 import { faPix } from "@fortawesome/free-brands-svg-icons";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import AlertModal from "../../ui/AlertModal";
 import ConfirmacaoModal from "../../ui/ConfirmacaoModal";
 import type { TrimestresInterface } from "../../../interfaces/TrimestresInterface";
 import type { RelatoriosTrimestresInterface } from "../../../interfaces/RelatoriosTrimestresInterface";
 import RelatorioTrimestralDownload from "./RelatorioTrimestralDownload";
+import LoadingVideo from "../../layout/loading/LoadingVideo";
 
 interface ResumoFinal {
     total: number;
@@ -129,16 +129,9 @@ const baixarZip = async (nome: string, base64: any) => {
     URL.revokeObjectURL(url);
 };
 
-const functions = getFunctions();
-const getRelatorioTrimestral = httpsCallable(
-    functions,
-    "getRelatorioTrimestral",
-);
+const getRelatorioTrimestral = httpsCallable(functions, "getRelatorioTrimestral");
 const desbloquearRelatorio = httpsCallable(functions, "desbloquearRelatorio");
-const baixarTodosComprovantes = httpsCallable(
-    functions,
-    "baixarTodosComprovantes",
-);
+const baixarTodosComprovantes = httpsCallable(functions, "baixarTodosComprovantes");
 
 const Acordeao = ({
     children,
@@ -161,18 +154,14 @@ const Acordeao = ({
         <div className={`acordeao ${className ? className : ""}`}>
             <motion.div className="acordeao__header" onTap={onOpen}>
                 <div className="acordeao__title">
-                    <motion.span
-                        animate={isOpen ? { rotate: 90 } : { rotate: 0 }}
-                    >
+                    <motion.span animate={isOpen ? { rotate: 90 } : { rotate: 0 }}>
                         <FontAwesomeIcon icon={faAngleRight} />
                     </motion.span>
 
                     {typeof title === "string" ? <h3>{title}</h3> : title}
                 </div>
 
-                <div className="acordeao__header-total">
-                    {typeof value === "string" ? <h3>{value}</h3> : value}
-                </div>
+                <div className="acordeao__header-total">{typeof value === "string" ? <h3>{value}</h3> : value}</div>
             </motion.div>
             <AnimatePresence>
                 {tableMes && !isOpen && (
@@ -206,17 +195,13 @@ const AcordeaoLabelValores = ({
 }) => {
     return (
         <div className="acordeao__valores">
-            <div
-                className={`acordeao__valor ${isSimples ? "acordeao__valor--simples" : ""}`}
-            >
+            <div className={`acordeao__valor ${isSimples ? "acordeao__valor--simples" : ""}`}>
                 <span>
                     <FontAwesomeIcon icon={faEarthAfrica} />
                 </span>
                 <p>{totalMissoes.toLocaleString("pt-BR")}</p>
             </div>
-            <div
-                className={`acordeao__valor ${isSimples ? "acordeao__valor--simples" : ""}`}
-            >
+            <div className={`acordeao__valor ${isSimples ? "acordeao__valor--simples" : ""}`}>
                 <span>
                     <FontAwesomeIcon icon={faCoins} />
                 </span>
@@ -240,8 +225,7 @@ const AcordeaoTableMes = ({
     ofertaDinheiro: number;
     totalOferta: number;
 }) => {
-    const converter = (numero: number) =>
-        numero.toLocaleString("pt-BR", { currency: "BRL", style: "currency" });
+    const converter = (numero: number) => numero.toLocaleString("pt-BR", { currency: "BRL", style: "currency" });
     return (
         <div className="acordeao__grid">
             <div className="acordeao__grid-item">
@@ -335,15 +319,7 @@ const AcordeaoTotal = ({
         style: "currency",
     } as any;
 
-    const Total = ({
-        total,
-        isPix,
-        isTotal = false,
-    }: {
-        total: string;
-        isPix: boolean;
-        isTotal?: boolean;
-    }) => (
+    const Total = ({ total, isPix, isTotal = false }: { total: string; isPix: boolean; isTotal?: boolean }) => (
         <div className={`${cssClass}__valor`}>
             {isTotal ? (
                 <h5>{total}</h5>
@@ -362,40 +338,13 @@ const AcordeaoTotal = ({
     return (
         <div className={`${cssClass}__total`}>
             <h4>{title}</h4>
-            <Total
-                isPix={false}
-                total={data[`total_${key}_dinheiro`].toLocaleString(
-                    "pt-BR",
-                    typeCurrency,
-                )}
-            />
-            <Total
-                isPix
-                total={data[`total_${key}_pix`].toLocaleString(
-                    "pt-BR",
-                    typeCurrency,
-                )}
-            />
-            <Total
-                isPix
-                isTotal
-                total={data[`total_${key}`].toLocaleString(
-                    "pt-BR",
-                    typeCurrency,
-                )}
-            />
+            <Total isPix={false} total={data[`total_${key}_dinheiro`].toLocaleString("pt-BR", typeCurrency)} />
+            <Total isPix total={data[`total_${key}_pix`].toLocaleString("pt-BR", typeCurrency)} />
+            <Total isPix isTotal total={data[`total_${key}`].toLocaleString("pt-BR", typeCurrency)} />
         </div>
     );
 };
-const AcordeaoTotais = ({
-    data,
-    isClasse,
-    onEdit,
-}: {
-    data: any;
-    isClasse: boolean;
-    onEdit?: () => void;
-}) => (
+const AcordeaoTotais = ({ data, isClasse, onEdit }: { data: any; isClasse: boolean; onEdit?: () => void }) => (
     <div className={`relatorio-${isClasse ? "classes" : "geral"}__totais`}>
         <AcordeaoTotal isMissao isClasse={isClasse} data={data} />
         <AcordeaoTotal isMissao={false} isClasse={isClasse} data={data} />
@@ -407,25 +356,15 @@ const AcordeaoTotais = ({
         )}
     </div>
 );
-const AcordeaoEnviado = ({
-    relatorio,
-}: {
-    relatorio: RelatoriosTrimestresInterface;
-}) => {
+const AcordeaoEnviado = ({ relatorio }: { relatorio: RelatoriosTrimestresInterface }) => {
     const [isOpen, setIsOpen] = useState(false);
     const data = relatorio.data_envio as any;
     return (
         <div className="relatorio-trimestral__enviado">
             <motion.div className="relatorio-enviado">
-                <motion.div
-                    className="relatorio-enviado__header"
-                    onTap={() => setIsOpen((v) => !v)}
-                >
+                <motion.div className="relatorio-enviado__header" onTap={() => setIsOpen((v) => !v)}>
                     <div className="relatorio-enviado__title">
-                        <motion.span
-                            initial={{ rotate: 0 }}
-                            animate={{ rotate: isOpen ? 90 : 0 }}
-                        >
+                        <motion.span initial={{ rotate: 0 }} animate={{ rotate: isOpen ? 90 : 0 }}>
                             <FontAwesomeIcon icon={faAngleRight} />
                         </motion.span>
                         <h3>Enviado</h3>
@@ -449,37 +388,25 @@ const AcordeaoEnviado = ({
                             <div className="relatorio-enviado__infos">
                                 <div className="relatorio-enviado__info">
                                     <p>
-                                        Assinado por:{" "}
-                                        <strong>
-                                            {relatorio.assinado_por.nome}
-                                        </strong>
+                                        Assinado por: <strong>{relatorio.assinado_por.nome}</strong>
                                     </p>
                                 </div>
                                 <div className="relatorio-enviado__info">
                                     <p>
-                                        Email:{" "}
-                                        <strong>
-                                            {relatorio.assinado_por.email}
-                                        </strong>
+                                        Email: <strong>{relatorio.assinado_por.email}</strong>
                                     </p>
                                 </div>
                                 {relatorio.descricao_missao && (
                                     <div className="relatorio-enviado__info">
                                         <p>
-                                            Justificativa Missões:{" "}
-                                            <strong>
-                                                {relatorio.descricao_missao}
-                                            </strong>
+                                            Justificativa Missões: <strong>{relatorio.descricao_missao}</strong>
                                         </p>
                                     </div>
                                 )}
                                 {relatorio.descricao_oferta && (
                                     <div className="relatorio-enviado__info">
                                         <p>
-                                            Justificativa Ofertas:{" "}
-                                            <strong>
-                                                {relatorio.descricao_oferta}
-                                            </strong>
+                                            Justificativa Ofertas: <strong>{relatorio.descricao_oferta}</strong>
                                         </p>
                                     </div>
                                 )}
@@ -521,9 +448,7 @@ const AcordeaoClasse = ({
 
                 <div className="relatorio-classes__imgs">
                     <div className="relatorio-classes__imgs--add">
-                        <label htmlFor={`adicionar-img-${classe.id}`}>
-                            Comprovantes
-                        </label>
+                        <label htmlFor={`adicionar-img-${classe.id}`}>Comprovantes</label>
                     </div>
 
                     {classe.comprovantes.map((v, i) => (
@@ -546,26 +471,17 @@ const AcordeaoDia = ({ data }: { data: DadosAcordeao }) => {
     const [isOpenClasse, setIsOpenClasse] = useState(-1);
     const [isOpen, setIsOpen] = useState(false);
     const navigate = useNavigate();
-    const irParaAula = (
-        igrejaId: string,
-        id: string,
-        licaoId: string,
-        aula: number,
-    ) => navigate(`/aulas/${igrejaId}/${id}/${licaoId}/${aula}`);
+    const irParaAula = (igrejaId: string, id: string, licaoId: string, aula: number) =>
+        navigate(`/aulas/${igrejaId}/${id}/${licaoId}/${aula}`);
 
     return (
         <Acordeao
             title={`${data.aula} (${data.data})`}
             value={
                 data.realizada ? (
-                    <AcordeaoLabelValores
-                        totalMissoes={data.total_missoes}
-                        totalOfertas={data.total_ofertas}
-                    />
+                    <AcordeaoLabelValores totalMissoes={data.total_missoes} totalOfertas={data.total_ofertas} />
                 ) : (
-                    <p className="relatorio-geral__nao-realizada">
-                        Sem registro
-                    </p>
+                    <p className="relatorio-geral__nao-realizada">Sem registro</p>
                 )
             }
             onOpen={() => setIsOpen((v) => !v)}
@@ -587,25 +503,11 @@ const AcordeaoDia = ({ data }: { data: DadosAcordeao }) => {
                         {data.classes
                             .sort((a, b) => a.nome.localeCompare(b.nome))
                             .map((v, i) => (
-                                <motion.div
-                                    key={v.id}
-                                    onClick={() =>
-                                        setIsOpenClasse((c) =>
-                                            c === i ? -1 : i,
-                                        )
-                                    }
-                                >
+                                <motion.div key={v.id} onClick={() => setIsOpenClasse((c) => (c === i ? -1 : i))}>
                                     <AcordeaoClasse
                                         classe={v}
                                         open={isOpenClasse === i}
-                                        onEdit={() =>
-                                            irParaAula(
-                                                v.igrejaId,
-                                                v.id,
-                                                v.licaoId,
-                                                data.aula,
-                                            )
-                                        }
+                                        onEdit={() => irParaAula(v.igrejaId, v.id, v.licaoId, data.aula)}
                                     />
                                 </motion.div>
                             ))}
@@ -616,15 +518,7 @@ const AcordeaoDia = ({ data }: { data: DadosAcordeao }) => {
     );
 };
 
-const RelatorioValor = ({
-    isPix,
-    value,
-    isTotal = false,
-}: {
-    isPix: boolean;
-    value: string;
-    isTotal?: boolean;
-}) => {
+const RelatorioValor = ({ isPix, value, isTotal = false }: { isPix: boolean; value: string; isTotal?: boolean }) => {
     return (
         <div className="relatorio-trimestral__resumo-valor">
             {isTotal ? (
@@ -641,13 +535,7 @@ const RelatorioValor = ({
     );
 };
 
-const RelatorioTotal = ({
-    isMissao,
-    resumoFinal,
-}: {
-    isMissao: boolean;
-    resumoFinal: ResumoFinal;
-}) => {
+const RelatorioTotal = ({ isMissao, resumoFinal }: { isMissao: boolean; resumoFinal: ResumoFinal }) => {
     const key = isMissao ? "missoes" : "ofertas";
     const typeCurrency = {
         currency: "BRL",
@@ -674,25 +562,13 @@ const RelatorioTotal = ({
             </h4>
             <RelatorioValor
                 isPix={false}
-                value={resumoFinal[`total_${key}_dinheiro`].toLocaleString(
-                    "pt-BR",
-                    typeCurrency,
-                )}
+                value={resumoFinal[`total_${key}_dinheiro`].toLocaleString("pt-BR", typeCurrency)}
             />
-            <RelatorioValor
-                isPix
-                value={resumoFinal[`total_${key}_pix`].toLocaleString(
-                    "pt-BR",
-                    typeCurrency,
-                )}
-            />
+            <RelatorioValor isPix value={resumoFinal[`total_${key}_pix`].toLocaleString("pt-BR", typeCurrency)} />
             <RelatorioValor
                 isPix
                 isTotal
-                value={(resumoFinal[`total_${key}`] || 0).toLocaleString(
-                    "pt-BR",
-                    typeCurrency,
-                )}
+                value={(resumoFinal[`total_${key}`] || 0).toLocaleString("pt-BR", typeCurrency)}
             />
         </div>
     );
@@ -732,14 +608,8 @@ const RelatorioTotalEnviado = ({
             </p>
             <h3>
                 {isGeral
-                    ? (relatorio?.[`valor_enviado_${key}`] || 0).toLocaleString(
-                          "pt-BR",
-                          typeCurrency,
-                      )
-                    : (relatorio?.[`valor_enviado_${key}`] || 0).toLocaleString(
-                          "pt-BR",
-                          typeCurrency,
-                      )}
+                    ? (relatorio?.[`valor_enviado_${key}`] || 0).toLocaleString("pt-BR", typeCurrency)
+                    : (relatorio?.[`valor_enviado_${key}`] || 0).toLocaleString("pt-BR", typeCurrency)}
             </h3>
         </div>
     );
@@ -758,9 +628,7 @@ const AcordeaoMes = ({
     const [isOpen, setIsOpen] = useState(false);
     const dataSplit = mes.datas[mes.datas.length - 1].data.split("/") as any;
 
-    const naoPodeEnviar =
-        mes.bloqueado ||
-        new Date() <= new Date(dataSplit[2], dataSplit[1] - 1, dataSplit[0]);
+    const naoPodeEnviar = mes.bloqueado || new Date() <= new Date(dataSplit[2], dataSplit[1] - 1, dataSplit[0]);
     return (
         <Acordeao
             title={mes.nome}
@@ -791,16 +659,8 @@ const AcordeaoMes = ({
                     missaoPix={mes.resumo_final.total_missoes_pix}
                     ofertaDinheiro={mes.resumo_final.total_ofertas_dinheiro}
                     ofertaPix={mes.resumo_final.total_ofertas_pix}
-                    totalMissao={
-                        mes.bloqueado
-                            ? mes.relatorio.valor_enviado_missoes
-                            : mes.resumo_final.total_missoes
-                    }
-                    totalOferta={
-                        mes.bloqueado
-                            ? mes.relatorio.valor_enviado_ofertas
-                            : mes.resumo_final.total_ofertas
-                    }
+                    totalMissao={mes.bloqueado ? mes.relatorio.valor_enviado_missoes : mes.resumo_final.total_missoes}
+                    totalOferta={mes.bloqueado ? mes.relatorio.valor_enviado_ofertas : mes.resumo_final.total_ofertas}
                 />
             }
         >
@@ -812,9 +672,7 @@ const AcordeaoMes = ({
                 transition={{ ease: "linear" }}
             >
                 <div className="relatorio-trimestral__acordeoes">
-                    {mes.bloqueado && (
-                        <AcordeaoEnviado relatorio={mes.relatorio} />
-                    )}
+                    {mes.bloqueado && <AcordeaoEnviado relatorio={mes.relatorio} />}
                     {mes.datas
                         .sort((a, b) => a.aula - b.aula)
                         .map((v, i) => (
@@ -823,43 +681,25 @@ const AcordeaoMes = ({
                 </div>
                 <div className="relatorio-trimestral__resumo">
                     <div className="relatorio-trimestral__resumo-totais">
-                        <RelatorioTotal
-                            isMissao
-                            resumoFinal={mes.resumo_final}
-                        />
-                        <RelatorioTotal
-                            isMissao={false}
-                            resumoFinal={mes.resumo_final}
-                        />
+                        <RelatorioTotal isMissao resumoFinal={mes.resumo_final} />
+                        <RelatorioTotal isMissao={false} resumoFinal={mes.resumo_final} />
                     </div>
 
                     <div className="relatorio-trimestral__resumo-total_geral">
                         {mes.bloqueado && (
                             <>
-                                <RelatorioTotalEnviado
-                                    isMissao
-                                    relatorio={mes.relatorio}
-                                />
-                                <RelatorioTotalEnviado
-                                    isMissao={false}
-                                    relatorio={mes.relatorio}
-                                />
+                                <RelatorioTotalEnviado isMissao relatorio={mes.relatorio} />
+                                <RelatorioTotalEnviado isMissao={false} relatorio={mes.relatorio} />
                             </>
                         )}
                     </div>
                     <div className="relatorio-trimestral__buttons">
                         {isSuperAdmin ? (
-                            <motion.button
-                                onTap={() => onDesbloquearRelatorio(mes)}
-                                disabled={!mes.bloqueado}
-                            >
+                            <motion.button onTap={() => onDesbloquearRelatorio(mes)} disabled={!mes.bloqueado}>
                                 Desbloquear Relatório {mes.nome}
                             </motion.button>
                         ) : (
-                            <motion.button
-                                onTap={() => onEnviarRelatorio(mes)}
-                                disabled={naoPodeEnviar}
-                            >
+                            <motion.button onTap={() => onEnviarRelatorio(mes)} disabled={naoPodeEnviar}>
                                 Enviar Relatório {mes.nome}
                             </motion.button>
                         )}
@@ -893,45 +733,28 @@ const IgrejasGrid = ({
 
                 <div className="relatorio-trimestral__igreja-dados">
                     {meses.map((v, i) => (
-                        <div
-                            className="relatorio-trimestral__igreja-total"
-                            key={i}
-                        >
+                        <div className="relatorio-trimestral__igreja-total" key={i}>
                             <h4>{v}</h4>
                             <div className="relatorio-trimestral__igreja-valores">
                                 {igreja[v] ? (
                                     <>
                                         <div className="relatorio-trimestral__igreja-valor">
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faEarthAfrica}
-                                                />
+                                                <FontAwesomeIcon icon={faEarthAfrica} />
                                             </span>
-                                            <p>
-                                                {igreja[v][
-                                                    "valor_enviado_missoes"
-                                                ].toLocaleString("pt-BR")}
-                                            </p>
+                                            <p>{igreja[v]["valor_enviado_missoes"].toLocaleString("pt-BR")}</p>
                                         </div>
 
                                         <div className="relatorio-trimestral__igreja-valor">
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faCoins}
-                                                />
+                                                <FontAwesomeIcon icon={faCoins} />
                                             </span>
-                                            <p>
-                                                {igreja[v][
-                                                    "valor_enviado_ofertas"
-                                                ].toLocaleString("pt-BR")}
-                                            </p>
+                                            <p>{igreja[v]["valor_enviado_ofertas"].toLocaleString("pt-BR")}</p>
                                         </div>
                                     </>
                                 ) : (
                                     <div className="relatorio-trimestral__igreja-dados">
-                                        <p className="relatorio-trimestral__igreja-pendente">
-                                            Pendente
-                                        </p>
+                                        <p className="relatorio-trimestral__igreja-pendente">Pendente</p>
                                     </div>
                                 )}
                             </div>
@@ -954,6 +777,7 @@ const IgrejasGrid = ({
                             id={v}
                             checked={v === ordem}
                             onChange={() => setOrdem(v)}
+                            readOnly
                         />
                     </div>
                 ))}
@@ -962,10 +786,9 @@ const IgrejasGrid = ({
             <div className="relatorio-trimestral__igrejas-enviados">
                 {igrejas
                     .sort((a, b) => {
-                        const v1 = a[ordem] ? 1 : 0;
-                        const v2 = b[ordem] ? 1 : 0;
-
-                        return v2 - v1;
+                        if (a[ordem]) return -1;
+                        if (b[ordem]) return 1;
+                        return 0;
                     })
                     .map((v) => (
                         <IgrejaCard key={v.igrejaId} igreja={v} />
@@ -1010,24 +833,14 @@ const Relatorio = ({
             {dadosTrimestre.meses.length ? (
                 <div className="relatorio-trimestral__resumo">
                     <div className="relatorio-trimestral__resumo-totais">
-                        <RelatorioTotal
-                            isMissao
-                            resumoFinal={dadosTrimestre.resumo_final}
-                        />
-                        <RelatorioTotal
-                            isMissao={false}
-                            resumoFinal={dadosTrimestre.resumo_final}
-                        />
+                        <RelatorioTotal isMissao resumoFinal={dadosTrimestre.resumo_final} />
+                        <RelatorioTotal isMissao={false} resumoFinal={dadosTrimestre.resumo_final} />
                     </div>
 
                     <div className="relatorio-trimestral__resumo-total_geral">
                         {
                             <>
-                                <RelatorioTotalEnviado
-                                    isMissao
-                                    isGeral
-                                    relatorio={dadosTrimestre.total_enviado}
-                                />
+                                <RelatorioTotalEnviado isMissao isGeral relatorio={dadosTrimestre.total_enviado} />
                                 <RelatorioTotalEnviado
                                     isMissao={false}
                                     isGeral
@@ -1038,29 +851,19 @@ const Relatorio = ({
                     </div>
 
                     <div className="relatorio-trimestral__resumo-buttons">
-                        <motion.button
-                            title="Baixar Recibo"
-                            onTap={onDownloadRecibo}
-                            disabled={disableRecibo}
-                        >
+                        <motion.button title="Baixar Recibo" onTap={onDownloadRecibo} disabled={disableRecibo}>
                             <span>
                                 <FontAwesomeIcon icon={faFilePdf} />
                             </span>
                             Recibo
                         </motion.button>
-                        <motion.button
-                            title="Baixar Comprovantes Pix"
-                            onTap={onDownloadComprovantes}
-                        >
+                        <motion.button title="Baixar Comprovantes Pix" onTap={onDownloadComprovantes}>
                             <span>
                                 <FontAwesomeIcon icon={faFileZipper} />
                             </span>
                             Comprovantes
                         </motion.button>
-                        <motion.button
-                            title="Baixar Comprovantes Pix"
-                            onTap={onDownloadCSV}
-                        >
+                        <motion.button title="Baixar Comprovantes Pix" onTap={onDownloadCSV}>
                             <span>
                                 <FontAwesomeIcon icon={faFileZipper} />
                             </span>
@@ -1090,16 +893,12 @@ function RelatorioTrimestral() {
     >([]);
     const [meses, setMeses] = useState<string[]>([]);
     const [trimestres, setTrimestres] = useState<TrimestresInterface[]>([]);
-    const [currentTrimestre, setCurrentTrimestre] =
-        useState<TrimestresInterface | null>(null);
+    const [currentTrimestre, setCurrentTrimestre] = useState<TrimestresInterface | null>(null);
     const [loadingTrimestres, setLoadingTrimestres] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
-    const [enviarRelatorio, setEnviarRelatorio] =
-        useState<DadosTrimestrePorMes | null>(null);
+    const [enviarRelatorio, setEnviarRelatorio] = useState<DadosTrimestrePorMes | null>(null);
     const [downloadRelatorio, setDownloadRelatorio] = useState(false);
-    const [dadosTrimestre, setDadosTrimestre] = useState<DadosTrimestre | null>(
-        null,
-    );
+    const [dadosTrimestre, setDadosTrimestre] = useState<DadosTrimestre | null>(null);
     const [mensagem, setMensagem] = useState<{
         message: string | ReactNode;
         title: string;
@@ -1129,25 +928,15 @@ function RelatorioTrimestral() {
     };
 
     const baixarCSV = (dados: DadosTrimestre) => {
-        const igrejaNome = igrejas.find(
-            (v) => v.id === igrejaId || user?.igrejaId,
-        )?.nome;
+        const igrejaNome = igrejas.find((v) => v.id === igrejaId || user?.igrejaId)?.nome;
         const colunas = Object.keys(dados.meses[0].resumo_final);
         const linhas = dados.meses.map((v) =>
             [
                 v.nome,
                 igrejaNome,
-                ...colunas.map((c) =>
-                    v.resumo_final[c as keyof ResumoFinal].toLocaleString(
-                        "pt-BR",
-                    ),
-                ),
-                (v.relatorio?.["valor_enviado_ofertas"] || 0).toLocaleString(
-                    "pt-BR",
-                ),
-                (v.relatorio?.["valor_enviado_missoes"] || 0).toLocaleString(
-                    "pt-BR",
-                ),
+                ...colunas.map((c) => v.resumo_final[c as keyof ResumoFinal].toLocaleString("pt-BR")),
+                (v.relatorio?.["valor_enviado_ofertas"] || 0).toLocaleString("pt-BR"),
+                (v.relatorio?.["valor_enviado_missoes"] || 0).toLocaleString("pt-BR"),
                 v?.["relatorio"]?.assinado_por?.nome || "null",
                 v?.relatorio?.["data_envio"] || "null",
             ].join(";"),
@@ -1156,28 +945,15 @@ function RelatorioTrimestral() {
             [
                 "Total",
                 igrejaNome,
-                ...colunas.map((c) =>
-                    dados.resumo_final[c as keyof ResumoFinal].toLocaleString(
-                        "pt-BR",
-                    ),
-                ),
-                (
-                    dados.total_enviado?.["valor_enviado_missoes"] || 0
-                ).toLocaleString("pt-BR"),
-                (
-                    dados.total_enviado?.["valor_enviado_ofertas"] || 0
-                ).toLocaleString("pt-BR"),
+                ...colunas.map((c) => dados.resumo_final[c as keyof ResumoFinal].toLocaleString("pt-BR")),
+                (dados.total_enviado?.["valor_enviado_missoes"] || 0).toLocaleString("pt-BR"),
+                (dados.total_enviado?.["valor_enviado_ofertas"] || 0).toLocaleString("pt-BR"),
                 "null",
                 "null",
             ].join(";"),
         );
         colunas.unshift("mes", "igreja");
-        colunas.push(
-            "total_missoes_enviado",
-            "total_ofertas_enviado",
-            "assinado_por",
-            "data_envio",
-        );
+        colunas.push("total_missoes_enviado", "total_ofertas_enviado", "assinado_por", "data_envio");
 
         const tabela = [colunas.join(";"), ...linhas].join("\n");
 
@@ -1262,9 +1038,7 @@ function RelatorioTrimestral() {
                             onClose: () => window.location.reload(),
                             onConfirm: () => window.location.reload(),
                             title: "Houve um Erro",
-                            icon: (
-                                <FontAwesomeIcon icon={faTriangleExclamation} />
-                            ),
+                            icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
                         });
                     });
             },
@@ -1355,42 +1129,27 @@ function RelatorioTrimestral() {
         if (currentTrimestre) {
             if (isSuperAdmin.current && !igrejaId) {
                 getIgrejas();
-            } else
-                getRelatorio(
-                    isSuperAdmin.current ? igrejaId! : user!.igrejaId!,
-                );
+            } else getRelatorio(isSuperAdmin.current ? igrejaId! : user!.igrejaId!);
         }
     }, [currentTrimestre, igrejaId]);
     useEffect(() => {
         const getTrimestres = async () => {
             setLoadingTrimestres(true);
             const trimestresC = collection(db, "trimestres");
-            const q = query(
-                trimestresC,
-                where("ministerioId", "==", user?.ministerioId),
-                limit(100),
-            );
+            const q = query(trimestresC, where("ministerioId", "==", user?.ministerioId), limit(100));
             const trimestresDocs = await getDocs(q);
 
             if (trimestresDocs.empty) return [];
 
             const trimestres = trimestresDocs.docs.map((v) => {
                 const data = { id: v.id, ...v.data() } as TrimestresInterface;
-                const nome = `${data.numero_trimestre}º Trimestre de ${
-                    data.ano
-                } (${data.data_inicio
+                const nome = `${data.numero_trimestre}º Trimestre de ${data.ano} (${data.data_inicio
                     .toDate()
-                    .toLocaleDateString("pt-BR")} - ${data.data_fim
-                    .toDate()
-                    .toLocaleDateString("pt-BR")})`;
+                    .toLocaleDateString("pt-BR")} - ${data.data_fim.toDate().toLocaleDateString("pt-BR")})`;
                 return { ...data, nome };
             });
 
-            return trimestres.sort(
-                (a, b) =>
-                    b.data_inicio.toDate().getTime() -
-                    a.data_inicio.toDate().getTime(),
-            );
+            return trimestres.sort((a, b) => b.data_inicio.toDate().getTime() - a.data_inicio.toDate().getTime());
         };
 
         if (user) {
@@ -1411,10 +1170,9 @@ function RelatorioTrimestral() {
                 .finally(() => setLoadingTrimestres(false));
         }
     }, [user]);
-    if (isLoadingData || isLoading) return <Loading />;
+    if (isLoadingData || isLoading) return <LoadingVideo isOpen />;
     if (isSecretario.current) return <Navigate to={"/relatorios"} />;
-    if (!isSuperAdmin.current && igrejaId)
-        <Navigate to={"/relatorios/trimestral/"} />;
+    if (!isSuperAdmin.current && igrejaId) <Navigate to={"/relatorios/trimestral/"} />;
     return (
         <>
             <div className="relatorio-trimestral">
@@ -1428,26 +1186,15 @@ function RelatorioTrimestral() {
                             <span title="Voltar">
                                 <FontAwesomeIcon icon={faCaretLeft} />
                             </span>
-                            <h2>
-                                Relatório{" "}
-                                {igrejaId
-                                    ? igrejas.find((v) => igrejaId == v.id)
-                                          ?.nome
-                                    : "Trimestral"}
-                            </h2>
+                            <h2>Relatório {igrejaId ? igrejas.find((v) => igrejaId == v.id)?.nome : "Trimestral"}</h2>
                         </button>
                         {currentTrimestre ? (
                             <p className="relatorio-trimestral__title--data">
                                 <span>
                                     <FontAwesomeIcon icon={faCalendar} />
                                 </span>
-                                {currentTrimestre.data_inicio
-                                    .toDate()
-                                    .toLocaleDateString("pt-BR")}{" "}
-                                -{" "}
-                                {currentTrimestre.data_fim
-                                    .toDate()
-                                    .toLocaleDateString("pt-BR")}
+                                {currentTrimestre.data_inicio.toDate().toLocaleDateString("pt-BR")} -{" "}
+                                {currentTrimestre.data_fim.toDate().toLocaleDateString("pt-BR")}
                             </p>
                         ) : (
                             <p className="relatorio-trimestral__title--vazio">
@@ -1463,7 +1210,7 @@ function RelatorioTrimestral() {
                         <Dropdown
                             current={currentTrimestre?.nome || null}
                             lista={trimestres}
-                            onSelect={(v) => setCurrentTrimestre(v)}
+                            onSelect={setCurrentTrimestre}
                             isAll={false}
                             isLoading={loadingTrimestres}
                             selectId={currentTrimestre?.id}
@@ -1482,9 +1229,7 @@ function RelatorioTrimestral() {
                             dadosTrimestre={dadosTrimestre}
                             onDownloadComprovantes={() => {
                                 const imgs = dadosTrimestre.meses.flatMap((v) =>
-                                    v.datas.flatMap((v) =>
-                                        v.classes.map((v) => v.comprovantes),
-                                    ),
+                                    v.datas.flatMap((v) => v.classes.map((v) => v.comprovantes)),
                                 );
 
                                 baixarComprovantes(extrairImagens(imgs));
@@ -1505,11 +1250,7 @@ function RelatorioTrimestral() {
             {downloadRelatorio && dadosTrimestre && (
                 <RelatorioTrimestralDownload
                     dados={dadosTrimestre}
-                    igreja={
-                        igrejaId
-                            ? igrejas.find((v) => v.id === igrejaId)!.nome
-                            : user!.igrejaNome!
-                    }
+                    igreja={igrejaId ? igrejas.find((v) => v.id === igrejaId)!.nome : user!.igrejaNome!}
                     onSair={() => setDownloadRelatorio(false)}
                     trimestre={currentTrimestre!.nome.split(" (")[0]}
                 />
@@ -1531,19 +1272,11 @@ function RelatorioTrimestral() {
                                 onClose: () => setMensagem(null),
                                 onConfirm: () => setMensagem(null),
                                 title: "Houve um Erro",
-                                icon: (
-                                    <FontAwesomeIcon
-                                        icon={faTriangleExclamation}
-                                    />
-                                ),
+                                icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
                             })
                         }
-                        valorFinalMissao={
-                            enviarRelatorio?.resumo_final.total_missoes || 0
-                        }
-                        valorFinalOferta={
-                            enviarRelatorio?.resumo_final.total_ofertas || 0
-                        }
+                        valorFinalMissao={enviarRelatorio?.resumo_final.total_missoes || 0}
+                        valorFinalOferta={enviarRelatorio?.resumo_final.total_ofertas || 0}
                         nomeMes={enviarRelatorio.nome}
                         numeroMes={enviarRelatorio.numero_mes}
                     />

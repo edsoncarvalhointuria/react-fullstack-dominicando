@@ -49,20 +49,12 @@ function SelectionGrid({
                 exit={{ opacity: 0 }}
             >
                 <div className="selection-grid__header">
-                    <h2 className="selection-grid__title">
-                        Selecione a {titulo}
-                    </h2>
+                    <h2 className="selection-grid__title">Selecione a {titulo}</h2>
                     <div className="selection-grid__controls">
-                        <SearchInput onSearch={(texto) => setPesquisa(texto)} />
+                        <SearchInput onSearch={setPesquisa} />
                         {renderAddModal && (
-                            <button
-                                className="selection-grid__button-new"
-                                onClick={() => setShowModal(true)}
-                            >
-                                <FontAwesomeIcon
-                                    className="selection-grid__add-new"
-                                    icon={faPlus}
-                                />
+                            <button className="selection-grid__button-new" onClick={() => setShowModal(true)}>
+                                <FontAwesomeIcon className="selection-grid__add-new" icon={faPlus} />
 
                                 <span>Cadastrar {titulo.toLowerCase()}</span>
                             </button>
@@ -104,10 +96,7 @@ function SelectionGrid({
                         >
                             <p>Nenhum item encontrado</p>
 
-                            <button
-                                className="selection-grid__cadastrar"
-                                onClick={() => setShowModal(true)}
-                            >
+                            <button className="selection-grid__cadastrar" onClick={() => setShowModal(true)}>
                                 <span>
                                     <FontAwesomeIcon icon={faPlus} />
                                 </span>
@@ -118,9 +107,7 @@ function SelectionGrid({
                 </motion.div>
             </motion.div>
             <AnimatePresence>
-                {renderAddModal &&
-                    showModal &&
-                    renderAddModal(() => setShowModal(false))}
+                {renderAddModal && showModal && renderAddModal(() => setShowModal(false))}
             </AnimatePresence>
         </>
     );

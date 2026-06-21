@@ -20,6 +20,7 @@ interface RevistaType {
 }
 
 interface PedidosEstrutura {
+    ministerioId: string;
     estrutura: {
         titulo?: string;
         idKey: string;

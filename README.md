@@ -12,63 +12,59 @@ Ao automatizar tarefas manuais como a chamada, o controle de ofertas e a geraç�
 
 Este projeto é a materialização dessa visão, combinando tecnologia moderna com um propósito de serviço.
 
-📌 **Acesse a versão ao vivo:** [dominicando.web.app](https://dominicando.web.app/)
-
-**Login**: teste@dominicando.teste.com
-
-**Senha**: 123123
+📌 **Acesse a versão ao vivo:** [dominicando.web.app
+](https://dominicando.web.app/)
 
 ---
 
 ### ✨ Principais Funcionalidades
 
--   **Painel de Controle Dinâmico:** Um dashboard inicial (`Início`) que apresenta um resumo visual dos dados mais importantes, com cards e gráficos que se adaptam ao cargo do usuário.
--   **Gestão Completa (CRUD):** Módulos completos para gerenciar Alunos, Membros, Classes, Igrejas e Usuários, com tabelas responsivas, filtros e modais de cadastro/edição.
--   **Sistema de Chamada Inteligente:** Um fluxo de 3 etapas para realizar a chamada, com salvamento de rascunhos, ações em massa e registro detalhado de presenças, ofertas e recursos.
--   **Relatórios Gráficos Avançados:** Uma central de Business Intelligence que permite gerar gráficos dinâmicos de barras, linhas e pizza, com múltiplos filtros e agrupamentos.
--   **Exportação de Dados:** Funcionalidade para gerar e baixar relatórios completos em formato `.csv`, com uma interface de pré-visualização.
--   **Sistema de Convites Seguro:** Administradores podem gerar códigos de convite de uso único e com tempo de expiração para cadastrar novos usuários de forma segura.
--   **Autenticação Completa:** Fluxo de login, página "Minha Conta" para alteração de senha e tela de "Esqueci a Senha".
+- **Painel de Controle Dinâmico:** Um dashboard inicial (`Início`) que apresenta um resumo visual dos dados mais importantes, com cards e gráficos que se adaptam ao cargo do usuário.
+- **Gestão Completa (CRUD):** Módulos completos para gerenciar Alunos, Membros, Classes, Igrejas e Usuários, com tabelas responsivas, filtros e modais de cadastro/edição.
+- **Sistema de Chamada Inteligente:** Um fluxo de 3 etapas para realizar a chamada, com salvamento de rascunhos, ações em massa e registro detalhado de presenças, ofertas e recursos.
+- **Relatórios Gráficos Avançados:** Uma central de Business Intelligence que permite gerar gráficos dinâmicos de barras, linhas e pizza, com múltiplos filtros e agrupamentos.
+- **Exportação de Dados:** Funcionalidade para gerar e baixar relatórios completos em formato `.csv`, com uma interface de pré-visualização.
+- **Sistema de Convites Seguro:** Administradores podem gerar códigos de convite de uso único e com tempo de expiração para cadastrar novos usuários de forma segura.
+- **Autenticação Completa:** Fluxo de login, página "Minha Conta" para alteração de senha e tela de "Esqueci a Senha".
 
 ---
 
 ### 🚀 Tecnologias Utilizadas
 
--   **Frontend:**
-    -   **React** com **Vite**
-    -   **TypeScript**
-    -   **React Hook Form** para gerenciamento de formulários
-    -   **Framer Motion** para animações
-    -   **SASS** para estilização
-    -   **Recharts** para visualização de dados
--   **Backend & Infraestrutura:**
-    -   **Firebase Authentication**
-    -   **Firestore Database** como banco de dados NoSQL
-    -   **Firebase Functions** para lógica de backend segura
-    -   **Firebase Storage** para armazenamento de arquivos
-    -   **Firebase Hosting** para o deploy da aplicação
+- **Frontend:**
+    - **React** com **Vite**
+    - **TypeScript**
+    - **React Hook Form** para gerenciamento de formulários
+    - **Framer Motion** para animações
+    - **SASS** para estilização
+    - **Recharts** para visualização de dados
+- **Backend & Infraestrutura:**
+    - **Firebase Authentication**
+    - **Firestore Database** como banco de dados NoSQL
+    - **Firebase Functions** para lógica de backend segura
+    - **Firebase Storage** para armazenamento de arquivos
+    - **Firebase Hosting** para o deploy da aplicação
 
 ---
 
 ### ⚙️ Como Rodar o Projeto Localmente
 
-1.  **Clone o repositório:**
+1. **Clone o repositório:**
 
     ```bash
     git clone https://github.com/edsoncarvalhointuria/react-fullstack-dominicando.git
     ```
 
-2.  **Instale as dependências:**
+2. **Instale as dependências:**
 
     ```bash
     cd dominicando
     npm install
     ```
 
-3.  **Configure as Variáveis de Ambiente:**
-
-    -   Crie um arquivo `.env.local` na raiz do projeto.
-    -   Adicione as chaves do seu projeto Firebase neste arquivo. Você pode encontrá-las no Console do Firebase > Configurações do Projeto.
+3. **Configure as Variáveis de Ambiente:**
+    - Crie um arquivo `.env.local` na raiz do projeto.
+    - Adicione as chaves do seu projeto Firebase neste arquivo. Você pode encontrá-las no Console do Firebase > Configurações do Projeto.
 
     ```env
     VITE_FIREBASE_API_KEY=sua_api_key
@@ -79,7 +75,8 @@ Este projeto é a materialização dessa visão, combinando tecnologia moderna c
     VITE_FIREBASE_APP_ID=seu_app_id
     ```
 
-4.  **Rode o projeto:**
+4. **Rode o projeto:**
+
     ```bash
     npm run dev
     ```

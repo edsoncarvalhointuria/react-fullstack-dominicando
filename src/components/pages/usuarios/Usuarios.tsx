@@ -1,23 +1,10 @@
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import "./usuarios.scss";
 import Loading from "../../layout/loading/Loading";
-import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
 import {
     faAt,
     faChalkboardUser,
@@ -36,15 +23,13 @@ import SearchInput from "../../ui/SearchInput";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import CadastroUsuarioModal from "../../ui/CadastroUsuarioModal";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { ROLES, RolesLabel } from "../../../roles/Roles";
-import type {
-    CacheUsuarioInteface,
-    UsuarioInterface,
-} from "../../../interfaces/UsuarioInterface";
+import type { CacheUsuarioInteface, UsuarioInterface } from "../../../interfaces/UsuarioInterface";
 import CadastroConviteModal from "../../ui/CadastroConviteModal";
 import { getOrdem } from "../../../utils/getOrdem";
 import OrderInput from "../../ui/OrderInput";
+import ButtonsDefault from "../../ui/ButtonDefault";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -58,7 +43,6 @@ const variantsContainer: Variants = {
     exit: {},
 };
 
-const functions = getFunctions();
 const deletarUsuario = httpsCallable(functions, "deletarUsuario");
 const OPTIONS = [
     {
@@ -121,17 +105,11 @@ const UsuarioItem = React.memo(
 
                 <td data-label="Ações">
                     <div className="usuarios-page__table-acoes">
-                        <div
-                            className="usuarios-page__table-acao"
-                            onClick={() => onEditItem(usuario)}
-                        >
+                        <div className="usuarios-page__table-acao" onClick={() => onEditItem(usuario)}>
                             <FontAwesomeIcon icon={faUserPen} />
                         </div>
                         {!isSecretario && (
-                            <div
-                                className="usuarios-page__table-acao"
-                                onClick={() => onDelete(usuario)}
-                            >
+                            <div className="usuarios-page__table-acao" onClick={() => onDelete(usuario)}>
                                 <FontAwesomeIcon icon={faTrash} />
                             </div>
                         )}
@@ -170,9 +148,7 @@ const UsuariosLista = React.memo(
 function Usuarios() {
     const { isSuperAdmin, isSecretario, user } = useAuthContext();
     const { igrejas, isLoadingData } = useDataContext();
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
     const [pesquisa, setPesquisa] = useState("");
     const [usuarios, setUsuarios] = useState<UsuarioInterface[]>([]);
     const [editItem, setEditItem] = useState("");
@@ -181,11 +157,8 @@ function Usuarios() {
     const [gerarConvite, setGerarConvite] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [update, setUpdate] = useState(false);
-    const [ordemColuna, setOrdemColuna] =
-        useState<keyof UsuarioInterface>("nome");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordemColuna, setOrdemColuna] = useState<keyof UsuarioInterface>("nome");
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [mensagem, setMensagem] = useState<{
         mensagem: string | ReactNode;
         titulo: string;
@@ -224,26 +197,21 @@ function Usuarios() {
         }
     };
     const onDeleteUser = useCallback((v: UsuarioInterface) => {
-        () =>
-            setMensagem({
-                mensagem: (
-                    <>
-                        <span>
-                            Tem certeza que deseja deletar o usuário:{" "}
-                            <strong>{v.nome}</strong>?
-                        </span>
-                    </>
-                ),
-                titulo: "Deletar usuário?",
-                confirmText: "Sim, deletar usuário",
-                onCancel: () => setMensagem(null),
-                onConfirm: () => apagarUsuario(v.id),
-            });
+        setMensagem({
+            mensagem: (
+                <strong>
+                    <span>
+                        Tem certeza que deseja deletar o usuário: <strong>{v.nome}</strong>?
+                    </span>
+                </strong>
+            ),
+            titulo: "Deletar usuário?",
+            confirmText: "Sim, deletar usuário",
+            onCancel: () => setMensagem(null),
+            onConfirm: () => apagarUsuario(v.id),
+        });
     }, []);
-    const onEditUser = useCallback(
-        (v: UsuarioInterface) => setEditItem(v.id),
-        [],
-    );
+    const onEditUser = useCallback((v: UsuarioInterface) => setEditItem(v.id), []);
 
     const usuariosMemo = useMemo(() => {
         let u = [...usuarios];
@@ -266,10 +234,7 @@ function Usuarios() {
     useEffect(() => {
         const getAllUsuarios = async () => {
             const usuariosCll = collection(db, "cache_usuarios");
-            const q = query(
-                usuariosCll,
-                where("ministerioId", "==", user?.ministerioId),
-            );
+            const q = query(usuariosCll, where("ministerioId", "==", user?.ministerioId));
             const usuariosDocs = await getDocs(q);
             const usuarios = usuariosDocs.docs
                 .map((v) => {
@@ -281,33 +246,18 @@ function Usuarios() {
             setUsuarios(usuarios);
         };
         const getUsuarios = async () => {
-            const usuariosDoc = await getDoc(
-                doc(db, "cache_usuarios", user?.igrejaId!),
-            );
+            const usuariosDoc = await getDoc(doc(db, "cache_usuarios", user?.igrejaId!));
             const usuarioData = usuariosDoc.data() as CacheUsuarioInteface;
 
             let usuarios = Object.values(usuarioData.lista);
 
             if (!isSuperAdmin.current)
-                usuarios = usuarios.filter(
-                    (v) =>
-                        v.role !== ROLES.PASTOR_PRESIDENTE &&
-                        v.role !== ROLES.SUPER_ADMIN,
-                );
-            if (user?.role === ROLES.SUPER_ADMIN)
-                usuarios = usuarios.filter(
-                    (v) => v.role !== ROLES.PASTOR_PRESIDENTE,
-                );
-            if (user?.role === ROLES.SECRETARIO_CONGREGACAO)
-                usuarios = usuarios.filter((v) => v.role !== ROLES.PASTOR);
+                usuarios = usuarios.filter((v) => v.role !== ROLES.PASTOR_PRESIDENTE && v.role !== ROLES.SUPER_ADMIN);
+            if (user?.role === ROLES.SUPER_ADMIN) usuarios = usuarios.filter((v) => v.role !== ROLES.PASTOR_PRESIDENTE);
+            if (user?.role === ROLES.SECRETARIO_CONGREGACAO) usuarios = usuarios.filter((v) => v.role !== ROLES.PASTOR);
             if (isSecretario.current)
-                usuarios = usuarios.filter(
-                    (v) =>
-                        v.role !== ROLES.PASTOR &&
-                        v.role !== ROLES.SECRETARIO_CONGREGACAO,
-                );
-            if (user?.role === ROLES.SECRETARIO_CLASSE)
-                usuarios = usuarios.filter((v) => v.role !== ROLES.PROFESSOR);
+                usuarios = usuarios.filter((v) => v.role !== ROLES.PASTOR && v.role !== ROLES.SECRETARIO_CONGREGACAO);
+            if (user?.role === ROLES.SECRETARIO_CLASSE) usuarios = usuarios.filter((v) => v.role !== ROLES.PROFESSOR);
 
             setUsuarios(usuarios);
         };
@@ -320,10 +270,7 @@ function Usuarios() {
                     ministerioId: user.ministerioId!,
                     nome: user.nome!,
                 });
-            } else
-                getAllUsuarios().catch((err) =>
-                    console.log("deu esse erro", err),
-                );
+            } else getAllUsuarios().catch((err) => console.log("deu esse erro", err));
 
             if (isSecretario.current) {
                 setOptions(OPTIONS.filter((v) => v.id !== "email"));
@@ -340,51 +287,31 @@ function Usuarios() {
                 animate="visible"
                 exit="exit"
             >
-                <motion.div
-                    variants={variantsItem}
-                    className="usuarios-page__header"
-                >
+                <motion.div variants={variantsItem} className="usuarios-page__header">
                     <div className="usuarios-page__infos">
                         <div className="usuarios-page__title">
                             <h2>Gestão de Usuários</h2>
                         </div>
                         <div className="usuarios-page__infos-buttons">
-                            <motion.div
-                                whileTap={{ scale: 0.85 }}
-                                className="usuarios-page__cadastrar"
+                            <ButtonsDefault
+                                mensagem="Cadastrar novo usuário"
+                                onClickNew={setAddItem}
+                                icon={<FontAwesomeIcon icon={faUserPlus} />}
+                                animationIcon={false}
                             >
-                                <button
-                                    title="Cadastrar novo aluno"
-                                    onClick={() => setAddItem(true)}
-                                >
-                                    <span>
-                                        <FontAwesomeIcon icon={faUserPlus} />
-                                    </span>
-                                    Cadastrar novo usuário
-                                </button>
-                            </motion.div>
-                            {user?.role === ROLES.PASTOR ||
-                            user?.role === ROLES.PASTOR_PRESIDENTE ||
-                            user?.role === ROLES.SUPER_ADMIN ? (
-                                <motion.div
-                                    whileTap={{ scale: 0.85 }}
-                                    className="usuarios-page__convite"
-                                >
-                                    <button
-                                        title="Gerar Convite Cadastro"
-                                        onClick={() => setGerarConvite(true)}
-                                    >
-                                        <span>
-                                            <FontAwesomeIcon
-                                                icon={faEnvelope}
-                                            />
-                                        </span>
-                                        Enviar Convite
-                                    </button>
-                                </motion.div>
-                            ) : (
-                                <></>
-                            )}
+                                {(user?.role === ROLES.PASTOR ||
+                                    user?.role === ROLES.PASTOR_PRESIDENTE ||
+                                    user?.role === ROLES.SUPER_ADMIN) && (
+                                    <motion.div whileTap={{ scale: 0.99 }} className="usuarios-page__convite">
+                                        <button title="Gerar Convite Cadastro" onClick={() => setGerarConvite(true)}>
+                                            <span>
+                                                <FontAwesomeIcon icon={faEnvelope} />
+                                            </span>
+                                            Enviar Convite
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </ButtonsDefault>
                         </div>
                     </div>
 
@@ -393,30 +320,20 @@ function Usuarios() {
                             <p>Igreja:</p>
                             <Dropdown
                                 lista={igrejas}
-                                current={
-                                    igrejas.find(
-                                        (v) => v.id === currentIgreja?.id,
-                                    )?.nome || null
-                                }
-                                onSelect={(v) => setCurrentIgreja(v)}
+                                current={igrejas.find((v) => v.id === currentIgreja?.id)?.nome || null}
+                                onSelect={setCurrentIgreja}
                                 isAll={isSuperAdmin.current}
                                 selectId={currentIgreja?.id}
                             />
                         </div>
 
                         <div className="usuarios-page__filtro">
-                            <SearchInput onSearch={(v) => setPesquisa(v)} />
+                            <SearchInput onSearch={setPesquisa} />
                         </div>
 
                         <OrderInput
                             isCrescente={ordem === "crescente"}
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             options={OPTIONS.filter((v) => v.isFilter)}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
                         />
@@ -429,10 +346,7 @@ function Usuarios() {
 
                 <div className="usuarios-page__body">
                     {usuariosMemo.length > 0 ? (
-                        <motion.table
-                            className="usuarios-page__table"
-                            variants={variantsItem}
-                        >
+                        <motion.table className="usuarios-page__table" variants={variantsItem}>
                             <thead>
                                 <tr>
                                     {options.map((v, i) =>
@@ -440,24 +354,17 @@ function Usuarios() {
                                             <th
                                                 key={v.id + i}
                                                 onClick={() => {
-                                                    setOrdem((v) =>
-                                                        v === "crescente"
-                                                            ? "decrescente"
-                                                            : "crescente",
-                                                    );
+                                                    setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"));
                                                     setOrdemColuna(v.id as any);
                                                 }}
                                             >
                                                 <div
                                                     className={`sortable-header ${
-                                                        ordemColuna === v.id &&
-                                                        "order-select"
+                                                        ordemColuna === v.id && "order-select"
                                                     } ${ordem}`}
                                                 >
                                                     <span>
-                                                        <FontAwesomeIcon
-                                                            icon={v.icon}
-                                                        />
+                                                        <FontAwesomeIcon icon={v.icon} />
                                                     </span>
                                                     {v.nome}
                                                 </div>
@@ -466,9 +373,7 @@ function Usuarios() {
                                             <th key={v.id + i}>
                                                 <p>
                                                     <span>
-                                                        <FontAwesomeIcon
-                                                            icon={faFeather}
-                                                        />
+                                                        <FontAwesomeIcon icon={faFeather} />
                                                     </span>
                                                     {v.nome}
                                                 </p>
@@ -478,9 +383,7 @@ function Usuarios() {
                                     <th>
                                         <p>
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faGears}
-                                                />
+                                                <FontAwesomeIcon icon={faGears} />
                                             </span>
                                             Ações
                                         </p>
@@ -498,27 +401,14 @@ function Usuarios() {
                             </tbody>
                         </motion.table>
                     ) : (
-                        <motion.div
-                            className="usuarios-page__vazio"
-                            variants={variantsItem}
-                        >
-                            <p className="usuarios-page__vazio--mensagem">
-                                Sem resultados
-                            </p>
-                            <motion.div
-                                whileTap={{ scale: 0.85 }}
-                                className="usuarios-page__cadastrar"
-                            >
-                                <button
-                                    title="Cadastrar novo aluno"
-                                    onClick={() => setAddItem(true)}
-                                >
-                                    <span>
-                                        <FontAwesomeIcon icon={faUserPlus} />
-                                    </span>
-                                    Cadastrar novo usuário
-                                </button>
-                            </motion.div>
+                        <motion.div className="usuarios-page__vazio" variants={variantsItem}>
+                            <p className="usuarios-page__vazio--mensagem">Sem resultados</p>
+                            <ButtonsDefault
+                                mensagem="Cadastrar novo usuário"
+                                onClickNew={setAddItem}
+                                icon={<FontAwesomeIcon icon={faUserPlus} />}
+                                animationIcon={false}
+                            />
                         </motion.div>
                     )}
                 </div>
@@ -530,25 +420,19 @@ function Usuarios() {
                         key={"cadatro-usuario-modal-usuarios"}
                         usuarioId={editItem}
                         onSave={(usuario) => {
-                            if (editItem)
-                                setUsuarios((v) => [
-                                    ...v.filter((u) => u.id !== usuario.id),
-                                    usuario,
-                                ]);
+                            if (editItem) setUsuarios((v) => [...v.filter((u) => u.id !== usuario.id), usuario]);
                             else setUsuarios((v) => [...v, usuario]);
                         }}
                         onCancel={() => {
                             setAddItem(false);
                             setEditItem("");
                         }}
+                        igrejaId={currentIgreja?.id}
                     />
                 )}
 
                 {gerarConvite && (
-                    <CadastroConviteModal
-                        key={"gerar-convite-modal"}
-                        onCancel={() => setGerarConvite(false)}
-                    />
+                    <CadastroConviteModal key={"gerar-convite-modal"} onCancel={() => setGerarConvite(false)} />
                 )}
 
                 <AlertModal

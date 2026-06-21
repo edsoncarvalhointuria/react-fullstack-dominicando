@@ -1,21 +1,15 @@
-import {
-    faBookOpen,
-    faChurch,
-    faIdCard,
-    faSchool,
-    faXmark,
-} from "@fortawesome/free-solid-svg-icons";
+import { faBookOpen, faChurch, faIdCard, faSchool, faXmark } from "@fortawesome/free-solid-svg-icons";
 import "./matricula-aluno-modal.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { FormProvider, useForm } from "react-hook-form";
 import type { AlunoInterface } from "../../interfaces/AlunoInterface";
 import type { LicaoInterface } from "../../interfaces/LicaoInterface";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { useEffect, useState } from "react";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
-import { db } from "../../utils/firebase";
+import { db, functions } from "../../utils/firebase";
 import { getDoc, doc } from "firebase/firestore";
 import { getIdade } from "../../utils/getIdade";
 
@@ -33,7 +27,6 @@ const variantsItem: Variants = {
     animate: { opacity: 1, y: 0 },
 };
 
-const functions = getFunctions();
 const salvarMatricula = httpsCallable(functions, "salvarMatricula");
 
 function MatriculaAlunoModal({
@@ -54,17 +47,11 @@ function MatriculaAlunoModal({
     onClose: () => void;
 }) {
     const [isEnviando, setIsEnviando] = useState(false);
-    const [alunoState, setAlunoState] = useState<AlunoInterface | undefined>(
-        aluno
-    );
+    const [alunoState, setAlunoState] = useState<AlunoInterface | undefined>(aluno);
     const [mensagemErro, setMensagemErro] = useState("");
     const methods = useForm<Form>({
         defaultValues: {
-            data_matricula:
-                data_matricula ||
-                new Date(new Date().setHours(0, 0, 0, 0))
-                    .toISOString()
-                    .split("T")[0],
+            data_matricula: data_matricula || new Date(new Date().setHours(0, 0, 0, 0)).toISOString().split("T")[0],
             possui_revista: revista,
         },
     });
@@ -118,41 +105,27 @@ function MatriculaAlunoModal({
                     onClick={(e) => e.stopPropagation()}
                 >
                     <LoadingModal isEnviando={isEnviando} />
-                    <motion.div
-                        className="matricula-aluno__header"
-                        variants={variantsItem}
-                    >
+                    <motion.div className="matricula-aluno__header" variants={variantsItem}>
                         <div className="matricula-aluno__title">
                             <span>
                                 <FontAwesomeIcon icon={faIdCard} />
                             </span>
                             <h2>Confirmação Matricula</h2>
                         </div>
-                        <div
-                            className="matricula-aluno__close"
-                            onClick={() => onClose()}
-                        >
+                        <div className="matricula-aluno__close" onClick={() => onClose()}>
                             <FontAwesomeIcon icon={faXmark} />
                         </div>
                     </motion.div>
 
                     <div className="matricula-aluno__body">
                         <FormProvider {...methods}>
-                            <form
-                                className="matricula-aluno__form"
-                                onSubmit={handleSubmit(onSubmit)}
-                            >
-                                <motion.div
-                                    className="matricula-aluno__form-infos"
-                                    variants={variantsItem}
-                                >
+                            <form className="matricula-aluno__form" onSubmit={handleSubmit(onSubmit)}>
+                                <motion.div className="matricula-aluno__form-infos" variants={variantsItem}>
                                     <div className="matricula-aluno__form-igreja">
                                         <div className="matricula-aluno__form-igreja--igreja">
                                             <p className="matricula-aluno__form-label">
                                                 <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faChurch}
-                                                    />
+                                                    <FontAwesomeIcon icon={faChurch} />
                                                 </span>
                                                 Igreja
                                             </p>
@@ -161,9 +134,7 @@ function MatriculaAlunoModal({
                                         <div className="matricula-aluno__form-igreja--classe">
                                             <p className="matricula-aluno__form-label">
                                                 <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faSchool}
-                                                    />
+                                                    <FontAwesomeIcon icon={faSchool} />
                                                 </span>
                                                 Classe
                                             </p>
@@ -172,9 +143,7 @@ function MatriculaAlunoModal({
                                         <div className="matricula-aluno__form-igreja--licao">
                                             <p className="matricula-aluno__form-label">
                                                 <span>
-                                                    <FontAwesomeIcon
-                                                        icon={faBookOpen}
-                                                    />
+                                                    <FontAwesomeIcon icon={faBookOpen} />
                                                 </span>
                                                 Lição
                                             </p>
@@ -186,57 +155,32 @@ function MatriculaAlunoModal({
                                         <h3>Dados do Aluno</h3>
                                         <div className="matricula-aluno__form-container">
                                             <div className="matricula-aluno__form-aluno--nome">
-                                                <p className="matricula-aluno__form-label">
-                                                    Nome
-                                                </p>
+                                                <p className="matricula-aluno__form-label">Nome</p>
 
-                                                <p>
-                                                    {alunoState?.nome_completo}
-                                                </p>
+                                                <p>{alunoState?.nome_completo}</p>
                                             </div>
                                             <div className="matricula-aluno__form-aluno--nascimento">
-                                                <p className="matricula-aluno__form-label">
-                                                    Data de Nascimento
-                                                </p>
+                                                <p className="matricula-aluno__form-label">Data de Nascimento</p>
                                                 <p>
-                                                    {alunoState?.data_nascimento
-                                                        .toDate()
-                                                        .toLocaleDateString(
-                                                            "pt-BR"
-                                                        )}
+                                                    {alunoState?.data_nascimento.toDate().toLocaleDateString("pt-BR")}
                                                 </p>
                                             </div>
 
                                             <div className="matricula-aluno__form-aluno--contato">
-                                                <p className="matricula-aluno__form-label">
-                                                    Idade
-                                                </p>
-                                                <p>
-                                                    {alunoState &&
-                                                        getIdade(
-                                                            alunoState.data_nascimento
-                                                        )}{" "}
-                                                    anos
-                                                </p>
+                                                <p className="matricula-aluno__form-label">Idade</p>
+                                                <p>{alunoState && getIdade(alunoState.data_nascimento)} anos</p>
                                             </div>
 
                                             <div className="matricula-aluno__form-aluno--contato">
-                                                <p className="matricula-aluno__form-label">
-                                                    Contato
-                                                </p>
-                                                <p>
-                                                    {alunoState?.contato ||
-                                                        "Sem contato"}
-                                                </p>
+                                                <p className="matricula-aluno__form-label">Contato</p>
+                                                <p>{alunoState?.contato || "Sem contato"}</p>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="matricula-aluno__form-matricula">
                                         <div className="matricula-aluno__form-input">
-                                            <label htmlFor="matricula-aluno-data-input">
-                                                Data Matricula
-                                            </label>
+                                            <label htmlFor="matricula-aluno-data-input">Data Matricula</label>
                                             <input
                                                 type="date"
                                                 id="matricula-aluno-data-input"
@@ -246,9 +190,7 @@ function MatriculaAlunoModal({
 
                                         <div className="matricula-aluno__form-input">
                                             <label>Possui Lição</label>
-                                            <label htmlFor="matricula-aluno-checkbox-input">
-                                                Possui Lição?
-                                            </label>
+                                            <label htmlFor="matricula-aluno-checkbox-input">Possui Lição?</label>
                                             <input
                                                 type="checkbox"
                                                 id="matricula-aluno-checkbox-input"
@@ -258,25 +200,14 @@ function MatriculaAlunoModal({
                                     </div>
                                 </motion.div>
 
-                                <motion.div
-                                    className="matricula-aluno__form-buttons"
-                                    variants={variantsItem}
-                                >
+                                <motion.div className="matricula-aluno__form-buttons" variants={variantsItem}>
                                     <div className="matricula-aluno__form-cancelar">
-                                        <button
-                                            title="Cancelar"
-                                            type="button"
-                                            onClick={() => onClose()}
-                                        >
+                                        <button title="Cancelar" type="button" onClick={() => onClose()}>
                                             Cancelar
                                         </button>
                                     </div>
                                     <div className="matricula-aluno__form-enviar">
-                                        <button
-                                            title="Matricular Aluno"
-                                            disabled={!alunoState}
-                                            type="submit"
-                                        >
+                                        <button title="Matricular Aluno" disabled={!alunoState} type="submit">
                                             Matricular Aluno
                                         </button>
                                     </div>

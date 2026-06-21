@@ -5,39 +5,29 @@ import {
     faCakeCandles,
     faCalendar,
     faFeather,
-    faFileCsv,
     faPhone,
-    faPlus,
     faThumbsUp,
 } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import "./alunos.scss";
-import type {
-    AlunoInterface,
-    CacheAlunoInteface,
-} from "../../../interfaces/AlunoInterface";
+import type { AlunoInterface, CacheAlunoInteface } from "../../../interfaces/AlunoInterface";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../../utils/firebase";
+import { db, functions } from "../../../utils/firebase";
 import { useNavigate } from "react-router-dom";
 import SearchInput from "../../ui/SearchInput";
 import CadastroAlunoModal from "../../ui/CadastroAlunoModal";
 import { useAuthContext } from "../../../context/AuthContext";
 import AlertModal from "../../ui/AlertModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { getIdade } from "../../../utils/getIdade";
 import { getOrdem } from "../../../utils/getOrdem";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import ImportarCSVModal from "../../ui/ImportarCSVModal";
+import ButtonsDefault from "../../ui/ButtonDefault";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },
@@ -51,7 +41,6 @@ const variantsContainer: Variants = {
     exit: {},
 };
 
-const functions = getFunctions();
 const deletarAluno = httpsCallable(functions, "deletarAluno");
 const salvarAlunosCSV = httpsCallable(functions, "salvarAlunosCSV");
 const OPTIONS = [
@@ -93,23 +82,15 @@ const OPTIONS = [
         isBoolean: true,
     },
 ];
-const COLUNAS = [
-    "nome_completo",
-    "data_nascimento(DD/MM/AAAA)",
-    "contato(opcional)",
-];
+const COLUNAS = ["nome_completo", "data_nascimento(DD/MM/AAAA)", "contato(opcional)"];
 
 function Alunos() {
     const [isLoading, setIsLoading] = useState(false);
     const [editAluno, setEditAluno] = useState("");
     const [addAluno, setAddAluno] = useState(false);
     const [importCSV, setImportCSV] = useState(false);
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
-    const [alunos, setAlunos] = useState<
-        (AlunoInterface & { idade: string })[]
-    >([]);
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
+    const [alunos, setAlunos] = useState<(AlunoInterface & { idade: string })[]>([]);
     const [update, setUpdate] = useState(false);
     const [pesquisa, setPesquisa] = useState("");
     const [ordemColuna, setOrdemColuna] = useState<
@@ -117,9 +98,7 @@ function Alunos() {
             idade: number;
         })
     >("nome_completo");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [mensagem, setMensagem] = useState<{
         titulo: string;
         mensagem: string | ReactNode;
@@ -167,12 +146,10 @@ function Alunos() {
                 mensagem: (
                     <>
                         <span>
-                            Tem certeza que deseja deletar o aluno:{" "}
-                            <strong>{v.nome_completo}</strong>?
+                            Tem certeza que deseja deletar o aluno: <strong>{v.nome_completo}</strong>?
                         </span>
                         <span>
-                            Isso irá apagar <strong>TODOS</strong> os dados
-                            associados.
+                            Isso irá apagar <strong>TODOS</strong> os dados associados.
                         </span>
                     </>
                 ),
@@ -194,10 +171,7 @@ function Alunos() {
             (v) =>
                 v.igrejaNome.toLowerCase().includes(pesquisa) ||
                 v.nome_completo.toLowerCase().includes(pesquisa) ||
-                v.data_nascimento
-                    .toDate()
-                    .toLocaleDateString("pt-BR")
-                    .includes(pesquisa) ||
+                v.data_nascimento.toDate().toLocaleDateString("pt-BR").includes(pesquisa) ||
                 v.idade === pesquisa,
         );
         a = a.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
@@ -231,8 +205,7 @@ function Alunos() {
                 });
     }, [currentIgreja, update]);
     useEffect(() => {
-        if (igrejas.length && !isSuperAdmin.current)
-            setCurrentIgreja(igrejas[0]);
+        if (igrejas.length && !isSuperAdmin.current) setCurrentIgreja(igrejas[0]);
     }, [igrejas]);
     if (isLoadingData || isLoading) return <Loading />;
     return (
@@ -246,35 +219,13 @@ function Alunos() {
             >
                 <div className="alunos-page__header">
                     <div className="alunos-page__header-infos">
-                        <h2 className="alunos-page__header-title">
-                            Gestão de Alunos
-                        </h2>
-                        <div className="alunos-page__cadastrar">
-                            <motion.button
-                                onTap={() => setAddAluno(true)}
-                                disabled={!currentIgreja}
-                                whileTap={{ scale: 0.9 }}
-                                className="alunos-page__cadastrar--cadastro"
-                            >
-                                <span>
-                                    <FontAwesomeIcon icon={faPlus} />
-                                </span>
-                                Cadastrar novo aluno
-                            </motion.button>
+                        <h2 className="alunos-page__header-title">Gestão de Alunos</h2>
 
-                            {!isSecretario.current && (
-                                <motion.button
-                                    className="alunos-page__cadastrar--csv"
-                                    onTap={() => setImportCSV(true)}
-                                    whileTap={{ scale: 0.9 }}
-                                >
-                                    <span>
-                                        <FontAwesomeIcon icon={faFileCsv} />
-                                    </span>
-                                    Importar CSV
-                                </motion.button>
-                            )}
-                        </div>
+                        <ButtonsDefault
+                            mensagem="Cadastrar novo aluno"
+                            onClickNew={setAddAluno}
+                            onClickCsv={isSecretario.current ? undefined : setImportCSV}
+                        />
                     </div>
 
                     <div className="alunos-page__header-filtros">
@@ -290,21 +241,12 @@ function Alunos() {
                         </div>
 
                         <div className="alunos-page__header-filtro">
-                            <SearchInput
-                                onSearch={(texto) => setPesquisa(texto)}
-                                texto="Alunos"
-                            />
+                            <SearchInput onSearch={setPesquisa} texto="Alunos" />
                         </div>
 
                         <OrderInput
                             isCrescente={ordem === "crescente"}
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
                             options={OPTIONS.filter((v) => v.isFilter)}
                         />
@@ -328,27 +270,9 @@ function Alunos() {
                                 onDelete={onDeleteItem}
                             />
                         ) : (
-                            <motion.div
-                                className="alunos-page__vazio"
-                                variants={variantsItem}
-                            >
-                                <p className="alunos-page__vazio--mensagem">
-                                    Sem resultados
-                                </p>
-                                <motion.div
-                                    className="alunos-page__cadastrar"
-                                    whileTap={{ scale: 0.85 }}
-                                >
-                                    <button
-                                        onClick={() => setAddAluno(true)}
-                                        disabled={!currentIgreja}
-                                    >
-                                        <span>
-                                            <FontAwesomeIcon icon={faPlus} />
-                                        </span>
-                                        Cadastrar novo aluno
-                                    </button>
-                                </motion.div>
+                            <motion.div className="alunos-page__vazio" variants={variantsItem}>
+                                <p className="alunos-page__vazio--mensagem">Sem resultados</p>
+                                <ButtonsDefault mensagem="Cadastrar novo aluno" onClickNew={setAddAluno} />
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -364,17 +288,10 @@ function Alunos() {
                         onSave={(value) => {
                             const alunoComIdade = {
                                 ...value,
-                                idade: `${getIdade(
-                                    value.data_nascimento,
-                                )} anos`,
+                                idade: `${getIdade(value.data_nascimento)} anos`,
                             };
-                            if (!editAluno)
-                                setAlunos((v) => [...v, alunoComIdade]);
-                            else
-                                setAlunos((v) => [
-                                    ...v.filter((a) => a.id !== editAluno),
-                                    alunoComIdade,
-                                ]);
+                            if (!editAluno) setAlunos((v) => [...v, alunoComIdade]);
+                            else setAlunos((v) => [...v.filter((a) => a.id !== editAluno), alunoComIdade]);
 
                             setAddAluno(false);
                             setEditAluno("");
@@ -391,6 +308,7 @@ function Alunos() {
                         onCancel={() => setImportCSV(false)}
                         onSave={() => setUpdate((v) => !v)}
                         firebaseFunction={salvarAlunosCSV}
+                        igrejaId={currentIgreja?.id}
                     />
                 )}
             </AnimatePresence>

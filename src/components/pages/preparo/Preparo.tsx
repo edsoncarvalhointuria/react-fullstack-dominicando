@@ -1,38 +1,29 @@
-import {
-    faBookmark,
-    faCalendarDay,
-    faCloudArrowUp,
-} from "@fortawesome/free-solid-svg-icons";
+import { faBookmark, faCalendarDay, faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import "./preparo.scss";
 import "@/components/ui/licao-card.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
 import NovoTrimestreAulasModal from "../../ui/NovoTrimestreAulasModal";
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import { collection, getDocs, getDocsFromCache, limit, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import type { LicaoPreparoInterface } from "../../../interfaces/LicaoPreparoInterface";
 import LicaoPreparoCard from "../../ui/LicaoPreparoCard";
 import LicaoPreparoModal from "../../ui/LicaoPreparoModal";
 import { useNavigate } from "react-router-dom";
 import Loading from "../../layout/loading/Loading";
+import { houveAtualizacaoMinisterio, salvarSistemaLocalStorageMinisterio } from "../../../utils/getSistema";
 
-const variantsBtn: Variants = {
-    press: { scale: 0.9 },
-};
+const LIMITE_LICOES = 10;
 
 function Preparo() {
     const [novoTrimestre, setNovoTrimestre] = useState(false);
     const [update, setUpdate] = useState(false);
     const [licoes, setLicoes] = useState<LicaoPreparoInterface[]>([]);
-    const [openLicao, setOpenLicao] = useState<LicaoPreparoInterface | null>(
-        null,
-    );
-    const [editLicao, setEditLicao] = useState<LicaoPreparoInterface | null>(
-        null,
-    );
+    const [openLicao, setOpenLicao] = useState<LicaoPreparoInterface | null>(null);
+    const [editLicao, setEditLicao] = useState<LicaoPreparoInterface | null>(null);
     const [pesquisa, setPesquisa] = useState("");
     const [vazio, setVazio] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -46,13 +37,8 @@ function Preparo() {
             l = l.filter(
                 (v) =>
                     v.titulo.toLowerCase().includes(pesquisa) ||
-                    v.data_inicio
-                        .toDate()
-                        .toLocaleDateString()
-                        .includes(pesquisa) ||
-                    `${v.trimestre} trimestre de ${v.data_inicio
-                        .toDate()
-                        .getFullYear()}`.includes(pesquisa),
+                    v.data_inicio.toDate().toLocaleDateString().includes(pesquisa) ||
+                    `${v.trimestre} trimestre de ${v.data_inicio.toDate().getFullYear()}`.includes(pesquisa),
             );
         return l;
     }, [licoes, pesquisa]);
@@ -91,17 +77,20 @@ function Preparo() {
         const getLicoes = async () => {
             setIsLoading(true);
             const licoesCll = collection(db, "licoes_preparo");
-            const q = query(
-                licoesCll,
-                where("ministerioId", "==", user?.ministerioId),
-            );
-            const licoesSnap = await getDocs(q);
+            const q = query(licoesCll, where("ministerioId", "==", user?.ministerioId), limit(LIMITE_LICOES));
 
-            if (licoesSnap.empty) return [];
+            const houveAtualizacao = await houveAtualizacaoMinisterio(user?.ministerioId!, "preparo");
+            let docs;
+            if (houveAtualizacao.houveAtualizacao) docs = await getDocs(q);
+            else {
+                docs = await getDocsFromCache(q);
+                if (docs.empty) docs = await getDocs(q);
+            }
+            salvarSistemaLocalStorageMinisterio(houveAtualizacao);
 
-            const licoes = licoesSnap.docs.map(
-                (v) => ({ id: v?.id, ...v.data() }) as LicaoPreparoInterface,
-            );
+            if (docs.empty) return [];
+
+            const licoes = docs.docs.map((v) => ({ id: v?.id, ...v.data() }) as LicaoPreparoInterface);
 
             const licaoAtiva = licoes.find((v) => v.ativo);
 
@@ -109,14 +98,12 @@ function Preparo() {
                 if (licaoAtiva && licaoAtiva.id === a.id) return -1;
                 if (licaoAtiva && licaoAtiva.id === b.id) return 1;
 
-                return (
-                    (b.data_inicio.toDate() as any) -
-                    (a.data_inicio.toDate() as any)
-                );
+                return (b.data_inicio.toDate() as any) - (a.data_inicio.toDate() as any);
             });
         };
 
         const popstate = () => {
+            setEditLicao(null);
             setNovoTrimestre(false);
             setOpenLicao(null);
         };
@@ -157,32 +144,22 @@ function Preparo() {
 
                             <div className="preparo__acoes">
                                 <div className="preparo__buttons">
-                                    <motion.button
-                                        variants={variantsBtn}
-                                        whileTap={"press"}
+                                    <button
                                         title="Iniciar Novo Trimestre"
-                                        onTap={() => {
+                                        onClick={() => {
                                             setNovoTrimestre(true);
-                                            window.history.pushState(
-                                                { modal: true },
-                                                "",
-                                            );
+                                            window.history.pushState({ modal: true }, "");
                                         }}
                                     >
                                         <span>
-                                            <FontAwesomeIcon
-                                                icon={faCalendarDay}
-                                            />
+                                            <FontAwesomeIcon icon={faCalendarDay} />
                                         </span>{" "}
                                         Iniciar novo trimestre
-                                    </motion.button>
+                                    </button>
                                 </div>
 
                                 <div className="preparo__pesquisa">
-                                    <SearchInput
-                                        texto="Trimestre"
-                                        onSearch={(texto) => setPesquisa(texto)}
-                                    />
+                                    <SearchInput texto="Trimestre" onSearch={setPesquisa} />
                                 </div>
                             </div>
                         </div>
@@ -190,13 +167,7 @@ function Preparo() {
                         <div className="preparo__grid">
                             {licoesMemo.length > 0 ? (
                                 licoesMemo.map((v) => (
-                                    <LicaoPreparoCard
-                                        key={v?.id}
-                                        licao={v}
-                                        openModal={(licao) =>
-                                            setOpenLicao(licao)
-                                        }
-                                    />
+                                    <LicaoPreparoCard key={v?.id} licao={v} openModal={setOpenLicao} />
                                 ))
                             ) : (
                                 <motion.div

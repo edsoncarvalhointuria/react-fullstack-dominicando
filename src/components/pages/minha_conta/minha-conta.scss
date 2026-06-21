@@ -115,14 +115,15 @@
         font-weight: 700;
         cursor: pointer;
         margin-top: 1rem;
-        transition: all 0.2s ease-out;
+        transition: all 0.3s ease-in-out;
 
         &:hover {
-            background-color: color.scale(
-                v.$cor-primaria-itens,
-                $lightness: -10%
-            );
-            transform: translateY(-2px);
+            background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
+            transform: scale(1.1);
+        }
+
+        &:active {
+            transform: scale(0.99);
         }
     }
 

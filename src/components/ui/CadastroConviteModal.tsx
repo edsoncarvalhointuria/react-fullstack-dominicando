@@ -1,27 +1,18 @@
-import {
-    faCircleCheck,
-    faCopy,
-    faEnvelopeOpen,
-    faXmark,
-} from "@fortawesome/free-solid-svg-icons";
+import { faCircleCheck, faCopy, faEnvelopeOpen, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    Controller,
-    FormProvider,
-    useForm,
-    type FieldError,
-} from "react-hook-form";
+import { Controller, FormProvider, useForm, type FieldError } from "react-hook-form";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import Dropdown from "./Dropdown";
 import { useAuthContext } from "../../context/AuthContext";
 import { useDataContext } from "../../context/DataContext";
 import "./cadastro-convite-modal.scss";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 import type { Roles } from "../../roles/RolesType";
 import { ROLES, RolesLabel } from "../../roles/Roles";
+import { functions } from "../../utils/firebase";
 
 interface Form {
     role: Roles;
@@ -56,7 +47,6 @@ const ROLES_LIST: { nome: string; id: Roles }[] = [
     { nome: RolesLabel[ROLES.SECRETARIO_CLASSE], id: ROLES.SECRETARIO_CLASSE },
 ];
 
-const functions = getFunctions();
 const gerarCodigoConvite = httpsCallable(functions, "gerarCodigoConvite");
 
 function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
@@ -73,9 +63,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
     const [isEnviando, setIsEnviando] = useState(false);
     const [mensagemErro, setMensagemErro] = useState("");
     const [roles, setRoles] = useState(ROLES_LIST);
-    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(
-        null,
-    );
+    const [currentIgreja, setCurrentIgreja] = useState<IgrejaInterface | null>(null);
     const [currentRole, setCurrentRole] = useState<{
         nome: string;
         id: Roles;
@@ -103,10 +91,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
     };
     const ErroMenssage = (erro: FieldError) => {
         return (
-            <motion.div
-                variants={variantsErro}
-                className="cadastro-usuario__form-erro"
-            >
+            <motion.div variants={variantsErro} className="cadastro-usuario__form-erro">
                 {erro.message}
             </motion.div>
         );
@@ -119,16 +104,8 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
         return c;
     }, [currentIgreja]);
     useEffect(() => {
-        if (copiadoCode)
-            timeoutRef.current = setTimeout(
-                () => setCopiadoCode(false),
-                2000,
-            ) as any;
-        if (copiadoLink)
-            timeoutRef.current = setTimeout(
-                () => setCopiadoLink(false),
-                2000,
-            ) as any;
+        if (copiadoCode) timeoutRef.current = setTimeout(() => setCopiadoCode(false), 2000) as any;
+        if (copiadoLink) timeoutRef.current = setTimeout(() => setCopiadoLink(false), 2000) as any;
 
         return () => clearTimeout(timeoutRef.current);
     }, [copiadoCode, copiadoLink]);
@@ -136,17 +113,8 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
         if (user) {
             if (isSecretario.current) onCancel();
             if (isAdmin.current)
-                setRoles(
-                    ROLES_LIST.filter(
-                        (v) =>
-                            v.id !== ROLES.PASTOR_PRESIDENTE &&
-                            v.id !== ROLES.SUPER_ADMIN,
-                    ),
-                );
-            if (user.role === ROLES.SUPER_ADMIN)
-                setRoles(
-                    ROLES_LIST.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE),
-                );
+                setRoles(ROLES_LIST.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE && v.id !== ROLES.SUPER_ADMIN));
+            if (user.role === ROLES.SUPER_ADMIN) setRoles(ROLES_LIST.filter((v) => v.id !== ROLES.PASTOR_PRESIDENTE));
         }
     }, [user]);
 
@@ -156,24 +124,12 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
             else if (user.role === ROLES.SECRETARIO_CONGREGACAO)
                 setRoles(
                     ROLES_LIST.filter(
-                        (v) =>
-                            v.id !== "pastor_presidente" &&
-                            v.id !== "super_admin" &&
-                            v.id !== "pastor",
+                        (v) => v.id !== "pastor_presidente" && v.id !== "super_admin" && v.id !== "pastor",
                     ),
                 );
-            else if (user.role === ROLES.SUPER_ADMIN)
-                setRoles(
-                    ROLES_LIST.filter((v) => v.id !== "pastor_presidente"),
-                );
+            else if (user.role === ROLES.SUPER_ADMIN) setRoles(ROLES_LIST.filter((v) => v.id !== "pastor_presidente"));
             else if (isAdmin.current)
-                setRoles(
-                    ROLES_LIST.filter(
-                        (v) =>
-                            v.id !== "pastor_presidente" &&
-                            v.id !== "super_admin",
-                    ),
-                );
+                setRoles(ROLES_LIST.filter((v) => v.id !== "pastor_presidente" && v.id !== "super_admin"));
     }, [user]);
     return (
         <>
@@ -185,10 +141,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                     transition: { duration: 0.2 },
                 }}
             >
-                <motion.div
-                    className="cadastro-usuario"
-                    onClick={(evt) => evt.stopPropagation()}
-                >
+                <motion.div className="cadastro-usuario" onClick={(evt) => evt.stopPropagation()}>
                     <LoadingModal isEnviando={isEnviando} />
                     {!retorno ? (
                         <>
@@ -198,10 +151,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                     <h2>Convite de Cadastro</h2>
                                 </div>
 
-                                <div
-                                    className="cadastro-usuario__close"
-                                    onClick={() => onCancel()}
-                                >
+                                <div className="cadastro-usuario__close" onClick={() => onCancel()}>
                                     <FontAwesomeIcon icon={faXmark} />
                                 </div>
                             </div>
@@ -228,38 +178,25 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                 name="role"
                                                 control={control}
                                                 rules={{
-                                                    required:
-                                                        "O cargo é obrigatório",
+                                                    required: "O cargo é obrigatório",
                                                 }}
                                                 render={({ field }) => (
                                                     <Dropdown
                                                         lista={roles}
-                                                        current={
-                                                            roles.find(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    field.value,
-                                                            )?.nome || null
-                                                        }
+                                                        current={roles.find((v) => v.id === field.value)?.nome || null}
                                                         onSelect={(v) => {
                                                             setCurrentRole(v);
-                                                            field.onChange(
-                                                                v?.id || null,
-                                                            );
+                                                            field.onChange(v?.id || null);
                                                         }}
                                                         isAll={false}
                                                         isErro={!!errors.role}
                                                     />
                                                 )}
                                             />
-                                            {errors.role &&
-                                                ErroMenssage(errors.role)}
+                                            {errors.role && ErroMenssage(errors.role)}
                                         </motion.div>
 
-                                        <motion.div
-                                            variants={variantsItem}
-                                            className="cadastro-usuario__form-input"
-                                        >
+                                        <motion.div variants={variantsItem} className="cadastro-usuario__form-input">
                                             <p>
                                                 Igreja <span>*</span>
                                             </p>
@@ -267,38 +204,25 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                 name="igrejaId"
                                                 control={control}
                                                 rules={{
-                                                    required:
-                                                        "A igreja é obrigatória.",
+                                                    required: "A igreja é obrigatória.",
                                                 }}
                                                 render={({ field }) => (
                                                     <Dropdown
                                                         lista={igrejas}
                                                         current={
-                                                            igrejas.find(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    field.value,
-                                                            )?.nome || null
+                                                            igrejas.find((v) => v.id === field.value)?.nome || null
                                                         }
                                                         onSelect={(v) => {
-                                                            setValue(
-                                                                "classeId",
-                                                                undefined,
-                                                            );
+                                                            setValue("classeId", undefined);
                                                             setCurrentIgreja(v);
-                                                            field.onChange(
-                                                                v?.id || null,
-                                                            );
+                                                            field.onChange(v?.id || null);
                                                         }}
                                                         isAll={false}
-                                                        isErro={
-                                                            !!errors.igrejaId
-                                                        }
+                                                        isErro={!!errors.igrejaId}
                                                     />
                                                 )}
                                             />
-                                            {errors.igrejaId &&
-                                                ErroMenssage(errors.igrejaId)}
+                                            {errors.igrejaId && ErroMenssage(errors.igrejaId)}
                                         </motion.div>
 
                                         <AnimatePresence>
@@ -310,16 +234,11 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                 >
                                                     <p>
                                                         Classe{" "}
-                                                        {currentRole?.id ===
-                                                            ROLES.SECRETARIO_CLASSE ||
-                                                        currentRole?.id ===
-                                                            ROLES.PROFESSOR ? (
+                                                        {currentRole?.id === ROLES.SECRETARIO_CLASSE ||
+                                                        currentRole?.id === ROLES.PROFESSOR ? (
                                                             <span>*</span>
                                                         ) : (
-                                                            <i>
-                                                                (não é
-                                                                obrigatório)
-                                                            </i>
+                                                            <i>(não é obrigatório)</i>
                                                         )}
                                                     </p>
                                                     <Controller
@@ -331,37 +250,21 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                         }}
                                                         render={({ field }) => (
                                                             <Dropdown
-                                                                lista={
-                                                                    classesMemo
-                                                                }
+                                                                lista={classesMemo}
                                                                 isAll={false}
                                                                 current={
-                                                                    classesMemo.find(
-                                                                        (v) =>
-                                                                            v.id ===
-                                                                            field.value,
-                                                                    )?.nome ||
-                                                                    null
+                                                                    classesMemo.find((v) => v.id === field.value)
+                                                                        ?.nome || null
                                                                 }
-                                                                onSelect={(
-                                                                    v,
-                                                                ) => {
-                                                                    field.onChange(
-                                                                        v?.id ||
-                                                                            null,
-                                                                    );
+                                                                onSelect={(v) => {
+                                                                    field.onChange(v?.id || null);
                                                                 }}
-                                                                isErro={
-                                                                    !!errors.classeId
-                                                                }
+                                                                isErro={!!errors.classeId}
                                                             />
                                                         )}
                                                     />
 
-                                                    {errors.classeId &&
-                                                        ErroMenssage(
-                                                            errors.classeId,
-                                                        )}
+                                                    {errors.classeId && ErroMenssage(errors.classeId)}
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
@@ -381,11 +284,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                                 whileTap={{ scale: 0.9 }}
                                                 className="cadastro-usuario__form-submit"
                                             >
-                                                <button
-                                                    title="Salvar Usuário"
-                                                    type="submit"
-                                                    disabled={isEnviando}
-                                                >
+                                                <button title="Salvar Usuário" type="submit" disabled={isEnviando}>
                                                     Gerar convite
                                                 </button>
                                             </motion.div>
@@ -397,10 +296,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                     ) : (
                         <div className="cadastro-convite-modal">
                             <div className="cadastro-convite-modal__data">
-                                <p>
-                                    O código vai expirar em{" "}
-                                    {retorno.dataExpiracao}
-                                </p>
+                                <p>O código vai expirar em {retorno.dataExpiracao}</p>
                             </div>
                             <div className="cadastro-convite-modal__infos">
                                 <div
@@ -408,9 +304,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                     onClick={() => {
                                         setCopiadoCode(true);
                                         setCopiadoLink(false);
-                                        navigator.clipboard.writeText(
-                                            retorno.codigo,
-                                        );
+                                        navigator.clipboard.writeText(retorno.codigo);
                                     }}
                                 >
                                     <p>{retorno.codigo}</p>
@@ -420,9 +314,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                         </motion.span>
                                     ) : (
                                         <motion.span exit={{ opacity: 0 }}>
-                                            <FontAwesomeIcon
-                                                icon={faCircleCheck}
-                                            />
+                                            <FontAwesomeIcon icon={faCircleCheck} />
                                         </motion.span>
                                     )}
                                 </div>
@@ -447,9 +339,7 @@ function CadastroConviteModal({ onCancel }: { onCancel: () => void }) {
                                         </motion.span>
                                     ) : (
                                         <motion.span exit={{ opacity: 0 }}>
-                                            <FontAwesomeIcon
-                                                icon={faCircleCheck}
-                                            />
+                                            <FontAwesomeIcon icon={faCircleCheck} />
                                         </motion.span>
                                     )}
                                 </div>

@@ -32,21 +32,8 @@ import {
     faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    animate,
-    AnimatePresence,
-    motion,
-    useMotionTemplate,
-    useMotionValue,
-    useTransform,
-} from "framer-motion";
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import { animate, AnimatePresence, motion, useMotionTemplate, useMotionValue, useTransform } from "framer-motion";
+import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import "./panorama-licao.scss";
 import "@/components/pages/chamada/resumo-chamada.scss";
 import SearchInput from "./SearchInput";
@@ -79,16 +66,11 @@ import {
 import useIsMobile from "../../hooks/useIsMobile";
 import { AcordeaoItem, InfoLinha } from "../pages/chamada/ChamadaItens";
 import { PedidosRespostaShareModal } from "../pages/pedidos/PedidosResposta";
-import {
-    FormProvider,
-    useForm,
-    useFormContext,
-    useWatch,
-    type UseFormRegister,
-} from "react-hook-form";
+import { FormProvider, useForm, useFormContext, useWatch, type UseFormRegister } from "react-hook-form";
 import { TROFEUS } from "../pages/portal_aluno/PortalAluno";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import AlertModal from "./AlertModal";
+import { functions } from "../../utils/firebase";
 
 interface PanoramaChamada {
     presente: number;
@@ -140,7 +122,6 @@ interface AulaDocument {
     registroRef: any;
 }
 
-const functions = getFunctions();
 const setTrofeuAlunos = httpsCallable(functions, "setTrofeuAlunos");
 
 const CORES_GRAFICO = [
@@ -192,9 +173,7 @@ const gerarCSV = (
         case "ranking":
             colunas = [
                 ...colunas,
-                ...Object.keys(
-                    Object.values(dados.detalhes_aluno)?.[0] || {},
-                ).sort((a, b) => {
+                ...Object.keys(Object.values(dados.detalhes_aluno)?.[0] || {}).sort((a, b) => {
                     if (a === "nome") return -1;
                     if (b === "nome") return 1;
                     return 1;
@@ -203,13 +182,7 @@ const gerarCSV = (
             valores = Object.values(dados.detalhes_aluno);
             linhas = valores.map((v: any) =>
                 colunas
-                    .map((c) =>
-                        isNome(c)
-                            ? dados[c]
-                            : c.includes("porcentagem")
-                              ? isNumber(v[c]) + "%"
-                              : v[c],
-                    )
+                    .map((c) => (isNome(c) ? dados[c] : c.includes("porcentagem") ? isNumber(v[c]) + "%" : v[c]))
                     .join(";"),
             );
 
@@ -222,9 +195,7 @@ const gerarCSV = (
                 ...Object.keys(
                     Object.values(
                         diasMap.get(
-                            listaAulas
-                                .find((v) => v.aulaRegistrada?.realizada)
-                                ?.data.toLocaleDateString("pt-BR") || "",
+                            listaAulas.find((v) => v.aulaRegistrada?.realizada)?.data.toLocaleDateString("pt-BR") || "",
                         )?.chamada || {},
                     )[0] || {},
                 ),
@@ -232,10 +203,7 @@ const gerarCSV = (
             valores = listaAulas
                 .filter((v) => v.aulaRegistrada?.realizada)
                 .map((v) =>
-                    Object.values(
-                        diasMap.get(v.data.toLocaleDateString("pt-BR"))
-                            ?.chamada || {},
-                    ).map((o: any) => {
+                    Object.values(diasMap.get(v.data.toLocaleDateString("pt-BR"))?.chamada || {}).map((o: any) => {
                         o.data = v.data.toLocaleDateString("pt-BR");
                         o.nome = dados.detalhes_aluno[o.alunoId].nome;
                         return o;
@@ -243,9 +211,7 @@ const gerarCSV = (
                 )
                 .flat();
             linhas = valores.map((v: any) => {
-                return colunas
-                    .map((c) => (isNome(c) ? dados[c] : v[c]))
-                    .join(";");
+                return colunas.map((c) => (isNome(c) ? dados[c] : v[c])).join(";");
             });
             break;
         case "financeiro":
@@ -265,18 +231,10 @@ const gerarCSV = (
                     data: v.data.toLocaleString("pt-BR"),
                     ...diasMap.get(v.data.toLocaleDateString("pt-BR")),
                 }));
-            linhas = valores.map((v: any) =>
-                colunas
-                    .map((c) => (isNome(c) ? dados[c] : isNumber(v[c])))
-                    .join(";"),
-            );
+            linhas = valores.map((v: any) => colunas.map((c) => (isNome(c) ? dados[c] : isNumber(v[c]))).join(";"));
             break;
         case "registros_aula":
-            colunas = [
-                "data",
-                ...colunas,
-                ...Object.keys(Object.values(dados.detalhes_aulas || {})[0]),
-            ];
+            colunas = ["data", ...colunas, ...Object.keys(Object.values(dados.detalhes_aulas || {})[0])];
             valores = listaAulas
                 .filter((v) => v.aulaRegistrada?.realizada)
                 .map((v) => ({
@@ -284,9 +242,7 @@ const gerarCSV = (
                     ...(diasMap.get(v.data.toLocaleDateString("pt-BR")) || {}),
                 }));
             linhas = valores.map((v: any) => {
-                return colunas
-                    .map((c) => (isNome(c) ? dados[c] : isNumber(v[c])))
-                    .join(";");
+                return colunas.map((c) => (isNome(c) ? dados[c] : isNumber(v[c]))).join(";");
             });
             break;
         default:
@@ -365,9 +321,7 @@ const CSVDownloaModal = ({
 };
 
 const CardProgresso = ({ titulo, valor, icone, children, isCentro }: any) => (
-    <motion.div
-        className={`card-progresso ${isCentro ? "card-progresso--centro" : ""}`}
-    >
+    <motion.div className={`card-progresso ${isCentro ? "card-progresso--centro" : ""}`}>
         <div className="card-progresso__header">
             <span className="card-progresso__icone">
                 <FontAwesomeIcon icon={icone} />
@@ -381,13 +335,7 @@ const CardProgresso = ({ titulo, valor, icone, children, isCentro }: any) => (
     </motion.div>
 );
 export const GraficoRosca = React.memo(
-    ({
-        porcentagem,
-        cor = "#3b82f6",
-    }: {
-        porcentagem: number | string;
-        cor?: string;
-    }) => {
+    ({ porcentagem, cor = "#3b82f6" }: { porcentagem: number | string; cor?: string }) => {
         const porcento = useMotionValue(0);
         const porcentoValue = useTransform(porcento, (v) => v.toFixed(0));
         const background = useMotionTemplate`conic-gradient(${cor} ${porcento}%, #e5e7eb 0)`;
@@ -424,34 +372,17 @@ const AcordeaoAluno = React.memo(
         const [isOpen, setIsOpen] = useState(false);
         const { porcentagem, porcentagem_biblia, porcentagem_revista } = aluno;
 
-        const escolha =
-            opt === "chamada"
-                ? porcentagem
-                : opt === "biblia"
-                  ? porcentagem_biblia
-                  : porcentagem_revista;
+        const escolha = opt === "chamada" ? porcentagem : opt === "biblia" ? porcentagem_biblia : porcentagem_revista;
         return (
             <div className="acordeao-aluno">
                 {!!register && (
-                    <input
-                        type="checkbox"
-                        id={`trofeu-${aluno.id}`}
-                        value={aluno.id}
-                        {...register("alunos")}
-                    />
+                    <input type="checkbox" id={`trofeu-${aluno.id}`} value={aluno.id} {...register("alunos")} />
                 )}
                 <div className="acordeao-aluno__infos">
-                    <div
-                        className="acordeao-aluno__header"
-                        onClick={() => setIsOpen(!isOpen)}
-                    >
+                    <div className="acordeao-aluno__header" onClick={() => setIsOpen(!isOpen)}>
                         <p className="acordeao-aluno__nome">{aluno.nome}</p>
                         <div className="acordeao-aluno__frequencia">
-                            <GraficoRosca
-                                porcentagem={escolha}
-                                cor={getCorDaFrequencia(escolha)}
-                                key={escolha}
-                            />
+                            <GraficoRosca porcentagem={escolha} cor={getCorDaFrequencia(escolha)} key={escolha} />
                             <motion.span animate={{ rotate: isOpen ? 180 : 0 }}>
                                 <FontAwesomeIcon icon={faChevronDown} />
                             </motion.span>
@@ -470,50 +401,30 @@ const AcordeaoAluno = React.memo(
                                             <>
                                                 <li>
                                                     <strong>Presente:</strong>
-                                                    <span>
-                                                        {aluno.presente}
-                                                    </span>
+                                                    <span>{aluno.presente}</span>
                                                 </li>
                                                 <li>
                                                     <strong>Atrasado:</strong>
-                                                    <span>
-                                                        {aluno.atrasado}
-                                                    </span>
+                                                    <span>{aluno.atrasado}</span>
                                                 </li>
                                                 <li>
                                                     <strong>Faltas:</strong>
                                                     <span>{aluno.falta}</span>
                                                 </li>
                                                 <li>
-                                                    <strong>
-                                                        Faltas Justificadas:
-                                                    </strong>
-                                                    <span>
-                                                        {
-                                                            aluno.falta_justificada
-                                                        }
-                                                    </span>
+                                                    <strong>Faltas Justificadas:</strong>
+                                                    <span>{aluno.falta_justificada}</span>
                                                 </li>
                                             </>
                                         ) : (
                                             <>
                                                 <li>
                                                     <strong>Trouxe:</strong>
-                                                    <span>
-                                                        {
-                                                            aluno?.[
-                                                                `trouxe_${opt}`
-                                                            ]
-                                                        }
-                                                    </span>
+                                                    <span>{aluno?.[`trouxe_${opt}`]}</span>
                                                 </li>
                                                 <li>
                                                     <strong>Não Trouxe:</strong>
-                                                    <span>
-                                                        {aluno?.[
-                                                            `nao_trouxe_${opt}`
-                                                        ] || 0}
-                                                    </span>
+                                                    <span>{aluno?.[`nao_trouxe_${opt}`] || 0}</span>
                                                 </li>
                                             </>
                                         )}
@@ -551,11 +462,7 @@ const EnviarTrofeuModal = React.memo(({ onClose }: { onClose: () => void }) => {
                     <p>Enviar Troféu</p>
                 </div>
 
-                <button
-                    className="trofeu-aluno-modal__close"
-                    onClick={onClose}
-                    type="button"
-                >
+                <button className="trofeu-aluno-modal__close" onClick={onClose} type="button">
                     <FontAwesomeIcon icon={faXmark} />
                 </button>
             </div>
@@ -596,10 +503,7 @@ const EnviarTrofeuModal = React.memo(({ onClose }: { onClose: () => void }) => {
                     </div>
                     <div className="trofeu-aluno-modal__icones">
                         {Object.entries(TROFEUS).map(([key, value]: any, i) => (
-                            <div
-                                className="trofeu-aluno-modal__icone"
-                                key={key}
-                            >
+                            <div className="trofeu-aluno-modal__icone" key={key}>
                                 <label htmlFor={`trofeu-modal-${key}`}>
                                     <FontAwesomeIcon icon={value} />
                                 </label>
@@ -616,10 +520,7 @@ const EnviarTrofeuModal = React.memo(({ onClose }: { onClose: () => void }) => {
                 </div>
 
                 <div className="trofeu-aluno-modal__buttons">
-                    <button
-                        className="trofeu-aluno-modal__submit"
-                        type="submit"
-                    >
+                    <button className="trofeu-aluno-modal__submit" type="submit">
                         Enviar Troféu
                     </button>
                 </div>
@@ -644,12 +545,7 @@ const Detalhes = ({
     opt: "chamada" | "revista" | "biblia";
     diasMap: Map<string, DetalhesAulaCacheLicao>;
 }) => {
-    const escolha =
-        opt === "chamada"
-            ? "status"
-            : opt === "revista"
-              ? "trouxe_licao"
-              : "trouxe_biblia";
+    const escolha = opt === "chamada" ? "status" : opt === "revista" ? "trouxe_licao" : "trouxe_biblia";
 
     const opcao = opt === "biblia" ? "Bíblia" : "Lição";
 
@@ -661,19 +557,12 @@ const Detalhes = ({
             exit={{ opacity: 0 }}
             onClick={onClose}
         >
-            <div
-                className="detalhes-aluno"
-                onClick={(evt) => evt.stopPropagation()}
-            >
+            <div className="detalhes-aluno" onClick={(evt) => evt.stopPropagation()}>
                 <div className="detalhes-aluno__header">
                     <h3>
                         <span>{aluno.nome}</span>{" "}
-                        <span
-                            className={`${aluno.matriculado ? "matriculado" : ""}`}
-                        >
-                            {aluno.matriculado
-                                ? "Matriculado"
-                                : "Não Matriculado"}
+                        <span className={`${aluno.matriculado ? "matriculado" : ""}`}>
+                            {aluno.matriculado ? "Matriculado" : "Não Matriculado"}
                         </span>
                     </h3>
                     <button onClick={onClose}>
@@ -686,50 +575,29 @@ const Detalhes = ({
                         return (
                             <li key={v.numero}>
                                 <p className="detalhes-aluno__lista--data">
-                                    {v.numero} (
-                                    {v.data.toLocaleDateString("pt-BR")})
+                                    {v.numero} ({v.data.toLocaleDateString("pt-BR")})
                                 </p>
                                 <div className="detalhes-aluno__lista--linha"></div>
                                 {v.aulaRegistrada?.realizada ? (
                                     <p className="detalhes-aluno__lista--status">
                                         {escolha === "status" ? (
-                                            diasMap.get(
-                                                v.data.toLocaleDateString(
-                                                    "pt-BR",
-                                                ),
-                                            )?.chamada?.[aluno.id || ""]?.[
-                                                escolha
-                                            ] || (
-                                                <span className="sem-registro">
-                                                    Sem registro
-                                                </span>
-                                            )
-                                        ) : diasMap.get(
-                                              v.data.toLocaleDateString(
-                                                  "pt-BR",
-                                              ),
-                                          )?.chamada?.[aluno.id || ""]?.[
-                                              escolha
-                                          ] === undefined ? (
-                                            <span className="sem-registro">
-                                                Sem registro
-                                            </span>
-                                        ) : diasMap.get(
-                                              v.data.toLocaleDateString(
-                                                  "pt-BR",
-                                              ),
-                                          )?.chamada?.[aluno.id || ""]?.[
-                                              escolha
-                                          ] === true ? (
+                                            diasMap.get(v.data.toLocaleDateString("pt-BR"))?.chamada?.[
+                                                aluno.id || ""
+                                            ]?.[escolha] || <span className="sem-registro">Sem registro</span>
+                                        ) : diasMap.get(v.data.toLocaleDateString("pt-BR"))?.chamada?.[
+                                              aluno.id || ""
+                                          ]?.[escolha] === undefined ? (
+                                            <span className="sem-registro">Sem registro</span>
+                                        ) : diasMap.get(v.data.toLocaleDateString("pt-BR"))?.chamada?.[
+                                              aluno.id || ""
+                                          ]?.[escolha] === true ? (
                                             `Trouxe ${opcao}`
                                         ) : (
                                             `Não Trouxe ${opcao}`
                                         )}
                                     </p>
                                 ) : (
-                                    <p className="detalhes-aluno__lista--nao-realizada">
-                                        Aula não realizada
-                                    </p>
+                                    <p className="detalhes-aluno__lista--nao-realizada">Aula não realizada</p>
                                 )}
                             </li>
                         );
@@ -744,14 +612,8 @@ const ToolTipDinheiro = ({ payload, active, label }: any) => {
     const currencyType = { currency: "BRL", style: "currency" };
     const ofertas = payload.filter((v: any) => v.dataKey.includes("Ofertas"));
     const missoes = payload.filter((v: any) => v.dataKey.includes("Missões"));
-    const totalOfertas = ofertas.reduce(
-        (prev: any, current: any) => current.value + prev,
-        0,
-    );
-    const totalMissoes = missoes.reduce(
-        (prev: any, current: any) => current.value + prev,
-        0,
-    );
+    const totalOfertas = ofertas.reduce((prev: any, current: any) => current.value + prev, 0);
+    const totalMissoes = missoes.reduce((prev: any, current: any) => current.value + prev, 0);
     return (
         <div className="tooltip-dinheiro">
             <div className="tooltip-dinheiro__header">
@@ -759,10 +621,7 @@ const ToolTipDinheiro = ({ payload, active, label }: any) => {
 
                 <p>
                     {payload
-                        .reduce(
-                            (prev: any, current: any) => prev + current.value,
-                            0,
-                        )
+                        .reduce((prev: any, current: any) => prev + current.value, 0)
                         .toLocaleString("pt-BR", currencyType)}
                 </p>
             </div>
@@ -772,34 +631,26 @@ const ToolTipDinheiro = ({ payload, active, label }: any) => {
                     {missoes.map((v: any) => (
                         <div key={v.name} className="tooltip-dinheiro__item">
                             <h4 style={{ color: v.color }}>{v.name}</h4>
-                            <p>
-                                {v.value.toLocaleString("pt-BR", currencyType)}
-                            </p>
+                            <p>{v.value.toLocaleString("pt-BR", currencyType)}</p>
                         </div>
                     ))}
 
                     <div className="tooltip-dinheiro__item-total">
                         <h4>Missões</h4>
-                        <p>
-                            {totalMissoes.toLocaleString("pt-BR", currencyType)}
-                        </p>
+                        <p>{totalMissoes.toLocaleString("pt-BR", currencyType)}</p>
                     </div>
                 </div>
                 <div className="tooltip-dinheiro__secao">
                     {ofertas.map((v: any) => (
                         <div key={v.name} className="tooltip-dinheiro__item">
                             <h4 style={{ color: v.color }}>{v.name}</h4>
-                            <p>
-                                {v.value.toLocaleString("pt-BR", currencyType)}
-                            </p>
+                            <p>{v.value.toLocaleString("pt-BR", currencyType)}</p>
                         </div>
                     ))}
 
                     <div className="tooltip-dinheiro__item-total">
                         <h4>Ofertas</h4>
-                        <p>
-                            {totalOfertas.toLocaleString("pt-BR", currencyType)}
-                        </p>
+                        <p>{totalOfertas.toLocaleString("pt-BR", currencyType)}</p>
                     </div>
                 </div>
             </div>
@@ -834,15 +685,11 @@ const ResumoAula = ({
         const alunos = new Map();
         for (const id in detalhes.chamada) {
             const status =
-                detalhes.chamada[id].status === "Falta" ||
-                detalhes.chamada[id].status === "Falta Justificada"
+                detalhes.chamada[id].status === "Falta" || detalhes.chamada[id].status === "Falta Justificada"
                     ? "Ausentes"
                     : detalhes.chamada[id].status;
             const aluno = alunos.get(status) || [];
-            alunos.set(status, [
-                ...aluno,
-                { alunoNome: dados.detalhes_aluno[id].nome, alunoId: id },
-            ]);
+            alunos.set(status, [...aluno, { alunoNome: dados.detalhes_aluno[id].nome, alunoId: id }]);
         }
 
         return alunos;
@@ -903,10 +750,7 @@ const ResumoAula = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
             >
-                <div
-                    className="resumo-aula"
-                    onClick={(e) => e.stopPropagation()}
-                >
+                <div className="resumo-aula" onClick={(e) => e.stopPropagation()}>
                     <LoadingModal isEnviando={isLoading} />
                     <div className="resumo-aula__container">
                         <div className="detalhes-aluno__header">
@@ -917,26 +761,18 @@ const ResumoAula = ({
                         </div>
                         <div className="resumo-chamada">
                             <FormProvider {...methods}>
-                                <form
-                                    className="resumo-chamada__card"
-                                    onSubmit={handleSubmit(onSubmit)}
-                                >
+                                <form className="resumo-chamada__card" onSubmit={handleSubmit(onSubmit)}>
                                     <h3>Resumo de Presença</h3>
                                     <InfoLinha
                                         icon={faUsersRectangle}
                                         label="Matriculados"
-                                        value={
-                                            detalhes?.total_matriculados ||
-                                            dados.total_matriculados
-                                        }
+                                        value={detalhes?.total_matriculados || dados.total_matriculados}
                                     />
                                     <AcordeaoItem
                                         titulo="Presentes"
                                         icone={faUserCheck}
                                         total={detalhes.presentes_chamada}
-                                        listaAlunos={
-                                            dadosMemo.get("Presente") || []
-                                        }
+                                        listaAlunos={dadosMemo.get("Presente") || []}
                                         form={{
                                             register,
                                             setValue,
@@ -948,9 +784,7 @@ const ResumoAula = ({
                                         titulo="Atrasados"
                                         icone={faUserClock}
                                         total={detalhes.atrasados}
-                                        listaAlunos={
-                                            dadosMemo.get("Atrasado") || []
-                                        }
+                                        listaAlunos={dadosMemo.get("Atrasado") || []}
                                         form={{
                                             register,
                                             setValue,
@@ -962,9 +796,7 @@ const ResumoAula = ({
                                         titulo="Ausentes"
                                         icone={faUserXmark}
                                         total={detalhes.ausentes}
-                                        listaAlunos={
-                                            dadosMemo.get("Ausentes") || []
-                                        }
+                                        listaAlunos={dadosMemo.get("Ausentes") || []}
                                         form={{
                                             register,
                                             setValue,
@@ -990,11 +822,7 @@ const ResumoAula = ({
                                         value={detalhes.total_presenca}
                                         isTotal
                                     />
-                                    {showTrophy && (
-                                        <EnviarTrofeuModal
-                                            onClose={fecharModal}
-                                        />
-                                    )}
+                                    {showTrophy && <EnviarTrofeuModal onClose={fecharModal} />}
                                 </form>
                             </FormProvider>
 
@@ -1014,38 +842,24 @@ const ResumoAula = ({
                             )}
                             <div className="resumo-chamada__card">
                                 <h3>Dados Gerais</h3>
-                                <InfoLinha
-                                    icon={faBookBible}
-                                    label="Bíblias"
-                                    value={detalhes.biblias || 0}
-                                />
-                                <InfoLinha
-                                    icon={faBookOpen}
-                                    label="Revistas"
-                                    value={detalhes.licoes || 0}
-                                />
+                                <InfoLinha icon={faBookBible} label="Bíblias" value={detalhes.biblias || 0} />
+                                <InfoLinha icon={faBookOpen} label="Revistas" value={detalhes.licoes || 0} />
                                 <hr />
                                 <InfoLinha
                                     icon={faSackDollar}
                                     label="Total Ofertas"
-                                    value={detalhes.ofertas.toLocaleString(
-                                        "pt-BR",
-                                        {
-                                            style: "currency",
-                                            currency: "BRL",
-                                        },
-                                    )}
+                                    value={detalhes.ofertas.toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
                                 />
                                 <InfoLinha
                                     icon={faPlane}
                                     label="Total Missões"
-                                    value={detalhes.missoes.toLocaleString(
-                                        "pt-BR",
-                                        {
-                                            style: "currency",
-                                            currency: "BRL",
-                                        },
-                                    )}
+                                    value={detalhes.missoes.toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
                                 />
                                 <hr />
                                 <InfoLinha
@@ -1064,13 +878,7 @@ const ResumoAula = ({
     );
 };
 
-export const PanoramaPieChart = ({
-    datas,
-    formatar = true,
-}: {
-    datas: any[];
-    formatar?: boolean;
-}) => {
+export const PanoramaPieChart = ({ datas, formatar = true }: { datas: any[]; formatar?: boolean }) => {
     return (
         <ResponsiveContainer width="100%" height="100%">
             <PieChart margin={{ top: 30, right: 0, bottom: 0, left: 0 }}>
@@ -1083,23 +891,15 @@ export const PanoramaPieChart = ({
                         const corDaFatia = fatia.payload.fill;
 
                         return (
-                            <div
-                                className="tooltip-dinheiro"
-                                style={{ minWidth: formatar ? 180 : 90 }}
-                            >
+                            <div className="tooltip-dinheiro" style={{ minWidth: formatar ? 180 : 90 }}>
                                 <div className="tooltip-dinheiro__item">
-                                    <h4 style={{ color: corDaFatia }}>
-                                        {fatia.name}
-                                    </h4>
+                                    <h4 style={{ color: corDaFatia }}>{fatia.name}</h4>
                                     <p>
                                         {formatar
-                                            ? fatia.value.toLocaleString(
-                                                  "pt-BR",
-                                                  {
-                                                      currency: "BRL",
-                                                      style: "currency",
-                                                  },
-                                              )
+                                            ? fatia.value.toLocaleString("pt-BR", {
+                                                  currency: "BRL",
+                                                  style: "currency",
+                                              })
                                             : fatia.value}
                                     </p>
                                 </div>
@@ -1108,18 +908,9 @@ export const PanoramaPieChart = ({
                     }}
                 />
 
-                <Pie
-                    data={datas}
-                    nameKey="name"
-                    label={(v) => v.value?.toLocaleString("pt-BR")}
-                    labelLine={false}
-                >
+                <Pie data={datas} nameKey="name" label={(v) => v.value?.toLocaleString("pt-BR")} labelLine={false}>
                     {datas.map((_, i) => (
-                        <Cell
-                            key={i}
-                            fill={CORES_GRAFICO[i + 6]}
-                            stroke={CORES_GRAFICO[i + 6]}
-                        />
+                        <Cell key={i} fill={CORES_GRAFICO[i + 6]} stroke={CORES_GRAFICO[i + 6]} />
                     ))}
                 </Pie>
             </PieChart>
@@ -1149,11 +940,7 @@ const PanoramaBarChart = ({
         });
     }, [datas]);
     return (
-        <ResponsiveContainer
-            width={"100%"}
-            height={"100%"}
-            minHeight={!isMobile ? 300 : 400}
-        >
+        <ResponsiveContainer width={"100%"} height={"100%"} minHeight={!isMobile ? 300 : 400}>
             <BarChart
                 data={datasMemo}
                 layout={isMobile ? "vertical" : "horizontal"}
@@ -1164,12 +951,7 @@ const PanoramaBarChart = ({
                     content={ToolTipDinheiro}
                 />
 
-                <Brush
-                    dataKey="name"
-                    height={15}
-                    stroke="#3B82F6"
-                    endIndex={ends}
-                />
+                <Brush dataKey="name" height={15} stroke="#3B82F6" endIndex={ends} />
 
                 {!isMobile ? (
                     <>
@@ -1198,9 +980,7 @@ const PanoramaBarChart = ({
                                 position={isMobile ? "right" : "top"}
                                 style={{ fontSize: "9px" }}
                                 formatter={(v) =>
-                                    typeof v === "number" && v > 0
-                                        ? v.toLocaleString("pt-BR")
-                                        : undefined
+                                    typeof v === "number" && v > 0 ? v.toLocaleString("pt-BR") : undefined
                                 }
                             />
                         ) : undefined}
@@ -1210,16 +990,7 @@ const PanoramaBarChart = ({
         </ResponsiveContainer>
     );
 };
-const PanoramaLineChart = ({
-    datas,
-    keys,
-    ends,
-}: {
-    datas: any;
-    keys: string[];
-    ends: number;
-    syncId?: string;
-}) => {
+const PanoramaLineChart = ({ datas, keys, ends }: { datas: any; keys: string[]; ends: number; syncId?: string }) => {
     return (
         <ResponsiveContainer width={"100%"} height={"100%"} minHeight={300}>
             <LineChart data={datas}>
@@ -1228,12 +999,7 @@ const PanoramaLineChart = ({
                     content={ToolTipDinheiro}
                 />
 
-                <Brush
-                    dataKey="name"
-                    height={15}
-                    stroke="#3B82F6"
-                    endIndex={ends}
-                />
+                <Brush dataKey="name" height={15} stroke="#3B82F6" endIndex={ends} />
 
                 <XAxis dataKey="name" />
                 <YAxis />
@@ -1249,11 +1015,7 @@ const PanoramaLineChart = ({
                         <LabelList
                             dataKey={v}
                             style={{ fontSize: "9px" }}
-                            formatter={(v) =>
-                                typeof v === "number" && v > 0
-                                    ? v.toLocaleString("pt-BR")
-                                    : undefined
-                            }
+                            formatter={(v) => (typeof v === "number" && v > 0 ? v.toLocaleString("pt-BR") : undefined)}
                         />
                     </Line>
                 ))}
@@ -1339,22 +1101,12 @@ const PanoramaBarELine = ({
                 </div>
             </div>
             <div className="panorama-financeiro__chart">
-                <ResponsiveContainer
-                    width={"100%"}
-                    height={"100%"}
-                    minHeight={300}
-                >
+                <ResponsiveContainer width={"100%"} height={"100%"} minHeight={300}>
                     <ComposedChart data={datas}>
-                        <Brush
-                            dataKey="name"
-                            height={15}
-                            stroke="#3B82F6"
-                            endIndex={endIndex}
-                        />
+                        <Brush dataKey="name" height={15} stroke="#3B82F6" endIndex={endIndex} />
                         <Tooltip
                             content={({ payload, active, label }) => {
-                                if (!active || !payload.length || !payload)
-                                    return null;
+                                if (!active || !payload.length || !payload) return null;
 
                                 return (
                                     <div className="tooltip-dinheiro">
@@ -1363,15 +1115,8 @@ const PanoramaBarELine = ({
 
                                             <p>
                                                 {payload.reduce(
-                                                    (
-                                                        prev: any,
-                                                        current: any,
-                                                    ) => {
-                                                        const valor =
-                                                            current.name ===
-                                                            lineKey
-                                                                ? 0
-                                                                : current.value;
+                                                    (prev: any, current: any) => {
+                                                        const valor = current.name === lineKey ? 0 : current.value;
                                                         return prev + valor;
                                                     },
 
@@ -1382,10 +1127,7 @@ const PanoramaBarELine = ({
 
                                         <div className="tooltip-dinheiro__secao">
                                             {bars.map((v) => (
-                                                <div
-                                                    key={v.key}
-                                                    className="tooltip-dinheiro__item"
-                                                >
+                                                <div key={v.key} className="tooltip-dinheiro__item">
                                                     <h4
                                                         style={{
                                                             color: v.color,
@@ -1393,22 +1135,13 @@ const PanoramaBarELine = ({
                                                     >
                                                         {v.key}
                                                     </h4>
-                                                    <p>
-                                                        {payload.find(
-                                                            (p) =>
-                                                                p.name ===
-                                                                v.key,
-                                                        )?.value || 0}
-                                                    </p>
+                                                    <p>{payload.find((p) => p.name === v.key)?.value || 0}</p>
                                                 </div>
                                             ))}
                                         </div>
                                         <div className="tooltip-dinheiro__secao">
                                             {line.map((v) => (
-                                                <div
-                                                    key={v.key}
-                                                    className="tooltip-dinheiro__item"
-                                                >
+                                                <div key={v.key} className="tooltip-dinheiro__item">
                                                     <h4
                                                         style={{
                                                             color: v.color,
@@ -1416,13 +1149,7 @@ const PanoramaBarELine = ({
                                                     >
                                                         {v.key}
                                                     </h4>
-                                                    <p>
-                                                        {payload.find(
-                                                            (p) =>
-                                                                p.name ===
-                                                                v.key,
-                                                        )?.value || 0}
-                                                    </p>
+                                                    <p>{payload.find((p) => p.name === v.key)?.value || 0}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -1437,57 +1164,32 @@ const PanoramaBarELine = ({
                         {line.map((v) => {
                             if (visible[v.key] && !isBar)
                                 return (
-                                    <Area
-                                        type="monotone"
-                                        key={v.key}
-                                        dataKey={v.key}
-                                        fill={v.color}
-                                        stroke={v.color}
-                                    />
+                                    <Area type="monotone" key={v.key} dataKey={v.key} fill={v.color} stroke={v.color} />
                                 );
                         })}
 
                         {bars.map((v) => {
                             if (visible[v.key])
                                 return isBar ? (
-                                    <Bar
-                                        key={v.key}
-                                        dataKey={v.key}
-                                        stackId={v.stackyId}
-                                        fill={v.color}
-                                    >
+                                    <Bar key={v.key} dataKey={v.key} stackId={v.stackyId} fill={v.color}>
                                         <LabelList
                                             dataKey={v.key}
                                             style={{
                                                 fontSize: "9px",
                                                 fill: "#F9FAFB",
                                             }}
-                                            formatter={(v) =>
-                                                typeof v === "number" && v > 0
-                                                    ? v
-                                                    : undefined
-                                            }
+                                            formatter={(v) => (typeof v === "number" && v > 0 ? v : undefined)}
                                         />
                                     </Bar>
                                 ) : (
-                                    <Line
-                                        key={v.key}
-                                        fill={v.color}
-                                        stroke={v.color}
-                                        strokeWidth={3}
-                                        dataKey={v.key}
-                                    >
+                                    <Line key={v.key} fill={v.color} stroke={v.color} strokeWidth={3} dataKey={v.key}>
                                         <LabelList
                                             dataKey={v.key}
                                             style={{
                                                 fontSize: "9px",
                                                 fill: "#F9FAFB",
                                             }}
-                                            formatter={(v) =>
-                                                typeof v === "number" && v > 0
-                                                    ? v
-                                                    : undefined
-                                            }
+                                            formatter={(v) => (typeof v === "number" && v > 0 ? v : undefined)}
                                         />
                                     </Line>
                                 );
@@ -1496,13 +1198,7 @@ const PanoramaBarELine = ({
                         {line.map((v) => {
                             if (visible[v.key] && isBar)
                                 return (
-                                    <Line
-                                        key={v.key}
-                                        fill={v.color}
-                                        stroke={v.color}
-                                        strokeWidth={3}
-                                        dataKey={v.key}
-                                    />
+                                    <Line key={v.key} fill={v.color} stroke={v.color} strokeWidth={3} dataKey={v.key} />
                                 );
                         })}
                     </ComposedChart>
@@ -1555,18 +1251,9 @@ const PanoramaFinanceiroCharts = ({
 
             <div className="panorama-financeiro__chart">
                 {isBar ? (
-                    <PanoramaBarChart
-                        datas={datas}
-                        keys={keys}
-                        ends={endIndex}
-                        isMobile={isMobile}
-                    />
+                    <PanoramaBarChart datas={datas} keys={keys} ends={endIndex} isMobile={isMobile} />
                 ) : (
-                    <PanoramaLineChart
-                        datas={datas}
-                        keys={keys}
-                        ends={endIndex}
-                    />
+                    <PanoramaLineChart datas={datas} keys={keys} ends={endIndex} />
                 )}
             </div>
         </>
@@ -1589,9 +1276,7 @@ const PanoramaRanking = React.memo(
         diasMap: any;
         dados: CacheLicaoInterface;
     }) => {
-        const [opt, setOpt] = useState<"chamada" | "revista" | "biblia">(
-            "chamada",
-        );
+        const [opt, setOpt] = useState<"chamada" | "revista" | "biblia">("chamada");
         const [detalhes, setDetalhes] = useState<any>(null);
         const [openCSV, setOPenCSV] = useState(false);
         const [share, setShare] = useState(false);
@@ -1668,43 +1353,29 @@ const PanoramaRanking = React.memo(
         const alunosMemo = useMemo(() => {
             if (!dados) return [];
 
-            let alunos = Object.entries(dados.detalhes_aluno || {}).map(
-                ([id, v]) => ({ id, ...v }),
-            );
+            let alunos = Object.entries(dados.detalhes_aluno || {}).map(([id, v]) => ({ id, ...v }));
 
             if (!alunos.length) return [];
 
-            alunos = alunos.filter((v) =>
-                v.nome?.toLowerCase().includes(pesquisa),
-            );
+            alunos = alunos.filter((v) => v.nome?.toLowerCase().includes(pesquisa));
 
             return alunos.sort(
                 (a, b) =>
-                    (b as any)[
-                        `porcentagem${opt === "chamada" ? "" : `_${opt}`}`
-                    ] -
-                    (a as any)[
-                        `porcentagem${opt === "chamada" ? "" : `_${opt}`}`
-                    ],
+                    (b as any)[`porcentagem${opt === "chamada" ? "" : `_${opt}`}`] -
+                    (a as any)[`porcentagem${opt === "chamada" ? "" : `_${opt}`}`],
             );
         }, [dados, pesquisa, opt]);
         return (
             <>
                 <LoadingModal isEnviando={isLoading} />
                 <div className="panorama-licao__cards-container">
-                    <CardProgresso
-                        titulo="Progresso do Trimestre"
-                        icone={faBook}
-                    >
+                    <CardProgresso titulo="Progresso do Trimestre" icone={faBook}>
                         <div className="barra-progresso">
                             <motion.div
                                 className="barra-progresso__preenchimento"
                                 initial={{ width: 0 }}
                                 animate={{
-                                    width: `${(
-                                        (aulasRealizadas / totalDeAulas) *
-                                        100
-                                    ).toFixed(1)}%`,
+                                    width: `${((aulasRealizadas / totalDeAulas) * 100).toFixed(1)}%`,
                                 }}
                                 transition={{ duration: 1, ease: "easeOut" }}
                             />
@@ -1714,24 +1385,14 @@ const PanoramaRanking = React.memo(
                         </p>
                     </CardProgresso>
 
-                    <CardProgresso
-                        titulo="Média de Presença"
-                        icone={faChartPie}
-                    >
+                    <CardProgresso titulo="Média de Presença" icone={faChartPie}>
                         <GraficoRosca
                             porcentagem={(
-                                alunosMemo.reduce(
-                                    (prev, acc) => prev + acc.porcentagem,
-                                    0,
-                                ) / alunosMemo.length || 0
+                                alunosMemo.reduce((prev, acc) => prev + acc.porcentagem, 0) / alunosMemo.length || 0
                             ).toFixed(1)}
                         />
                     </CardProgresso>
-                    <CardProgresso
-                        titulo="Total Matriculados"
-                        icone={faUsers}
-                        valor={dados.total_matriculados}
-                    />
+                    <CardProgresso titulo="Total Matriculados" icone={faUsers} valor={dados.total_matriculados} />
                 </div>
 
                 <div className="panorama-licao__lista-alunos">
@@ -1740,10 +1401,7 @@ const PanoramaRanking = React.memo(
 
                         <div className="panorama-licao__lista-alunos-header-container">
                             <div className="panorama-licao__lista-alunos-header--container">
-                                <SearchInput
-                                    onSearch={setPesquisa}
-                                    texto="Aluno"
-                                />
+                                <SearchInput onSearch={setPesquisa} texto="Aluno" />
                                 <button
                                     title="Gerar CSV"
                                     className="panorama-licao__lista-alunos-header--btn"
@@ -1788,30 +1446,17 @@ const PanoramaRanking = React.memo(
                         </div>
 
                         <div className="panorama-licao__opcoes-check">
-                            <input
-                                type="radio"
-                                name="opcoes"
-                                id="licao"
-                                onChange={() => setOpt("revista")}
-                            />
+                            <input type="radio" name="opcoes" id="licao" onChange={() => setOpt("revista")} />
                             <label htmlFor="licao">Lições</label>
                         </div>
 
                         <div className="panorama-licao__opcoes-check">
-                            <input
-                                type="radio"
-                                name="opcoes"
-                                id="biblia"
-                                onChange={() => setOpt("biblia")}
-                            />
+                            <input type="radio" name="opcoes" id="biblia" onChange={() => setOpt("biblia")} />
                             <label htmlFor="biblia">Bíblias</label>
                         </div>
                     </div>
                     <FormProvider {...methods}>
-                        <form
-                            className="panorama-licao__alunos"
-                            onSubmit={handleSubmit(onSubmit)}
-                        >
+                        <form className="panorama-licao__alunos" onSubmit={handleSubmit(onSubmit)}>
                             {alunosMemo.map((aluno) => (
                                 <AcordeaoAluno
                                     key={aluno.id}
@@ -1822,9 +1467,7 @@ const PanoramaRanking = React.memo(
                                 />
                             ))}
 
-                            {showTrophy && (
-                                <EnviarTrofeuModal onClose={fecharModal} />
-                            )}
+                            {showTrophy && <EnviarTrofeuModal onClose={fecharModal} />}
                         </form>
                     </FormProvider>
                     <AnimatePresence>
@@ -1865,11 +1508,7 @@ const PanoramaRanking = React.memo(
                         />
                     )}
 
-                    <AlertModal
-                        isOpen={!!mensagem}
-                        {...mensagem!}
-                        key={"alert-modal-panorama"}
-                    />
+                    <AlertModal isOpen={!!mensagem} {...mensagem!} key={"alert-modal-panorama"} />
                 </AnimatePresence>
             </>
         );
@@ -1913,8 +1552,7 @@ const PanoramaFinanceiro = React.memo(
             },
             {
                 name: "Total Dinheiro",
-                value:
-                    dados.total_missoes_dinheiro + dados.total_ofertas_dinheiro,
+                value: dados.total_missoes_dinheiro + dados.total_ofertas_dinheiro,
             },
         ];
         const datasPieOfertasMissoes = [
@@ -1935,12 +1573,7 @@ const PanoramaFinanceiro = React.memo(
                 value: dados.total_ofertas_dinheiro,
             },
         ];
-        const keysChart = [
-            "Missões Pix",
-            "Missões Dinheiro",
-            "Ofertas Pix",
-            "Ofertas Dinheiro",
-        ];
+        const keysChart = ["Missões Pix", "Missões Dinheiro", "Ofertas Pix", "Ofertas Dinheiro"];
         const datasCharts = listaAulas.reduce((prev: any[], current) => {
             let name = current.data.toLocaleDateString("pt-BR", {
                 day: "2-digit",
@@ -1965,9 +1598,7 @@ const PanoramaFinanceiro = React.memo(
             return [...prev, ...obj];
         }, []) as any[];
         let ends = 1;
-        listaAulas.forEach((v, i) =>
-            v.aulaRegistrada?.realizada ? (ends = i) : undefined,
-        );
+        listaAulas.forEach((v, i) => (v.aulaRegistrada?.realizada ? (ends = i) : undefined));
         useEffect(() => {
             const anMissoes = animate(valorMissoes, dados.total_missoes, {
                 duration: 2,
@@ -2059,12 +1690,7 @@ const PanoramaGrafico = React.memo(
             { key: "Revistas", color: "#FACC15" },
             { key: "Presentes", color: "#A855F7" },
         ];
-        const keysFinanceiro = [
-            "Missões Pix",
-            "Missões Dinheiro",
-            "Ofertas Pix",
-            "Ofertas Dinheiro",
-        ];
+        const keysFinanceiro = ["Missões Pix", "Missões Dinheiro", "Ofertas Pix", "Ofertas Dinheiro"];
         let endIndex = 0;
         const datasPresenca: any[] = [];
         const datasEngajamento: any[] = [];
@@ -2160,9 +1786,7 @@ const PanoramaResumo = React.memo(
         dados: CacheLicaoInterface;
         trimestre: string;
     }) => {
-        const [aula, setAula] = useState<
-            (DetalhesAulaCacheLicao & { aula: string }) | null
-        >(null);
+        const [aula, setAula] = useState<(DetalhesAulaCacheLicao & { aula: string }) | null>(null);
         return (
             <>
                 <div className="panorama-resumo">
@@ -2183,14 +1807,8 @@ const PanoramaResumo = React.memo(
                                     key={v.numero}
                                     onClick={() =>
                                         setAula({
-                                            ...datasMap.get(
-                                                v.data.toLocaleDateString(
-                                                    "pt-BR",
-                                                ),
-                                            )!,
-                                            aula: v.data.toLocaleDateString(
-                                                "pt-BR",
-                                            ),
+                                            ...datasMap.get(v.data.toLocaleDateString("pt-BR"))!,
+                                            aula: v.data.toLocaleDateString("pt-BR"),
                                         })
                                     }
                                     className="panorama-resumo__aula"
@@ -2198,42 +1816,26 @@ const PanoramaResumo = React.memo(
                                     <div className="panorama-resumo__aula-numero">
                                         <p>Aula {v.numero}</p>
 
-                                        <data
-                                            value={v.data.toLocaleDateString(
-                                                "pt-BR",
-                                            )}
-                                        >
+                                        <data value={v.data.toLocaleDateString("pt-BR")}>
                                             {v.data.toLocaleDateString("pt-BR")}
                                         </data>
                                     </div>
                                     <div className="panorama-resumo__aula-detalhes">
                                         <div className="panorama-resumo__aula-detalhes--presentes">
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faUsers}
-                                                />
+                                                <FontAwesomeIcon icon={faUsers} />
                                             </span>
                                             <p>
-                                                {datasMap.get(
-                                                    v.data.toLocaleDateString(
-                                                        "pt-BR",
-                                                    ),
-                                                )?.total_presenca || 0}
+                                                {datasMap.get(v.data.toLocaleDateString("pt-BR"))?.total_presenca || 0}
                                             </p>
                                         </div>
                                         <div className="panorama-resumo__aula-detalhes--missoes">
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faCoins}
-                                                />
+                                                <FontAwesomeIcon icon={faCoins} />
                                             </span>
                                             <p>
                                                 {(
-                                                    datasMap.get(
-                                                        v.data.toLocaleDateString(
-                                                            "pt-BR",
-                                                        ),
-                                                    )?.ofertas || 0
+                                                    datasMap.get(v.data.toLocaleDateString("pt-BR"))?.ofertas || 0
                                                 ).toLocaleString("pt-BR", {
                                                     currency: "BRL",
                                                     style: "currency",
@@ -2242,17 +1844,11 @@ const PanoramaResumo = React.memo(
                                         </div>
                                         <div className="panorama-resumo__aula-detalhes--ofertas">
                                             <span>
-                                                <FontAwesomeIcon
-                                                    icon={faEarthAfrica}
-                                                />
+                                                <FontAwesomeIcon icon={faEarthAfrica} />
                                             </span>
                                             <p>
                                                 {(
-                                                    datasMap.get(
-                                                        v.data.toLocaleDateString(
-                                                            "pt-BR",
-                                                        ),
-                                                    )?.missoes || 0
+                                                    datasMap.get(v.data.toLocaleDateString("pt-BR"))?.missoes || 0
                                                 ).toLocaleString("pt-BR", {
                                                     currency: "BRL",
                                                     style: "currency",
@@ -2297,23 +1893,17 @@ function PanoramaLicao({
 }) {
     const abas = ["Ranking", "Financeiro", "Gráficos", "Resumo"];
     const [currentAba, setCurrentAba] = useState("Ranking");
-    const [detalhesAulas, setDetalhesAulas] = useState<
-        DetalhesAulaCacheLicao[]
-    >([]);
-    const [diasMap, setDiasMap] = useState<Map<string, DetalhesAulaCacheLicao>>(
-        new Map(),
-    );
+    const [detalhesAulas, setDetalhesAulas] = useState<DetalhesAulaCacheLicao[]>([]);
+    const [diasMap, setDiasMap] = useState<Map<string, DetalhesAulaCacheLicao>>(new Map());
     const isMobile = useIsMobile(500);
 
     useEffect(() => {
         if (!dados) return;
         const chamadaMap = new Map();
-        const detalhesAulas = Object.entries(dados.detalhes_aulas).map(
-            ([data, v]) => {
-                chamadaMap.set(data, v);
-                return v;
-            },
-        );
+        const detalhesAulas = Object.entries(dados.detalhes_aulas).map(([data, v]) => {
+            chamadaMap.set(data, v);
+            return v;
+        });
         setDetalhesAulas(detalhesAulas);
         setDiasMap(chamadaMap);
     }, [dados]);
@@ -2321,10 +1911,7 @@ function PanoramaLicao({
         <>
             <div className="panorama-licao">
                 {isLoading && !dados ? (
-                    <LoadingModal
-                        isEnviando={isLoading}
-                        mensagem="Carregando"
-                    />
+                    <LoadingModal isEnviando={isLoading} mensagem="Carregando" />
                 ) : (
                     <>
                         <div className="panorama-licao__header">

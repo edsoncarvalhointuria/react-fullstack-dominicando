@@ -1,18 +1,8 @@
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
-import {
-    faCalendar,
-    faCalendarDay,
-    faCalendarDays,
-} from "@fortawesome/free-solid-svg-icons";
+import { faCalendar, faCalendarDay, faCalendarDays } from "@fortawesome/free-solid-svg-icons";
 import { useDataContext } from "../../../context/DataContext";
 import Loading from "../../layout/loading/Loading";
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import "./visitas.scss";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
@@ -84,9 +74,7 @@ function Trimestres() {
     const [trimestres, setTrimestres] = useState<TrimestresInterface[]>([]);
     const [update, setUpdate] = useState(false);
     const [ordemColuna, setOrdemColuna] = useState<any>("");
-    const [ordem, setOrdem] = useState<"crescente" | "decrescente">(
-        "crescente",
-    );
+    const [ordem, setOrdem] = useState<"crescente" | "decrescente">("crescente");
     const [mensagem, setMensagem] = useState<{
         titulo: string;
         mensagem: string | ReactNode;
@@ -111,14 +99,8 @@ function Trimestres() {
             (v) =>
                 v.ano === Number(pesquisa) ||
                 v.nome.toLowerCase().includes(pesquisa) ||
-                v.data_inicio
-                    ?.toDate()
-                    ?.toLocaleDateString("pt-BR")
-                    ?.includes(pesquisa) ||
-                v.data_fim
-                    ?.toDate()
-                    ?.toLocaleDateString("pt-BR")
-                    ?.includes(pesquisa) ||
+                v.data_inicio?.toDate()?.toLocaleDateString("pt-BR")?.includes(pesquisa) ||
+                v.data_fim?.toDate()?.toLocaleDateString("pt-BR")?.includes(pesquisa) ||
                 v.numero_trimestre === Number(pesquisa),
         );
         v = v.sort((a: any, b: any) => getOrdem(a, b, ordemColuna, ordem));
@@ -128,10 +110,7 @@ function Trimestres() {
     useEffect(() => {
         const getTrimestres = async () => {
             const trimestresCll = collection(db, "trimestres");
-            const q = query(
-                trimestresCll,
-                where("ministerioId", "==", user?.ministerioId),
-            );
+            const q = query(trimestresCll, where("ministerioId", "==", user?.ministerioId));
             const trimestresSnap = await getDocs(q);
 
             if (trimestresSnap.empty) return [];
@@ -141,11 +120,7 @@ function Trimestres() {
                 ...v.data(),
             })) as TrimestresInterface[];
 
-            return trimestres.sort(
-                (a, b) =>
-                    b.data_fim.toDate().getTime() -
-                    a.data_inicio.toDate().getTime(),
-            );
+            return trimestres.sort((a, b) => b.data_fim.toDate().getTime() - a.data_inicio.toDate().getTime());
         };
         if (user)
             getTrimestres()
@@ -173,35 +148,22 @@ function Trimestres() {
             >
                 <div className="alunos-page__header">
                     <div className="alunos-page__header-infos">
-                        <h2 className="alunos-page__header-title">
-                            Gestão de Trimestres
-                        </h2>
+                        <h2 className="alunos-page__header-title">Gestão de Trimestres</h2>
                     </div>
 
                     <div className="alunos-page__header-filtros">
                         <div className="alunos-page__header-filtro">
-                            <SearchInput
-                                onSearch={(texto) => setPesquisa(texto)}
-                                texto="trimestres"
-                            />
+                            <SearchInput onSearch={setPesquisa} texto="trimestres" />
                         </div>
                         <OrderInput
-                            onOrder={() =>
-                                setOrdem((v) =>
-                                    v === "crescente"
-                                        ? "decrescente"
-                                        : "crescente",
-                                )
-                            }
+                            onOrder={() => setOrdem((v) => (v === "crescente" ? "decrescente" : "crescente"))}
                             isCrescente={ordem === "crescente"}
                             options={OPTIONS.filter((v) => v.isFilter)}
                             onSelect={(v) => setOrdemColuna(v.id as any)}
                         />
 
                         <div className="alunos-page__header-qtd">
-                            <p>
-                                Total de Trimestres: ({trimestresMemo.length})
-                            </p>
+                            <p>Total de Trimestres: ({trimestresMemo.length})</p>
                         </div>
                     </div>
                 </div>
@@ -219,13 +181,8 @@ function Trimestres() {
                                 onDelete={onDeleteItem}
                             />
                         ) : (
-                            <motion.div
-                                className="alunos-page__vazio"
-                                variants={variantsItem}
-                            >
-                                <p className="alunos-page__vazio--mensagem">
-                                    Sem resultados
-                                </p>
+                            <motion.div className="alunos-page__vazio" variants={variantsItem}>
+                                <p className="alunos-page__vazio--mensagem">Sem resultados</p>
                             </motion.div>
                         )}
                     </AnimatePresence>

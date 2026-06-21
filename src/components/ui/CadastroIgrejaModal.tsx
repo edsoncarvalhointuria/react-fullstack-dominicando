@@ -5,8 +5,8 @@ import { FormProvider, useForm } from "react-hook-form";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../utils/firebase";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { db, functions } from "../../utils/firebase";
+import { httpsCallable } from "firebase/functions";
 import LoadingModal from "../layout/loading/LoadingModal";
 import AlertModal from "./AlertModal";
 
@@ -36,7 +36,6 @@ const variantsErro: Variants = {
     exit: { opacity: 0, y: -10, height: 0 },
 };
 
-const functions = getFunctions();
 const salvarIgreja = httpsCallable(functions, "salvarIgreja");
 
 function CadastroIgrejaModal({
@@ -121,44 +120,28 @@ function CadastroIgrejaModal({
                     <div className="cadastro-igreja__header">
                         <div className="cadastro-igreja__title">
                             <FontAwesomeIcon icon={faCross} />
-                            <h2>
-                                {igrejaId
-                                    ? "Editar Igreja"
-                                    : "Cadastrar Igreja"}
-                            </h2>
+                            <h2>{igrejaId ? "Editar Igreja" : "Cadastrar Igreja"}</h2>
                         </div>
-                        <button
-                            className="cadastro-igreja__close"
-                            onClick={onCancel}
-                        >
+                        <button className="cadastro-igreja__close" onClick={onCancel}>
                             <FontAwesomeIcon icon={faXmark} />
                         </button>
                     </div>
 
                     <div className="cadastro-igreja__body">
                         <FormProvider {...methods}>
-                            <form
-                                className="cadastro-igreja__form"
-                                onSubmit={handleSubmit(onSubmit)}
-                            >
+                            <form className="cadastro-igreja__form" onSubmit={handleSubmit(onSubmit)}>
                                 <div className="cadastro-igreja__form-item cadastro-igreja__form-item--full">
                                     <div className="cadastro-igreja__form-input">
-                                        <label htmlFor="cadastro-igreja-nome">
-                                            Nome da Igreja*
-                                        </label>
+                                        <label htmlFor="cadastro-igreja-nome">Nome da Igreja*</label>
                                         <input
                                             type="text"
                                             id="cadastro-igreja-nome"
-                                            className={
-                                                errors.nome ? "input-error" : ""
-                                            }
+                                            className={errors.nome ? "input-error" : ""}
                                             {...register("nome", {
-                                                required:
-                                                    "O nome da igreja é obrigatório",
+                                                required: "O nome da igreja é obrigatório",
                                                 minLength: {
                                                     value: 3,
-                                                    message:
-                                                        "O nome precisa ter no mínimo 3 caracteres",
+                                                    message: "O nome precisa ter no mínimo 3 caracteres",
                                                 },
                                             })}
                                         />
@@ -187,14 +170,8 @@ function CadastroIgrejaModal({
                                     >
                                         Cancelar
                                     </button>
-                                    <button
-                                        type="submit"
-                                        className="button-primary"
-                                        disabled={isEnviando}
-                                    >
-                                        {igrejaId
-                                            ? "Salvar Alterações"
-                                            : "Salvar Igreja"}
+                                    <button type="submit" className="button-primary" disabled={isEnviando}>
+                                        {igrejaId ? "Salvar Alterações" : "Salvar Igreja"}
                                     </button>
                                 </div>
                             </form>

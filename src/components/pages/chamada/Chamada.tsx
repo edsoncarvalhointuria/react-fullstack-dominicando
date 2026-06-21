@@ -1,27 +1,9 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useDataContext } from "../../../context/DataContext";
-import {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    type ReactNode,
-} from "react";
-import Loading from "../../layout/loading/Loading";
-import {
-    collection,
-    doc,
-    documentId,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-import { db } from "../../../utils/firebase";
-import type {
-    CacheMatriculasInterface,
-    MatriculasInterface,
-} from "../../../interfaces/MatriculasInterface";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { collection, doc, documentId, getDoc, getDocs, query, where } from "firebase/firestore";
+import { db, functions } from "../../../utils/firebase";
+import type { CacheMatriculasInterface, MatriculasInterface } from "../../../interfaces/MatriculasInterface";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
 import { AnimatePresence, motion } from "framer-motion";
 import ListaChamada from "./ListaChamada";
@@ -42,10 +24,11 @@ import type { RegistroAulaInterface } from "../../../interfaces/RegistroAulaInte
 import ResumoChamada from "./ResumoChamada";
 import AlertModal from "../../ui/AlertModal";
 import MatriculaModal from "../../ui/MatriculaModal";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import { useAuthContext } from "../../../context/AuthContext";
 import CadastroAlunoModal from "../../ui/CadastroAlunoModal";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
+import LoadingVideo from "../../layout/loading/LoadingVideo";
 
 interface ChamadaForm {
     chamada: { [alunoId: string]: string };
@@ -69,7 +52,6 @@ interface ChamadaForm {
     data_chamada: string;
 }
 
-const functions = getFunctions();
 const salvarChamada = httpsCallable(functions, "salvarChamada");
 const salvarVisita = httpsCallable(functions, "salvarVisita");
 
@@ -79,9 +61,7 @@ function ChamadaPage() {
     const [domingo, setDomingo] = useState<Date | null>(null);
     const [matriculas, setMatriculas] = useState<MatriculasInterface[]>([]);
     const [etapa, setEtapa] = useState(1);
-    const [status, setStatus] = useState<
-        "rascunho" | "realizada" | "bloqueada" | null
-    >(null);
+    const [status, setStatus] = useState<"rascunho" | "realizada" | "bloqueada" | null>(null);
     const [matricularNovoAluno, setMatricularNovoAluno] = useState(false);
     const [isEnviando, setIsEnviando] = useState(false);
     const [isDataAnterior, setIsDataAnterior] = useState(false);
@@ -132,17 +112,9 @@ function ChamadaPage() {
     });
     const { getValues, setValue, reset, handleSubmit } = methods;
 
-    const adicionarAluno = useCallback(
-        (id?: string) => setEditAluno(id || ""),
-        [],
-    );
-    const onMatricularNovoAluno = useCallback(
-        () => setMatricularNovoAluno(true),
-        [],
-    );
-    const naoPodeEditar =
-        (isEdit.current && isDataAnterior && isSecretario.current) ||
-        status === "bloqueada";
+    const adicionarAluno = useCallback((id?: string) => setEditAluno(id || ""), []);
+    const onMatricularNovoAluno = useCallback(() => setMatricularNovoAluno(true), []);
+    const naoPodeEditar = (isEdit.current && isDataAnterior && isSecretario.current) || status === "bloqueada";
 
     const proximo = () => {
         setMatriculas(matriculasRef.current);
@@ -155,8 +127,7 @@ function ChamadaPage() {
     };
 
     const navigateChamadaSalva = () => {
-        if (isSuperAdmin.current)
-            navigate(`/aulas/igreja/${igrejaId}/classe/${classeId}`);
+        if (isSuperAdmin.current) navigate(`/aulas/igreja/${igrejaId}/classe/${classeId}`);
         else if (isAdmin.current) navigate(`/aulas/classe/${classeId}`);
         else navigate("/aulas");
     };
@@ -164,9 +135,7 @@ function ChamadaPage() {
     const save = async (dados: ChamadaForm) => {
         setIsEnviando(true);
         setMensagem(null);
-        salvarVisita({ visitas: dados.visitasLista, igrejaId }).catch((v) =>
-            console.log(v),
-        );
+        salvarVisita({ visitas: dados.visitasLista, igrejaId }).catch((v) => console.log(v));
         try {
             if (pixMissoes.length || pixOfertas.length) {
                 const itens = [
@@ -178,10 +147,7 @@ function ChamadaPage() {
                     itens.map(async (v) => {
                         const caminho = `comprovantes-pix/${licaoId}/${numeroAula}/${v.tipo}/${v.file.name}`;
                         const storageRef = ref(storage, caminho);
-                        const arquivoSnap = await uploadBytes(
-                            storageRef,
-                            v.file,
-                        );
+                        const arquivoSnap = await uploadBytes(storageRef, v.file);
                         return { tipo: v.tipo, arquivo: arquivoSnap };
                     }),
                 );
@@ -192,24 +158,18 @@ function ChamadaPage() {
                     }),
                 );
                 dados.imgsPixMissoes = [
-                    ...links
-                        .filter((v) => v.tipo === "missoes")
-                        .map((v) => v.link),
+                    ...links.filter((v) => v.tipo === "missoes").map((v) => v.link),
                     ...(dados?.imgsPixMissoes || []),
                 ];
                 dados.imgsPixOfertas = [
-                    ...links
-                        .filter((v) => v.tipo === "ofertas")
-                        .map((v) => v.link),
+                    ...links.filter((v) => v.tipo === "ofertas").map((v) => v.link),
                     ...(dados?.imgsPixOfertas || []),
                 ];
             }
             const envio = {
                 dados: {
                     ...dados,
-                    data_chamada:
-                        domingo?.toISOString()?.split("T")[0] ||
-                        new Date().toISOString().split("T")[0],
+                    data_chamada: domingo?.toISOString()?.split("T")[0] || new Date().toISOString().split("T")[0],
                 },
                 classeId,
                 licaoId,
@@ -230,7 +190,8 @@ function ChamadaPage() {
             });
         } catch (err: any) {
             setMensagem({
-                message: err.message,
+                message:
+                    err.code === "storage/unauthorized" ? "Você não tem permissão para anexar documentos" : err.message,
                 onCancel: () => setMensagem(null),
                 onClose: () => setMensagem(null),
                 onConfirm: () => window.location.reload(),
@@ -253,15 +214,11 @@ function ChamadaPage() {
                             <strong>Atenção:</strong> Esta lição está bloqueada.
                         </span>
                         <span>
-                            Depois que o relatório trimestral é enviado, a lição
-                            não pode mais ser editada para evitar mudanças nos
-                            registros.
+                            Depois que o relatório trimestral é enviado, a lição não pode mais ser editada para evitar
+                            mudanças nos registros.
                         </span>
                         <br />
-                        <strong>
-                            Se precisar fazer alguma alteração, procure a
-                            secretaria do ministério.
-                        </strong>
+                        <strong>Se precisar fazer alguma alteração, procure a secretaria do ministério.</strong>
                     </>
                 ),
                 onCancel: navigateChamadaSalva,
@@ -277,14 +234,9 @@ function ChamadaPage() {
                 message: (
                     <>
                         <span>Atenção: esta aula já passou.</span>
-                        <span>
-                            Chamadas de dias anteriores são bloqueadas para
-                            evitar perda de dados.
-                        </span>
+                        <span>Chamadas de dias anteriores são bloqueadas para evitar perda de dados.</span>
                         <br />
-                        <strong>
-                            Para alterações, fale com a secretaria da igreja.
-                        </strong>
+                        <strong>Para alterações, fale com a secretaria da igreja.</strong>
                     </>
                 ),
                 onCancel: navigateChamadaSalva,
@@ -299,13 +251,9 @@ function ChamadaPage() {
             return setMensagem({
                 message: (
                     <>
+                        <span>Você está editando a chamada de uma aula já concluída</span>
                         <span>
-                            Você está editando a chamada de uma aula já
-                            concluída
-                        </span>
-                        <span>
-                            Salvando agora, os dados originais serão{" "}
-                            <strong>substituídos</strong>.
+                            Salvando agora, os dados originais serão <strong>substituídos</strong>.
                         </span>
                         <br />
                         <span>Deseja realmente prosseguir?</span>
@@ -356,21 +304,12 @@ function ChamadaPage() {
 
             const n = Number(numeroAula);
 
-            if (
-                Number.isNaN(n) ||
-                n > licoes.numero_aulas ||
-                n < 1 ||
-                licaoSnapshot.empty
-            )
-                navigate("/aulas");
+            if (Number.isNaN(n) || n > licoes.numero_aulas || n < 1 || licaoSnapshot.empty) navigate("/aulas");
 
             const domingo = licoes?.data_inicio?.toDate();
             domingo?.setDate(domingo?.getDate() + (n - 1) * 7);
 
-            setIsDataAnterior(
-                new Date(domingo).setHours(12, 0, 0, 0) <
-                    new Date().setHours(12, 0, 0, 0),
-            );
+            setIsDataAnterior(new Date(domingo).setHours(12, 0, 0, 0) < new Date().setHours(12, 0, 0, 0));
 
             setDomingo(domingo);
             return licoes;
@@ -378,15 +317,10 @@ function ChamadaPage() {
 
         const getMatriculas = async () => {
             setIsLoading(true);
-            const matriculasDoc = doc(
-                db,
-                "cache_matriculas",
-                `${igrejaId}_${licaoId}`,
-            );
+            const matriculasDoc = doc(db, "cache_matriculas", `${igrejaId}_${licaoId}`);
             const matriculasSnap = await getDoc(matriculasDoc);
 
-            const matriculas =
-                matriculasSnap.data() as CacheMatriculasInterface;
+            const matriculas = matriculasSnap.data() as CacheMatriculasInterface;
 
             return Object.values(matriculas.lista);
         };
@@ -423,16 +357,10 @@ function ChamadaPage() {
 
             if (!chamada) return;
 
-            const licoesTrazidas = chamada
-                .filter((v) => v.trouxe_licao)
-                .map((v) => v.alunoId);
-            const bibliasTrazidas = chamada
-                .filter((v) => v.trouxe_biblia)
-                .map((v) => v.alunoId);
+            const licoesTrazidas = chamada.filter((v) => v.trouxe_licao).map((v) => v.alunoId);
+            const bibliasTrazidas = chamada.filter((v) => v.trouxe_biblia).map((v) => v.alunoId);
             const formReset = {
-                chamada: Object.fromEntries(
-                    chamada.map((v) => [v.alunoId, v.status]),
-                ),
+                chamada: Object.fromEntries(chamada.map((v) => [v.alunoId, v.status])),
                 licoesTrazidas,
                 bibliasTrazidas,
                 totalLicoes: registros.licoes_trazidas || licoesTrazidas.length,
@@ -442,12 +370,8 @@ function ChamadaPage() {
                 ofertaPix: registros.ofertas.pix,
                 missoesDinheiro: registros.missoes.dinheiro,
                 missoesPix: registros.missoes.pix,
-                imgsPixMissoes: registros.imgsPixMissoes
-                    ? registros.imgsPixMissoes!
-                    : [],
-                imgsPixOfertas: registros.imgsPixOfertas
-                    ? registros.imgsPixOfertas!
-                    : [],
+                imgsPixMissoes: registros.imgsPixMissoes ? registros.imgsPixMissoes! : [],
+                imgsPixOfertas: registros.imgsPixOfertas ? registros.imgsPixOfertas! : [],
                 descricao: registros.descricao,
             };
 
@@ -463,9 +387,7 @@ function ChamadaPage() {
                     isEdit.current = true;
                     setStatus((v) => (v === null ? "realizada" : v));
                     const alunosMatriculados = a.map((v) => v.alunoId);
-                    const listaAtualizada = m.filter((v) =>
-                        alunosMatriculados.includes(v.alunoId),
-                    );
+                    const listaAtualizada = m.filter((v) => alunosMatriculados.includes(v.alunoId));
                     setMatriculas(listaAtualizada);
                     matriculasRef.current = listaAtualizada;
                 } else {
@@ -486,9 +408,7 @@ function ChamadaPage() {
                     } else {
                         const listaAlunos = m.map((v) => v.alunoId);
 
-                        const listaAlunosLicao = m
-                            .filter((v) => v.possui_revista)
-                            .map((v) => v.alunoId);
+                        const listaAlunosLicao = m.filter((v) => v.possui_revista).map((v) => v.alunoId);
                         setValue("bibliasTrazidas", listaAlunos);
                         setValue("licoesTrazidas", listaAlunosLicao);
                         setValue("totalBiblias", listaAlunos.length);
@@ -505,22 +425,15 @@ function ChamadaPage() {
             })
             .finally(() => setIsLoading(false));
     }, [update]);
-    if (
-        !isLoadingData &&
-        classes.length &&
-        !classes.find((v) => v.id === classeId)
-    ) {
+    if (!isLoadingData && classes.length && !classes.find((v) => v.id === classeId)) {
         return <Navigate to={"/aulas"} />;
     }
-    if (isLoading || isLoadingData || isEnviando) return <Loading />;
+    if (isLoading || isLoadingData || isEnviando) return <LoadingVideo isOpen />;
     return (
         <>
             <div className="chamada-page">
                 <div className="chamada-page__infos">
-                    <button
-                        className="chamada-page__infos--voltar"
-                        onClick={() => window.history.back()}
-                    >
+                    <button className="chamada-page__infos--voltar" onClick={() => window.history.back()}>
                         <FontAwesomeIcon icon={faCaretLeft} />
                     </button>
                     <h2 className="chamada-page__title">{licao?.titulo}</h2>
@@ -561,14 +474,9 @@ function ChamadaPage() {
                                             onClose: () => setMensagem(null),
                                             onConfirm: limparFomulario,
                                             title: "Resetar Formulário?",
-                                            confirmText:
-                                                "Sim, resetar formulário",
+                                            confirmText: "Sim, resetar formulário",
                                             cancelText: "Cancelar",
-                                            icon: (
-                                                <FontAwesomeIcon
-                                                    icon={faTriangleExclamation}
-                                                />
-                                            ),
+                                            icon: <FontAwesomeIcon icon={faTriangleExclamation} />,
                                         })
                                     }
                                 >
@@ -582,9 +490,7 @@ function ChamadaPage() {
                 <FormProvider {...methods}>
                     <form
                         onSubmit={handleSubmit(onSubmit)}
-                        className={
-                            naoPodeEditar ? "chamada-page__form--bloqueado" : ""
-                        }
+                        className={naoPodeEditar ? "chamada-page__form--bloqueado" : ""}
                     >
                         <AnimatePresence mode="wait">
                             {etapa === 1 ? (
@@ -597,14 +503,9 @@ function ChamadaPage() {
                                     >
                                         <ListaChamada
                                             key={`lista-chamada`}
-                                            onCadastradarAluno={
-                                                onMatricularNovoAluno
-                                            }
+                                            onCadastradarAluno={onMatricularNovoAluno}
                                             onEditAluno={adicionarAluno}
-                                            podeMatricular={
-                                                status !== "realizada" &&
-                                                !naoPodeEditar
-                                            }
+                                            podeMatricular={status !== "realizada" && !naoPodeEditar}
                                             matriculas={matriculas}
                                         />
                                     </motion.div>
@@ -621,19 +522,12 @@ function ChamadaPage() {
                                     key="etapa2"
                                 />
                             ) : (
-                                <ResumoChamada
-                                    matriculados={matriculas}
-                                    visitas_lista={visitas}
-                                />
+                                <ResumoChamada matriculados={matriculas} visitas_lista={visitas} />
                             )}
                         </AnimatePresence>
 
                         <div className={`chamada-page__navegacao`}>
-                            <button
-                                type="button"
-                                onClick={voltar}
-                                className="chamada-page__navegacao--voltar"
-                            >
+                            <button type="button" onClick={voltar} className="chamada-page__navegacao--voltar">
                                 Voltar
                             </button>
 
@@ -641,10 +535,7 @@ function ChamadaPage() {
                                 <motion.button
                                     type="button"
                                     onTapStart={() => {
-                                        if (
-                                            document.activeElement instanceof
-                                            HTMLElement
-                                        )
+                                        if (document.activeElement instanceof HTMLElement)
                                             document.activeElement.blur();
                                     }}
                                     onTap={() => {
@@ -653,10 +544,7 @@ function ChamadaPage() {
                                         if (!isEdit.current) {
                                             const values = getValues();
 
-                                            localStorage.setItem(
-                                                rascunhoLocalStorage,
-                                                JSON.stringify(values),
-                                            );
+                                            localStorage.setItem(rascunhoLocalStorage, JSON.stringify(values));
                                         }
                                     }}
                                     className="chamada-page__navegacao--avancar"
@@ -716,18 +604,12 @@ function ChamadaPage() {
                             setMensagem({
                                 message: (
                                     <>
+                                        <span>Aluno atualizado com sucesso!</span>
                                         <span>
-                                            Aluno atualizado com sucesso!
+                                            Pode levar alguns segundos até que os dados do seu aluno sejam atualizados
+                                            totalmente.
                                         </span>
-                                        <span>
-                                            Pode levar alguns segundos até que
-                                            os dados do seu aluno sejam
-                                            atualizados totalmente.
-                                        </span>
-                                        <strong>
-                                            Pode continuar a chamada
-                                            normalmente!
-                                        </strong>
+                                        <strong>Pode continuar a chamada normalmente!</strong>
                                     </>
                                 ),
 

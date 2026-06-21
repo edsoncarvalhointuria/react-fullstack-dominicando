@@ -1,12 +1,8 @@
 import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faUsers,
-    faBookOpen,
-    faCalendarWeek,
-} from "@fortawesome/free-solid-svg-icons";
+import { faUsers, faBookOpen, faCalendarWeek } from "@fortawesome/free-solid-svg-icons";
 import "./licao-card.scss";
-import React from "react";
+import { memo } from "react";
 
 interface LicaoCardProps {
     licaoId: string;
@@ -35,30 +31,25 @@ function LicaoCard({
         <motion.div
             className="licao-card"
             whileHover={{ y: -5, boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)" }}
-            whileTap={{ scale: 0.99 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.3 }}
             onTap={() => {
                 window.history.pushState({ modal: true }, "");
                 onClick(licaoId);
             }}
             layoutId={licaoId}
         >
-            <motion.div
-                className="licao-card__imagem"
-                whileHover={{ opacity: 0.8 }}
-            >
+            <motion.div className="licao-card__imagem" whileHover={{ opacity: 0.8 }}>
                 <img
                     src={img || "/revista-placeholder.png"}
                     alt={`Capa da lição ${titulo}`}
+                    onError={(v) => (v.currentTarget.src = "/revista-placeholder.png")}
                 />
             </motion.div>
 
             <div className="licao-card__body">
                 <div className="licao-card__status-infos">
-                    <div
-                        className={`licao-card__status ${
-                            isAtivo ? "licao-card__status--ativa" : ""
-                        }`}
-                    >
+                    <div className={`licao-card__status ${isAtivo ? "licao-card__status--ativa" : ""}`}>
                         {isAtivo ? "Ativa" : "Encerrada"}
                     </div>
 
@@ -94,4 +85,4 @@ function LicaoCard({
     );
 }
 
-export default React.memo(LicaoCard);
+export default memo(LicaoCard);

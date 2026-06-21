@@ -3,6 +3,7 @@ import type { LicaoPreparoInterface } from "../../interfaces/LicaoPreparoInterfa
 import "./licao-preparo-card.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBookOpen, faCalendarWeek } from "@fortawesome/free-solid-svg-icons";
+import { memo } from "react";
 
 function LicaoPreparoCard({
     licao,
@@ -15,30 +16,25 @@ function LicaoPreparoCard({
         <motion.div
             className="licao-card"
             whileHover={{ y: -5, boxShadow: "0 10px 20px rgba(0, 0, 0, 0.1)" }}
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.3 }}
             onTap={() => {
                 openModal(licao);
                 window.history.pushState({ modal: true }, "");
             }}
             layoutId={licao.id}
         >
-            <motion.div
-                className="licao-card__imagem"
-                whileHover={{ opacity: 0.8 }}
-            >
+            <motion.div className="licao-card__imagem" whileHover={{ opacity: 0.8 }}>
                 <img
                     src={licao.img || "/revista-placeholder.png"}
                     alt={`Capa da lição ${licao.titulo}`}
+                    onError={(v) => (v.currentTarget.src = "/revista-placeholder.png")}
                 />
             </motion.div>
 
             <div className="licao-card__body">
                 <div className="licao-card__status-infos">
-                    <div
-                        className={`licao-card__status ${
-                            licao.ativo ? "licao-card__status--ativa" : ""
-                        }`}
-                    >
+                    <div className={`licao-card__status ${licao.ativo ? "licao-card__status--ativa" : ""}`}>
                         {licao.ativo ? "Ativa" : "Encerrada"}
                     </div>
 
@@ -48,9 +44,7 @@ function LicaoPreparoCard({
                         }`}
                     >
                         {licao?.trimestre || 1} º Trimestre de{" "}
-                        {licao.data_inicio
-                            .toDate()
-                            .toLocaleDateString("pt-BR", { year: "numeric" })}
+                        {licao.data_inicio.toDate().toLocaleDateString("pt-BR", { year: "numeric" })}
                     </div>
                 </div>
 
@@ -64,12 +58,10 @@ function LicaoPreparoCard({
                     <div className="licao-card__info-item">
                         <FontAwesomeIcon icon={faCalendarWeek} />
                         <span>
-                            {licao.data_inicio
-                                .toDate()
-                                .toLocaleDateString("pt-BR", {
-                                    month: "2-digit",
-                                    year: "numeric",
-                                })}
+                            {licao.data_inicio.toDate().toLocaleDateString("pt-BR", {
+                                month: "2-digit",
+                                year: "numeric",
+                            })}
                         </span>
                     </div>
                 </div>
@@ -78,4 +70,4 @@ function LicaoPreparoCard({
     );
 }
 
-export default LicaoPreparoCard;
+export default memo(LicaoPreparoCard);
