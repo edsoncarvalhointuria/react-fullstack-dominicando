@@ -1,21 +1,6 @@
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
-    type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuthContext } from "./AuthContext";
-import {
-    collection,
-    doc,
-    documentId,
-    getDoc,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
+import { collection, doc, documentId, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../utils/firebase";
 import type { ListaNotificacao } from "../interfaces/NotificacaoInterface";
 import type { DataContextInterface } from "../interfaces/DataContextInterface";
@@ -40,11 +25,7 @@ function DataContext({ children }: { children: ReactNode }) {
     };
     const getClasseSecretario = (collectionName: string) => {
         const c = collection(db, collectionName);
-        const q = query(
-            c,
-            where("igrejaId", "==", user!.igrejaId),
-            where(documentId(), "==", user!.classeId),
-        );
+        const q = query(c, where("igrejaId", "==", user!.igrejaId), where(documentId(), "==", user!.classeId));
         const docs = getDocs(q);
 
         return docs;
@@ -52,15 +33,10 @@ function DataContext({ children }: { children: ReactNode }) {
     const removerNotificacoes = useCallback(
         (...args: string[]) => {
             if (!user) return;
-            const listaRemovidos = JSON.parse(
-                localStorage.getItem("notificacoes_removidas") || "[]",
-            ) as string[];
+            const listaRemovidos = JSON.parse(localStorage.getItem("notificacoes_removidas") || "[]") as string[];
             const todos = [...listaRemovidos, ...args];
             setNotificacoes((v) => v.filter((v) => !todos.includes(v.alunoId)));
-            localStorage.setItem(
-                "notificacoes_removidas",
-                JSON.stringify(todos),
-            );
+            localStorage.setItem("notificacoes_removidas", JSON.stringify(todos));
         },
         [user],
     );
@@ -68,13 +44,8 @@ function DataContext({ children }: { children: ReactNode }) {
     const fetchNotificacoes = useCallback(async () => {
         if (!user) return;
         const hoje = new Date();
-        const ultimaPesquisa = JSON.parse(
-            localStorage.getItem("ultima_pesquisa_notificacoes") || "{}",
-        );
-        if (
-            hoje.toLocaleDateString("pt-BR") === ultimaPesquisa.data &&
-            ultimaPesquisa.dados?.length
-        ) {
+        const ultimaPesquisa = JSON.parse(localStorage.getItem("ultima_pesquisa_notificacoes") || "{}");
+        if (hoje.toLocaleDateString("pt-BR") === ultimaPesquisa.data && ultimaPesquisa.dados?.length) {
             const notificacoes = ultimaPesquisa.dados as ListaNotificacao[];
             setNotificacoes(notificacoes);
             return;
@@ -84,9 +55,7 @@ function DataContext({ children }: { children: ReactNode }) {
         const alunoSnap = await getDoc(alunosDoc);
         const alunosData = alunoSnap.data() as CacheAlunoInteface;
         const listaAlunos = Object.values(alunosData.lista);
-        const notificacoesRemovidas = JSON.parse(
-            localStorage.getItem("notificacoes_removidas") || "[]",
-        ) as string[];
+        const notificacoesRemovidas = JSON.parse(localStorage.getItem("notificacoes_removidas") || "[]") as string[];
 
         hoje.setHours(0, 0, 0, 0);
         const alvo = new Date(hoje);
@@ -124,10 +93,7 @@ function DataContext({ children }: { children: ReactNode }) {
                 return dataB.getTime() - dataA.getTime();
             });
 
-        localStorage.setItem(
-            "notificacoes_removidas",
-            JSON.stringify(listaNotificacoesAtualizada),
-        );
+        localStorage.setItem("notificacoes_removidas", JSON.stringify(listaNotificacoesAtualizada));
         localStorage.setItem(
             "ultima_pesquisa_notificacoes",
             JSON.stringify({
@@ -156,24 +122,14 @@ function DataContext({ children }: { children: ReactNode }) {
                                 }) as IgrejaInterface,
                         )
                         .sort((a, b) =>
-                            a.id === user?.igrejaId
-                                ? -1
-                                : b.id === user?.igrejaId
-                                  ? 1
-                                  : a.nome.localeCompare(b.nome),
+                            a.id === user?.igrejaId ? -1 : b.id === user?.igrejaId ? 1 : a.nome.localeCompare(b.nome),
                         ),
                 );
 
-                const c = classes.docs.flatMap((v) =>
-                    Object.values(v.data()?.lista),
-                );
+                const c = classes.docs.flatMap((v) => Object.values(v.data()?.lista));
                 setClasses(
                     (c as ClasseInterface[]).sort((a, b) =>
-                        a.id === user?.classeId
-                            ? -1
-                            : b.id === user?.classeId
-                              ? 1
-                              : a.nome.localeCompare(b.nome),
+                        a.id === user?.classeId ? -1 : b.id === user?.classeId ? 1 : a.nome.localeCompare(b.nome),
                     ),
                 );
             } else if (isAdmin.current) {
@@ -191,11 +147,7 @@ function DataContext({ children }: { children: ReactNode }) {
 
                 setClasses(
                     (classes as ClasseInterface[]).sort((a, b) =>
-                        a.id === user?.classeId
-                            ? -1
-                            : b.id === user?.classeId
-                              ? 1
-                              : a.nome.localeCompare(b.nome),
+                        a.id === user?.classeId ? -1 : b.id === user?.classeId ? 1 : a.nome.localeCompare(b.nome),
                     ),
                 );
             } else {

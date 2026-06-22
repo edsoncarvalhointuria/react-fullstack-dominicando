@@ -4,7 +4,6 @@ import { faFeather, faPlus, faThumbsUp } from "@fortawesome/free-solid-svg-icons
 import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import CadastroIgrejaModal from "../../ui/CadastroIgrejaModal";
@@ -17,6 +16,7 @@ import OrderInput from "../../ui/OrderInput";
 import ImportarCSVModal from "../../ui/ImportarCSVModal";
 import ButtonsDefault from "../../ui/ButtonDefault";
 import { functions } from "../../../utils/firebase";
+import Loading from "../../layout/loading/Loading";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },

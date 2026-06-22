@@ -1,6 +1,7 @@
+import "./chamada.scss";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useDataContext } from "../../../context/DataContext";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { collection, doc, documentId, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db, functions } from "../../../utils/firebase";
 import type { CacheMatriculasInterface, MatriculasInterface } from "../../../interfaces/MatriculasInterface";
@@ -18,18 +19,18 @@ import {
     faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import "./chamada.scss";
 import type { AulaInterface } from "../../../interfaces/AulaInterface";
 import type { RegistroAulaInterface } from "../../../interfaces/RegistroAulaInterface";
 import ResumoChamada from "./ResumoChamada";
 import AlertModal from "../../ui/AlertModal";
-import MatriculaModal from "../../ui/MatriculaModal";
 import { httpsCallable } from "firebase/functions";
 import { useAuthContext } from "../../../context/AuthContext";
-import CadastroAlunoModal from "../../ui/CadastroAlunoModal";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
-import LoadingVideo from "../../layout/loading/LoadingVideo";
+import Loading from "../../layout/loading/Loading";
+import ModalSkeleton from "../../ui/ModalSkeleton";
 
+const MatriculaModal = lazy(() => import("../../ui/MatriculaModal"));
+const CadastroAlunoModal = lazy(() => import("../../ui/CadastroAlunoModal"));
 interface ChamadaForm {
     chamada: { [alunoId: string]: string };
     licoesTrazidas: string[];
@@ -110,7 +111,7 @@ function ChamadaPage() {
         },
         shouldUnregister: false,
     });
-    const { getValues, setValue, reset, handleSubmit } = methods;
+    const { getValues, setValue, handleSubmit } = methods;
 
     const adicionarAluno = useCallback((id?: string) => setEditAluno(id || ""), []);
     const onMatricularNovoAluno = useCallback(() => setMatricularNovoAluno(true), []);
@@ -340,9 +341,9 @@ function ChamadaPage() {
             if (!registrosSnap.exists()) return;
 
             const registros = {
-                ...(registrosSnap.data() || {}),
+                ...(registrosSnap.data() as any),
                 id: registrosSnap.id,
-            } as unknown as RegistroAulaInterface;
+            } as RegistroAulaInterface;
 
             if (registros.relatorio_enviado) setStatus("bloqueada");
 
@@ -359,7 +360,7 @@ function ChamadaPage() {
 
             const licoesTrazidas = chamada.filter((v) => v.trouxe_licao).map((v) => v.alunoId);
             const bibliasTrazidas = chamada.filter((v) => v.trouxe_biblia).map((v) => v.alunoId);
-            const formReset = {
+            const formReset: Partial<ChamadaForm> = {
                 chamada: Object.fromEntries(chamada.map((v) => [v.alunoId, v.status])),
                 licoesTrazidas,
                 bibliasTrazidas,
@@ -375,7 +376,7 @@ function ChamadaPage() {
                 descricao: registros.descricao,
             };
 
-            reset(formReset);
+            Object.entries(formReset).forEach(([key, v]) => setValue(key as any, v));
 
             return chamada;
         };
@@ -428,7 +429,7 @@ function ChamadaPage() {
     if (!isLoadingData && classes.length && !classes.find((v) => v.id === classeId)) {
         return <Navigate to={"/aulas"} />;
     }
-    if (isLoading || isLoadingData || isEnviando) return <LoadingVideo isOpen />;
+    if (isLoading || isLoadingData || isEnviando) return <Loading />;
     return (
         <>
             <div className="chamada-page">
@@ -569,63 +570,66 @@ function ChamadaPage() {
                 </FormProvider>
             </div>
 
-            <AnimatePresence>
-                {licao && matricularNovoAluno && (
-                    <MatriculaModal
-                        key={"matricular-aluno-modal"}
-                        igrejaId={licao.igrejaId}
-                        licao={licao}
-                        licaoId={licao.id}
-                        onClose={() => setMatricularNovoAluno(false)}
-                        onSave={() => setUpdate((v) => v + 1)}
-                    />
-                )}
+            <Suspense fallback={<ModalSkeleton />}>
+                <AnimatePresence>
+                    {licao && matricularNovoAluno && (
+                        <MatriculaModal
+                            key={"matricular-aluno-modal"}
+                            igrejaId={licao.igrejaId}
+                            licao={licao}
+                            licaoId={licao.id}
+                            onClose={() => setMatricularNovoAluno(false)}
+                            onSave={() => setUpdate((v) => v + 1)}
+                        />
+                    )}
 
-                {addVisita && (
-                    <CadastroAlunoModal
-                        igrejaId={licao?.igrejaId || ""}
-                        onCancel={() => setAddVisita(false)}
-                        onSave={(v) => {
-                            setAddVisita(false);
-                            setVisitas((a) => [...a, v as any]);
-                            setValue("visitas", getValues("visitas") + 1);
-                        }}
-                        key={"adicionar-visita"}
-                        type="visita"
-                    />
-                )}
+                    {addVisita && (
+                        <CadastroAlunoModal
+                            igrejaId={licao?.igrejaId || ""}
+                            onCancel={() => setAddVisita(false)}
+                            onSave={(v) => {
+                                setAddVisita(false);
+                                setVisitas((a) => [...a, v as any]);
+                                setValue("visitas", getValues("visitas") + 1);
+                            }}
+                            key={"adicionar-visita"}
+                            type="visita"
+                        />
+                    )}
 
-                {editAluno && (
-                    <CadastroAlunoModal
-                        igrejaId={licao?.igrejaId || ""}
-                        onCancel={() => setEditAluno("")}
-                        onSave={() => {
-                            setTimeout(() => setUpdate((v) => v + 1), 2000);
-                            setMensagem({
-                                message: (
-                                    <>
-                                        <span>Aluno atualizado com sucesso!</span>
-                                        <span>
-                                            Pode levar alguns segundos até que os dados do seu aluno sejam atualizados
-                                            totalmente.
-                                        </span>
-                                        <strong>Pode continuar a chamada normalmente!</strong>
-                                    </>
-                                ),
+                    {editAluno && (
+                        <CadastroAlunoModal
+                            igrejaId={licao?.igrejaId || ""}
+                            onCancel={() => setEditAluno("")}
+                            onSave={() => {
+                                setTimeout(() => setUpdate((v) => v + 1), 2000);
+                                setMensagem({
+                                    message: (
+                                        <>
+                                            <span>Aluno atualizado com sucesso!</span>
+                                            <span>
+                                                Pode levar alguns segundos até que os dados do seu aluno sejam
+                                                atualizados totalmente.
+                                            </span>
+                                            <strong>Pode continuar a chamada normalmente!</strong>
+                                        </>
+                                    ),
 
-                                confirmText: "OK",
-                                cancelText: "Cancelar",
-                                onCancel: () => setMensagem(null),
-                                onClose: () => setMensagem(null),
-                                onConfirm: () => setMensagem(null),
-                                title: "Atualização concluída",
-                            });
-                        }}
-                        key={"editar-alunos"}
-                        alunoId={editAluno}
-                    />
-                )}
-            </AnimatePresence>
+                                    confirmText: "OK",
+                                    cancelText: "Cancelar",
+                                    onCancel: () => setMensagem(null),
+                                    onClose: () => setMensagem(null),
+                                    onConfirm: () => setMensagem(null),
+                                    title: "Atualização concluída",
+                                });
+                            }}
+                            key={"editar-alunos"}
+                            alunoId={editAluno}
+                        />
+                    )}
+                </AnimatePresence>
+            </Suspense>
+
             <AlertModal isOpen={!!mensagem} {...mensagem!} />
         </>
     );

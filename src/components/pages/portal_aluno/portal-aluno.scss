@@ -51,6 +51,20 @@
 
         .pagina-cadastrar-usuario__footer {
             margin: 0;
+
+            a {
+                font-size: 1.5rem;
+                color: v.$cor-secundaria-texto;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.8rem;
+                transition: color 0.2s;
+
+                &:hover {
+                    color: v.$cor-primaria-itens;
+                }
+            }
         }
     }
 

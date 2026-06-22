@@ -59,7 +59,6 @@ import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import AlertModal from "../../ui/AlertModal";
 import type {
     ConquistaInterface,
     HistoricoPortalInterface,
@@ -71,11 +70,13 @@ import { faFreeCodeCamp } from "@fortawesome/free-brands-svg-icons";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { GraficoRosca, PanoramaPieChart } from "../../ui/PanoramaLicao";
 import Dropdown from "../../ui/Dropdown";
-import LoadingModal from "../../layout/loading/LoadingModal";
 import { useAuthContext } from "../../../context/AuthContext";
 import { Timestamp } from "firebase/firestore";
 import { functions } from "../../../utils/firebase";
+import { localStorageObj } from "../../../data/localStorageObj";
 import LoadingVideo from "../../layout/loading/LoadingVideo";
+import LoadingModal from "../../layout/loading/LoadingModal";
+import AlertModal from "../../ui/AlertModal";
 
 interface PortalAlunoLogin {
     dia: string;
@@ -318,7 +319,7 @@ const PortalAlunoOpcoes = React.memo(({ onSelectOption }: { onSelectOption: (v: 
 
 // Visão Geral
 const jaViuVisaoGeral = () => {
-    localStorage.setItem("ja-viu-visao-geral-coach", "true");
+    localStorage.setItem(localStorageObj["ja-viu-visao-geral-coach"], "true");
 };
 const MensagemOfensiva = ({ ofensiva }: { ofensiva: number }) => {
     return (
@@ -755,7 +756,7 @@ const PortalVisaoGeral = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const jaViu = JSON.parse(localStorage.getItem("ja-viu-visao-geral-coach") || "false");
+        const jaViu = JSON.parse(localStorage.getItem(localStorageObj["ja-viu-visao-geral-coach"]) || "false");
         if (!jaViu) setShowCoach(true);
     }, []);
     return (
@@ -808,7 +809,7 @@ const PortalVisaoGeral = ({ dados }: { dados: ResponseGetPortalAluno }) => {
 
 // Histórico
 const jaViuHistorico = () => {
-    localStorage.setItem("ja-viu-historico-coach", "true");
+    localStorage.setItem(localStorageObj["ja-viu-historico-coach"], "true");
 };
 const Trimestre = ({
     indice,
@@ -1009,7 +1010,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
         }
     }, [currentYear]);
     useEffect(() => {
-        const jaViu = JSON.parse(localStorage.getItem("ja-viu-historico-coach") || "false");
+        const jaViu = JSON.parse(localStorage.getItem(localStorageObj["ja-viu-historico-coach"]) || "false");
         if (!jaViu && dadosMemo?.anos?.length) {
             setShowCoach(true);
         }
@@ -1101,7 +1102,7 @@ const PortalHistorico = ({ dados }: { dados: ResponseGetPortalAluno }) => {
 
 //Troféus
 const jaViuTrofeus = () => {
-    localStorage.setItem("ja-viu-trofeus-coach", "true");
+    localStorage.setItem(localStorageObj["ja-viu-trofeus-coach"], "true");
 };
 const RARIDADES = [
     { nome: "Comum", id: "comum" },
@@ -1247,7 +1248,7 @@ const TrofeusPortal = ({ dados }: { dados: ResponseGetPortalAluno }) => {
     }, [dados]);
 
     useEffect(() => {
-        const jaViu = JSON.parse(localStorage.getItem("ja-viu-trofeus-coach") || "false");
+        const jaViu = JSON.parse(localStorage.getItem(localStorageObj["ja-viu-trofeus-coach"]) || "false");
         if (dadosMemo.conquistas.length && !jaViu) {
             setShowCoach(true);
         }

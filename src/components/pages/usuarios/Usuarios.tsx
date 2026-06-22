@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import "./usuarios.scss";
-import Loading from "../../layout/loading/Loading";
 import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db, functions } from "../../../utils/firebase";
 import {
@@ -30,6 +29,7 @@ import CadastroConviteModal from "../../ui/CadastroConviteModal";
 import { getOrdem } from "../../../utils/getOrdem";
 import OrderInput from "../../ui/OrderInput";
 import ButtonsDefault from "../../ui/ButtonDefault";
+import Loading from "../../layout/loading/Loading";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },

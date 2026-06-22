@@ -141,13 +141,21 @@ function CadastroClasseModal({
 
     return (
         <>
-            <div className="classe-modal-overlay" onClick={onCancel}>
+            <motion.div
+                className="classe-modal-overlay"
+                onClick={onCancel}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+            >
                 <motion.div
                     className="classe-modal"
                     onClick={(e) => e.stopPropagation()}
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.5, opacity: 0 }}
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -10, opacity: 0 }}
+                    transition={{ duration: 0.5 }}
                 >
                     <LoadingModal isEnviando={isEnviando} />
                     <div className="classe-modal__header">
@@ -300,7 +308,8 @@ function CadastroClasseModal({
                         </form>
                     </FormProvider>
                 </motion.div>
-            </div>
+            </motion.div>
+
             <AlertModal
                 isOpen={!!mensagemErro}
                 message={mensagemErro}

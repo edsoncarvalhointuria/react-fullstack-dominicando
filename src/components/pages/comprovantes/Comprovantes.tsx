@@ -21,8 +21,8 @@ import type { RegistroAulaInterface } from "../../../interfaces/RegistroAulaInte
 import useIsMobile from "../../../hooks/useIsMobile";
 import { httpsCallable } from "firebase/functions";
 import AlertModal from "../../ui/AlertModal";
-import Loading from "../../layout/loading/Loading";
 import { houveAtualizacaoIgreja, salvarSistemaLocalStorageIgreja } from "../../../utils/getSistema";
+import Loading from "../../layout/loading/Loading";
 
 interface Form {
     igrejaId: string;

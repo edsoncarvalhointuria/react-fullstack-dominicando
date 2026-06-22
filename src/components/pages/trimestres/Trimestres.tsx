@@ -1,7 +1,6 @@
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import { faCalendar, faCalendarDay, faCalendarDays } from "@fortawesome/free-solid-svg-icons";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import "./visitas.scss";
 import { collection, getDocs, query, where } from "firebase/firestore";
@@ -15,6 +14,7 @@ import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import type { TrimestresInterface } from "../../../interfaces/TrimestresInterface";
 import AlterarTrimestre from "../../ui/AlterarTrimestre";
+import Loading from "../../layout/loading/Loading";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },

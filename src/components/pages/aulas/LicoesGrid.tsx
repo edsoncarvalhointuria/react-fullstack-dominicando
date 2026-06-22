@@ -3,11 +3,15 @@ import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
 import { faCalendarDay, faCaretLeft, faCaretRight, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import LicaoCard from "../../ui/LicaoCard";
 import "./licoes-grid.scss";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import LicaoModal from "../../ui/LicaoModal";
-import NovoTrimestreModal from "../../ui/NovoTrimestreModal";
 import SearchInput from "../../ui/SearchInput";
+import ModalSkeleton from "../../ui/ModalSkeleton";
+
+const NovoTrimestreModal = lazy(() => import("../../ui/NovoTrimestreModal"));
+
+const TOTAL_ITENS = 6;
 
 function LicoesGrid({
     revistas,
@@ -26,7 +30,6 @@ function LicoesGrid({
     onUpdateLimit: () => void;
     limite: number;
 }) {
-    const TOTAL_ITENS = 6;
     const [currentLicao, setCurrentLicao] = useState<LicaoInterface | null>(null);
     const [newTrimestre, setNewTrimestre] = useState(false);
     const [editLicao, setEditLicao] = useState<LicaoInterface | null>(null);
@@ -171,21 +174,23 @@ function LicoesGrid({
                         </motion.button>
                     </div>
                 )}
-                <AnimatePresence>
-                    {(editLicao || newTrimestre) && (
-                        <NovoTrimestreModal
-                            key={"novo-trimestre"}
-                            classeId={classeId}
-                            onClose={() => {
-                                setNewTrimestre(false);
-                                setEditLicao(null);
-                            }}
-                            onSave={() => onUpdate()}
-                            igrejaId={igrejaId}
-                            licaoReference={editLicao}
-                        />
-                    )}
-                </AnimatePresence>
+                <Suspense fallback={<ModalSkeleton />}>
+                    <AnimatePresence>
+                        {(editLicao || newTrimestre) && (
+                            <NovoTrimestreModal
+                                key={"novo-trimestre"}
+                                classeId={classeId}
+                                onClose={() => {
+                                    setNewTrimestre(false);
+                                    setEditLicao(null);
+                                }}
+                                onSave={() => onUpdate()}
+                                igrejaId={igrejaId}
+                                licaoReference={editLicao}
+                            />
+                        )}
+                    </AnimatePresence>
+                </Suspense>
                 {currentLicao && (
                     <LicaoModal licao={currentLicao} closeModal={setCurrentLicao} editLicao={setEditLicao} />
                 )}
@@ -194,4 +199,4 @@ function LicoesGrid({
     );
 }
 
-export default React.memo(LicoesGrid);
+export default LicoesGrid;

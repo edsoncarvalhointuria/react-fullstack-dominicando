@@ -1,20 +1,21 @@
-import { useEffect, useState } from "react";
+import "./relatorio-dominical.scss";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import Loading from "../../layout/loading/Loading";
 import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBan, faCalendarDay, faDownload, faFloppyDisk, faGripLines, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
-import "./relatorio-dominical.scss";
 import useDebounce from "../../../hooks/useDebounce";
 import { httpsCallable } from "firebase/functions";
 import RelatorioLeitura from "./RelatorioLeitura";
 import type { ResponseGetRelatorioDominical } from "../../../interfaces/ResponseGetRelatorioDominical";
-import CadastroIgrejaModal from "../../ui/CadastroIgrejaModal";
-import RelatorioLeituraDownload from "./RelatorioLeituraDownload";
 import { functions } from "../../../utils/firebase";
+import Loading from "../../layout/loading/Loading";
+
+const RelatorioLeituraDownload = lazy(() => import("./RelatorioLeituraDownload"));
+const CadastroIgrejaModal = lazy(() => import("../../ui/CadastroIgrejaModal"));
 
 const getRelatorioDominical = httpsCallable(functions, "getRelatorioDominical");
 
@@ -22,7 +23,6 @@ function RelatorioDominical() {
     const [isLoading, setIsLoading] = useState(true);
     const [domingo, setDomingo] = useState<Date | null>(null);
     const [registros, setRegistros] = useState<ResponseGetRelatorioDominical | null>(null);
-
     const [showRelatorio, setShowRelatorio] = useState(false);
     const [downloadRelatorio, setDownloadRelatorio] = useState(false);
     const [filaClasses, setFilaClasses] = useState<ClasseInterface[]>([]);
@@ -97,6 +97,7 @@ function RelatorioDominical() {
                         onCancel={onClose}
                         onSave={() => {
                             refetchData();
+                            onClose();
                         }}
                     />
                 )}
@@ -281,12 +282,14 @@ function RelatorioDominical() {
                 )}
                 {domingo && registros && downloadRelatorio && (
                     <div style={{ height: 0, overflow: "hidden" }}>
-                        <RelatorioLeituraDownload
-                            dados={registros}
-                            domingo={domingo}
-                            fila={filaClasses}
-                            onSair={() => setDownloadRelatorio(false)}
-                        />
+                        <Suspense fallback={<></>}>
+                            <RelatorioLeituraDownload
+                                dados={registros}
+                                domingo={domingo}
+                                fila={filaClasses}
+                                onSair={() => setDownloadRelatorio(false)}
+                            />
+                        </Suspense>
                     </div>
                 )}
             </AnimatePresence>

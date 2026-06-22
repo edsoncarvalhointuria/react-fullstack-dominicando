@@ -11,20 +11,119 @@ import {
     faKey,
     faThumbsUp,
     faBroom,
+    faSpinner,
+    faCat,
+    faD,
 } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
-import Loading from "../../layout/loading/Loading";
 import AlertModal from "../../ui/AlertModal";
 import { useState, type ReactNode } from "react";
 import { RolesLabel } from "../../../roles/Roles";
 import { limparCache } from "../../../utils/limparCache";
+import { localStorageObj } from "../../../data/localStorageObj";
+import Loading from "../../layout/loading/Loading";
 
-// Interface para os dados do formulário de senha
 interface SenhaForm {
     senhaAtual: string;
     novaSenha: string;
     confirmarNovaSenha: string;
 }
+
+const TIPOS_LOADING = [
+    { nome: "Gatinho Com Sono (Original)", icon: <FontAwesomeIcon icon={faCat} />, link: "/loading.webp" },
+    { nome: "Logo Dominicando", icon: <FontAwesomeIcon icon={faD} />, link: "/loop.mp4" },
+    { nome: "Gatinho Caçando Borboleta", icon: <FontAwesomeIcon icon={faCat} />, link: "/loading.webm" },
+];
+const PreviewVideo = ({ link, onClose }: { link: string; onClose: () => void }) => {
+    const regex = /.+(\.mp4)|(\.webm)/;
+    const isVideo = regex.test(link);
+
+    return (
+        <motion.div
+            className="minha-conta__preview__overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+        >
+            <div className="minha-conta__preview">
+                <div className="minha-conta__preview__container">
+                    {isVideo ? (
+                        <video autoPlay playsInline muted loop>
+                            <source src={link} />
+                        </video>
+                    ) : (
+                        <img src={link} />
+                    )}
+                </div>
+
+                <button onClick={onClose} title="Fechar Preview" type="button" className="minha-conta__preview__fechar">
+                    Fechar
+                </button>
+            </div>
+        </motion.div>
+    );
+};
+const AnimacaoLoading = () => {
+    const [currentOpcao, setCurrentOpcao] = useState<string | null>(
+        localStorage.getItem(localStorageObj["dominicando-loading"]),
+    );
+    const [showModal, setShowModal] = useState("");
+    return (
+        <>
+            <div className="minha-conta__card">
+                <h2 className="minha-conta__card-title">
+                    <FontAwesomeIcon icon={faSpinner} />
+                    Tipo De Loading
+                </h2>
+                <div className="minha-conta__tipo-loading">
+                    <p className="minha-conta__tipo-loading__subtitle">Qual tipo de loading você quer ver?</p>
+
+                    <div className="minha-conta__tipo-loading__opcoes">
+                        {TIPOS_LOADING.map((v, i) => (
+                            <div
+                                key={v.link}
+                                className="minha-conta__tipo-loading__opcao"
+                                onClick={() => {
+                                    localStorage.setItem(localStorageObj["dominicando-loading"], v.link);
+                                    setCurrentOpcao(v.link);
+                                }}
+                            >
+                                <p className="minha-conta__tipo-loading__opcao__title">
+                                    <i>{v.icon}</i>
+                                    <span>{v.nome}</span>
+                                </p>
+                                <div className="minha-conta__tipo-loading__opcao__check">
+                                    <input
+                                        type="radio"
+                                        name="animacao-opcao"
+                                        id={v.link}
+                                        readOnly
+                                        checked={(!currentOpcao && i === 0) || currentOpcao === v.link}
+                                    />
+                                    <label htmlFor={v.link}></label>
+                                </div>
+
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowModal(v.link);
+                                    }}
+                                    title="Ver"
+                                    className="minha-conta__tipo-loading__opcao__ver"
+                                    type="button"
+                                >
+                                    Ver
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {showModal && <PreviewVideo link={showModal} onClose={() => setShowModal("")} />}
+        </>
+    );
+};
 
 function MinhaConta() {
     const [mensagem, setMensagem] = useState<{
@@ -143,6 +242,8 @@ function MinhaConta() {
                         </div>
                     </div>
                 </div>
+
+                <AnimacaoLoading />
 
                 <div className="minha-conta__card">
                     <h2 className="minha-conta__card-title">

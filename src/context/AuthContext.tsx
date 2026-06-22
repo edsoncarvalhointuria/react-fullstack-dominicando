@@ -6,7 +6,6 @@ import {
     signOut,
     reauthenticateWithCredential,
     EmailAuthProvider,
-    getAuth,
     updatePassword,
     sendPasswordResetEmail,
     // getIdTokenResult,
@@ -19,7 +18,6 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { ROLES } from "../roles/Roles";
 import type { AppUser } from "../interfaces/AppUser";
 import { httpsCallable } from "firebase/functions";
-import { useNavigate } from "react-router-dom";
 import type { UsuarioInterface } from "../interfaces/UsuarioInterface";
 
 export interface AuthType {
@@ -29,6 +27,7 @@ export interface AuthType {
     logout: () => Promise<void>;
     isSuperAdmin: React.RefObject<boolean>;
     isAdmin: React.RefObject<boolean>;
+    isLoadingAuth: boolean;
     isSecretario: React.RefObject<boolean>;
     alterarSenha: (senhaAntiga: string, senhaNova: string) => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
@@ -40,56 +39,80 @@ export const useAuthContext = () => useContext(context) as AuthType;
 
 const salvarNotificacao = httpsCallable(functions, "salvarNotificacao");
 
+const loginComGoogle = async () => {
+    try {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+    } catch (Error) {
+        console.log(Error);
+        throw Error;
+    }
+};
+const resetPassword = async (email: string) => {
+    try {
+        const r = await sendPasswordResetEmail(auth, email);
+        console.log(r);
+    } catch (error) {
+        console.log("deu esse erro", error);
+        throw new Error("Email inválido");
+    }
+};
+const mudarPermissaoNotificacao = async () => {
+    await Notification.requestPermission();
+    const permissao = Notification.permission;
+
+    if (permissao !== "granted") {
+        salvarNotificacao({ usuarioId: auth.currentUser?.uid, permissao });
+        return console.log("Permissão não concedida");
+    }
+    const { getMessaging, getToken } = await import("firebase/messaging");
+    await navigator.serviceWorker.register("/firebase-messaging-sw-v2.js");
+
+    const registration = await navigator.serviceWorker.ready;
+
+    const messaging = getMessaging(app);
+
+    const token = await getToken(messaging, {
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        serviceWorkerRegistration: registration,
+    });
+
+    salvarNotificacao({ usuarioId: auth.currentUser?.uid, token, permissao });
+};
+
 function AuthContext({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
-    const navigate = useNavigate();
+    const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+    // const navigate = useNavigate();
 
     const isSuperAdmin = useRef(false);
     const isAdmin = useRef(false);
     const isSecretario = useRef(false);
 
-    const login = async (email: string, senha: string) => {
+    const login = useCallback(async (email: string, senha: string) => {
+        setIsLoadingAuth(true);
         try {
             await signInWithEmailAndPassword(auth, email, senha);
         } catch (Error) {
             console.log(Error);
             throw Error;
+        } finally {
+            setIsLoadingAuth(false);
         }
-    };
-    const loginComGoogle = async () => {
-        try {
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
-        } catch (Error) {
-            console.log(Error);
-            throw Error;
-        }
-    };
-    const logout = async () => {
+    }, []);
+    const logout = useCallback(async () => {
         try {
             await signOut(auth);
             setUser(null);
         } catch (Error) {
             console.log(Error);
         }
-    };
-    const resetPassword = async (email: string) => {
-        const auth = getAuth();
-
-        try {
-            const r = await sendPasswordResetEmail(auth, email);
-            console.log(r);
-        } catch (error) {
-            console.log("deu esse erro", error);
-            throw new Error("Email inválido");
-        }
-    };
-
+    }, []);
     const alterarSenha = useCallback(
         async (senhaAntiga: string, novaSenha: string) => {
             if (!user) return;
 
-            const currentUser = getAuth().currentUser;
+            const currentUser = auth.currentUser;
             const credencial = EmailAuthProvider.credential(user.email!, senhaAntiga);
             try {
                 await reauthenticateWithCredential(currentUser!, credencial);
@@ -102,29 +125,6 @@ function AuthContext({ children }: { children: ReactNode }) {
         },
         [user],
     );
-
-    const mudarPermissaoNotificacao = async () => {
-        await Notification.requestPermission();
-        const permissao = Notification.permission;
-
-        if (permissao !== "granted") {
-            salvarNotificacao({ usuarioId: user!.uid, permissao });
-            return console.log("Permissão não concedida");
-        }
-        const { getMessaging, getToken } = await import("firebase/messaging");
-        await navigator.serviceWorker.register("/firebase-messaging-sw-v2.js");
-
-        const registration = await navigator.serviceWorker.ready;
-
-        const messaging = getMessaging(app);
-
-        const token = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-            serviceWorkerRegistration: registration,
-        });
-
-        salvarNotificacao({ usuarioId: user!.uid, token, permissao });
-    };
 
     useEffect(() => {
         let unscribeSnapShot: () => void | undefined;
@@ -145,6 +145,7 @@ function AuthContext({ children }: { children: ReactNode }) {
                         if (usuarioSnap.exists()) {
                             const usuario = usuarioSnap.data() as UsuarioInterface;
                             const horaLocalStorage = Number(localStorage.getItem("ultima_atualizacao")) || 0;
+
                             if (usuario.atualizacao !== horaLocalStorage) {
                                 getIdToken(currentUser, true);
                                 localStorage.setItem("ultima_atualizacao", usuario.atualizacao.toString());
@@ -173,18 +174,15 @@ function AuthContext({ children }: { children: ReactNode }) {
                         } else {
                             signOut(auth);
                         }
+
+                        setIsLoadingAuth(false);
                     },
                     (error) => {
                         console.error("Erro no listener do perfil do usuário:", error);
                         signOut(auth);
                     },
                 );
-            } else {
-                const { igrejaHash, alunoHash } = JSON.parse(localStorage.getItem("login-portal-aluno") ?? "{}");
-                if (igrejaHash && alunoHash) {
-                    navigate(`portal-aluno/${igrejaHash}/${alunoHash}`);
-                }
-            }
+            } else setIsLoadingAuth(false);
         });
 
         return () => {
@@ -202,6 +200,7 @@ function AuthContext({ children }: { children: ReactNode }) {
                 isSuperAdmin,
                 isAdmin,
                 isSecretario,
+                isLoadingAuth,
                 alterarSenha,
                 resetPassword,
                 mudarPermissaoNotificacao,

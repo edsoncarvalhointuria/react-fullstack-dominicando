@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
 import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
 import { useNavigate, useParams } from "react-router-dom";
-import Loading from "../../layout/loading/Loading";
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db, functions } from "../../../utils/firebase";
 import type { AlunoInterface, CacheAlunoInteface } from "../../../interfaces/AlunoInterface";
@@ -26,7 +25,10 @@ import CadastroAlunoModal from "../../ui/CadastroAlunoModal";
 import { PedidosRespostaShareModal } from "../pedidos/PedidosResposta";
 import "./gestao-portal.scss";
 import LoadingModal from "../../layout/loading/LoadingModal";
-import PortalAluno from "./PortalAluno";
+import Loading from "../../layout/loading/Loading";
+import LoadingVideo from "../../layout/loading/LoadingVideo";
+
+const PortalAluno = lazy(() => import("./PortalAluno"));
 
 const getLinkPortalAluno = httpsCallable(functions, "getLinkPortalAluno");
 
@@ -116,7 +118,9 @@ const AlunoPortal = React.memo(({ alunoId, onClose }: { alunoId: string; onClose
                     <FontAwesomeIcon icon={faXmark} />
                 </button>
             </div>
-            <PortalAluno alunoId={alunoId} />
+            <Suspense fallback={<LoadingVideo isOpen />}>
+                <PortalAluno alunoId={alunoId} />
+            </Suspense>
         </div>
     );
 });

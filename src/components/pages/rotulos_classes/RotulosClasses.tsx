@@ -2,7 +2,6 @@ import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCalendar, faChalkboard, faPlus, faTag, faThumbsUp, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db, functions } from "../../../utils/firebase";
@@ -16,6 +15,7 @@ import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import CadastroRotuloModal from "../../ui/CadastroRotuloModal";
 import ButtonsDefault from "../../ui/ButtonDefault";
+import Loading from "../../layout/loading/Loading";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },

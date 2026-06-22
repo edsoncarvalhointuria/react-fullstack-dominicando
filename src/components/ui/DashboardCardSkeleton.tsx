@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import "./dashboard-card.scss";
+import "./dashboard-card-skeleton.scss";
 
 function DashboardCardSkeleton() {
     return (

@@ -1,16 +1,16 @@
+import "./relatorio-csv.scss";
 import { useEffect, useMemo, useState } from "react";
 import Dropdown from "../../ui/Dropdown";
-import "./relatorio-csv.scss";
 import MultiSelectDropdown from "../../ui/MultiSelectDropdown";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFaceSmileBeam, faFileCsv, faTable } from "@fortawesome/free-solid-svg-icons";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../../utils/firebase";
+import Loading from "../../layout/loading/Loading";
 
 function baixarArquivoCSV(csvString: string, nomeArquivo: string) {
     const blob = new Blob(["\uFEFF" + csvString], {

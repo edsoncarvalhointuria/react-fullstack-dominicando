@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Loading from "../../layout/loading/Loading";
 import "./preparo-aula.scss";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
@@ -29,6 +28,7 @@ import AlertModal from "../../ui/AlertModal";
 import type { AulaPreparo, LicaoPreparoInterface } from "../../../interfaces/LicaoPreparoInterface";
 import type { CacheUsuarioInteface } from "../../../interfaces/UsuarioInterface";
 import { houveAtualizacaoMinisterio, salvarSistemaLocalStorageMinisterio } from "../../../utils/getSistema";
+import Loading from "../../layout/loading/Loading";
 
 interface VideoForm {
     link_youtube: string;

@@ -9,9 +9,9 @@ import Dropdown from "../../ui/Dropdown";
 import { AnimatePresence, motion } from "framer-motion";
 import { httpsCallable } from "firebase/functions";
 import AlertModal from "../../ui/AlertModal";
-import Loading from "../../layout/loading/Loading";
 import { useNavigate } from "react-router-dom";
 import { functions } from "../../../utils/firebase";
+import Loading from "../../layout/loading/Loading";
 
 interface NotificacaoForm {
     destinarios: string;

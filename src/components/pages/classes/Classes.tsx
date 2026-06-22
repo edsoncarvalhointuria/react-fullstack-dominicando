@@ -1,7 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
     faChurch,
@@ -25,6 +24,7 @@ import { getOrdem } from "../../../utils/getOrdem";
 import ImportarCSVModal from "../../ui/ImportarCSVModal";
 import ButtonsDefault from "../../ui/ButtonDefault";
 import { functions } from "../../../utils/firebase";
+import Loading from "../../layout/loading/Loading";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },

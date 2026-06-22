@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import DesktopNavbar from "./DesktopNavbar";
 import "./navbar.scss";
 
@@ -67,18 +67,11 @@ const OPCOES_NAV: NavbarItemInterface[] = [
     { texto: "Portal", caminho: "/portal-aluno", icon: faUser },
     { texto: "Ajuda", caminho: "/ajuda", icon: faCircleQuestion },
 ];
-const { alunoHash, igrejaHash } = JSON.parse(
-    localStorage.getItem("login-portal-aluno") ?? "{}",
-);
-const portalLink =
-    alunoHash && igrejaHash
-        ? `portal-aluno/${igrejaHash}/${alunoHash}`
-        : undefined;
+const { alunoHash, igrejaHash } = JSON.parse(localStorage.getItem("login-portal-aluno") ?? "{}");
+const portalLink = alunoHash && igrejaHash ? `portal-aluno/${igrejaHash}/${alunoHash}` : undefined;
 function Navbar() {
     const TAMANHO_MOBILE = 1010;
-    const [isMobile, setIsMobile] = useState(
-        window.innerWidth <= TAMANHO_MOBILE,
-    );
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= TAMANHO_MOBILE);
     const { isSuperAdmin, isAdmin, user, logout } = useAuthContext();
 
     const isMobileRef = useRef(isMobile);
@@ -92,14 +85,10 @@ function Navbar() {
                         dropdown: item.dropdown.filter(
                             (v) =>
                                 (!v.superAdmin && !v.admin && !v.professor) ||
-                                (v.superAdmin && isSuperAdmin.current) ||
-                                (v.admin &&
-                                    (isAdmin.current ||
-                                        isSuperAdmin.current)) ||
+                                (v.superAdmin && isSuperAdmin?.current) ||
+                                (v.admin && (isAdmin?.current || isSuperAdmin?.current)) ||
                                 (v.professor &&
-                                    (user?.role === ROLES.PROFESSOR ||
-                                        isAdmin.current ||
-                                        isSuperAdmin.current)),
+                                    (user?.role === ROLES.PROFESSOR || isAdmin?.current || isSuperAdmin?.current)),
                         ),
                     };
                 } else if (!item.notRoles) return item;
@@ -110,8 +99,7 @@ function Navbar() {
 
     useEffect(() => {
         const resize = (evt: UIEvent) => {
-            const isM =
-                (evt.currentTarget as Window).innerWidth <= TAMANHO_MOBILE;
+            const isM = (evt.currentTarget as Window).innerWidth <= TAMANHO_MOBILE;
             if (isM !== isMobileRef.current) {
                 setIsMobile(isM);
                 isMobileRef.current = isM;
@@ -143,4 +131,4 @@ function Navbar() {
         </>
     );
 }
-export default Navbar;
+export default memo(Navbar);

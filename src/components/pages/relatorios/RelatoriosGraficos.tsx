@@ -13,7 +13,6 @@ import Dropdown from "../../ui/Dropdown";
 import { Controller, FormProvider, useForm, type FieldError } from "react-hook-form";
 import { useAuthContext } from "../../../context/AuthContext";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Form, useSearchParams } from "react-router-dom";
@@ -22,6 +21,7 @@ import { httpsCallable } from "firebase/functions";
 import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
 import DashboardCardModal from "../../ui/DashboardCardModal";
 import { functions } from "../../../utils/firebase";
+import Loading from "../../layout/loading/Loading";
 
 const METRICAS = [
     { nome: "Ofertas (Detalhado)", id: "ofertas" }, //ok

@@ -1,4 +1,4 @@
-@use "@/styles/variables" as v;
+@use "@/styles/variables" as *;
 @use "sass:color";
 
 .minha-conta {
@@ -10,7 +10,7 @@
     gap: 3rem;
 
     &__card {
-        background-color: v.$cor-secundaria-fundo;
+        background-color: $cor-secundaria-fundo;
         border-radius: 1.2rem;
         padding: 2.5rem;
         border: 1px solid #e5e7eb;
@@ -19,7 +19,7 @@
         &-title {
             font-size: 2.2rem;
             font-weight: 700;
-            color: v.$cor-primaria-texto;
+            color: $cor-primaria-texto;
             margin: 0 0 2rem 0;
             padding-bottom: 1.5rem;
             border-bottom: 1px solid #f3f4f6;
@@ -28,7 +28,198 @@
             gap: 1.2rem;
 
             svg {
-                color: v.$cor-primaria-itens;
+                color: $cor-primaria-itens;
+            }
+        }
+    }
+    &__tipo-loading {
+        &__subtitle {
+            color: $cor-secundaria-texto;
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        &__opcoes {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        &__opcao {
+            display: flex;
+            align-items: center;
+            background-color: $cor-primaria-fundo;
+            border: 1px solid rgba($cor-secundaria-texto, 0.2);
+            border-radius: 8px;
+            padding: 0.5rem;
+            transition: all 0.2s ease-in-out;
+            gap: 1rem;
+            cursor: pointer;
+
+            &:hover {
+                border-color: $cor-primaria-itens;
+                background-color: $cor-secundaria-fundo;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            }
+
+            &__title {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                flex: 1;
+                font-weight: 500;
+                color: $cor-primaria-texto;
+
+                i {
+                    color: $cor-primaria-itens;
+                    font-size: 1.2rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 24px;
+                }
+
+                span {
+                    font-size: 1rem;
+                }
+            }
+
+            &__check {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+
+                input[type="radio"] {
+                    position: absolute;
+                    opacity: 0;
+                    height: 0;
+                    width: 0;
+
+                    &:checked + label {
+                        border-color: $cor-primaria-itens;
+                        background-color: $cor-primaria-itens;
+
+                        &::after {
+                            content: "";
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            width: 8px;
+                            height: 8px;
+                            border-radius: 50%;
+                            background-color: $cor-secundaria-fundo;
+                        }
+                    }
+                }
+
+                label {
+                    position: relative;
+                    width: 22px;
+                    height: 22px;
+                    border: 2px solid $cor-secundaria-texto;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+
+                    &::before {
+                        content: "";
+                        position: absolute;
+                        top: -10px;
+                        left: -10px;
+                        right: -10px;
+                        bottom: -10px;
+                    }
+                }
+            }
+
+            &__ver {
+                background-color: transparent;
+                color: $cor-primaria-itens;
+                border: 1px solid rgba($cor-primaria-itens, 0.3);
+                border-radius: 6px;
+                padding: 0.8rem 1.2rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background-color: rgba($cor-primaria-itens, 0.1);
+                    border-color: $cor-primaria-itens;
+                }
+
+                &:active {
+                    transform: scale(0.95);
+                }
+            }
+        }
+    }
+
+    &__preview {
+        background-color: $cor-secundaria-fundo;
+        padding: 1.5rem;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        box-shadow:
+            0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        max-width: 90vw;
+        max-height: 90vh;
+
+        &__overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba($cor-primaria-texto, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1rem;
+            animation: fadeIn 0.2s ease-out;
+        }
+        &__container {
+            width: 100%;
+            max-width: 320px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            video,
+            img {
+                width: 100%;
+                height: auto;
+                max-height: 60vh;
+                object-fit: contain;
+                border-radius: 8px;
+            }
+        }
+
+        &__fechar {
+            background-color: $cor-erro;
+            color: $cor-secundaria-fundo;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            width: 100%;
+
+            &:hover {
+                background-color: rgba($cor-erro, 70%);
+            }
+
+            &:active {
+                transform: scale(0.98);
             }
         }
     }
@@ -43,7 +234,7 @@
         h3 {
             font-size: 1.4rem;
             font-weight: 500;
-            color: v.$cor-secundaria-texto;
+            color: $cor-secundaria-texto;
             margin: 0 0 0.5rem 0;
             display: flex;
             align-items: center;
@@ -53,7 +244,7 @@
         p {
             font-size: 1.6rem;
             font-weight: 600;
-            color: v.$cor-primaria-texto;
+            color: $cor-primaria-texto;
             margin: 0;
             padding-left: 2.2rem; // Alinha com o texto do h3
         }
@@ -73,7 +264,7 @@
         label {
             font-size: 1.5rem;
             font-weight: 500;
-            color: v.$cor-primaria-texto;
+            color: $cor-primaria-texto;
         }
 
         input[type="password"] {
@@ -85,20 +276,20 @@
 
             &:focus {
                 outline: none;
-                border-color: v.$cor-primaria-itens;
+                border-color: $cor-primaria-itens;
                 box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
             }
 
             &.input-error {
-                border-color: v.$cor-erro;
+                border-color: $cor-erro;
                 &:focus {
-                    box-shadow: 0 0 0 3px rgba(v.$cor-erro, 0.3);
+                    box-shadow: 0 0 0 3px rgba($cor-erro, 0.3);
                 }
             }
         }
 
         .form-error {
-            color: v.$cor-erro;
+            color: $cor-erro;
             font-size: 1.3rem;
             margin: 0;
         }
@@ -109,7 +300,7 @@
         padding: 1rem 2.5rem;
         border: none;
         border-radius: 0.8rem;
-        background-color: v.$cor-primaria-itens;
+        background-color: $cor-primaria-itens;
         color: white;
         font-size: 1.5rem;
         font-weight: 700;
@@ -118,7 +309,7 @@
         transition: all 0.3s ease-in-out;
 
         &:hover {
-            background-color: color.scale(v.$cor-primaria-itens, $lightness: -10%);
+            background-color: color.scale($cor-primaria-itens, $lightness: -10%);
             transform: scale(1.1);
         }
 
@@ -138,7 +329,7 @@
             p {
                 font-size: 1.6rem;
                 font-weight: 500;
-                color: v.$cor-primaria-texto;
+                color: $cor-primaria-texto;
                 margin: 0;
             }
         }
@@ -160,7 +351,7 @@
                 font-size: 0;
                 width: 5rem;
                 height: 2.8rem;
-                background: v.$cor-erro;
+                background: $cor-erro;
                 display: block;
                 border-radius: 10rem;
                 position: relative;
@@ -179,7 +370,7 @@
                 }
 
                 &:has(+ input:checked) {
-                    background: v.$cor-sucesso;
+                    background: $cor-sucesso;
 
                     &::after {
                         left: calc(100% - 0.3rem);

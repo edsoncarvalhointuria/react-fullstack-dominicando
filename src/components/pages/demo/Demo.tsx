@@ -22,6 +22,10 @@ const textoVariants: Variants = {
     }),
 };
 
+export function HydrateFallback() {
+    return <LoadingVideo isOpen />;
+}
+
 const TextoDemo = ({ texto }: { texto: string }) => {
     return (
         <div className="texto-demo" key={texto}>

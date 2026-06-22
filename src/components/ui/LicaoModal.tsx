@@ -1,5 +1,5 @@
-import { AnimatePresence, motion, type Variants } from "framer-motion";
 import "./licao-modal.scss";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import type { LicaoInterface } from "../../interfaces/LicaoInterface";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -17,11 +17,13 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { collection, doc, getDoc, getDocs, getDocsFromCache, query, Timestamp, where } from "firebase/firestore";
 import { db } from "../../utils/firebase";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import PanoramaLicao from "./PanoramaLicao";
 import type { CacheLicaoInterface } from "../../interfaces/CacheLicaoInterface";
 import { houveAtualizacaoIgreja, salvarSistemaLocalStorageIgreja } from "../../utils/getSistema";
+import LoadingModal from "../layout/loading/LoadingModal";
+
+const PanoramaLicao = lazy(() => import("./PanoramaLicao"));
 
 interface AulaDocument {
     id: string;
@@ -284,12 +286,14 @@ function LicaoModal({
 
                 <div className="licao-modal__body">
                     {isPanorama ? (
-                        <PanoramaLicao
-                            dados={panoramaDados}
-                            isLoading={loadingPanorama}
-                            licao={licao}
-                            listaAulas={aulasDoTrimestre}
-                        />
+                        <Suspense fallback={<LoadingModal isEnviando mensagem="Carregando" />}>
+                            <PanoramaLicao
+                                dados={panoramaDados}
+                                isLoading={loadingPanorama}
+                                licao={licao}
+                                listaAulas={aulasDoTrimestre}
+                            />
+                        </Suspense>
                     ) : (
                         <ul className="licao-modal__registros">
                             {isLoading ? (
@@ -346,4 +350,4 @@ function LicaoModal({
     );
 }
 
-export default React.memo(LicaoModal);
+export default LicaoModal;

@@ -1,6 +1,9 @@
+@use "@/styles/variables" as v;
 .loading {
-    height: 80vh;
-    width: 90vw;
+    background-color: v.$cor-primaria-fundo;
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
 
     &-img {
         position: absolute;
@@ -27,9 +30,11 @@
         }
 
         &__video {
-            border-radius: 50%;
-            overflow: hidden;
-            width: 30rem;
+            &--loop {
+                border-radius: 50%;
+                overflow: hidden;
+                width: 30rem;
+            }
 
             video {
                 object-fit: cover;

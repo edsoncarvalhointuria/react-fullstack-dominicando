@@ -1,19 +1,21 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useDataContext } from "../../../context/DataContext";
-import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
 import { useAuthContext } from "../../../context/AuthContext";
-import { useEffect, useState } from "react";
+import { lazy, useEffect, useState } from "react";
 import { collection, getDocs, getDocsFromCache, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
-import Loading from "../../layout/loading/Loading";
-import LicoesGrid from "./LicoesGrid";
-import CadastroIgrejaModal from "../../ui/CadastroIgrejaModal";
-import CadastroClasseModal from "../../ui/CadastroClasseModal";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
 import { houveAtualizacaoIgreja, salvarSistemaLocalStorageIgreja } from "../../../utils/getSistema";
+import SelectionGrid from "../../layout/selection_grid/SelectionGrid";
+import LicoesGrid from "./LicoesGrid";
+import Loading from "../../layout/loading/Loading";
+
+const CadastroIgrejaModal = lazy(() => import("../../ui/CadastroIgrejaModal"));
+const CadastroClasseModal = lazy(() => import("../../ui/CadastroClasseModal"));
+
+const LIMITE = 10;
 
 function Aulas() {
-    const LIMITE = 10;
     const [isLoading, setIsLoading] = useState<boolean | null>(null);
     const [licoes, setLicoes] = useState<any[]>([]);
     const [update, setUpdate] = useState(0);
@@ -86,13 +88,6 @@ function Aulas() {
             );
     };
 
-    if (!isSuperAdmin.current && igrejaId) return <Navigate to={"/aulas"} />;
-    if (isSecretario.current) {
-        igrejaId = user.igrejaId as string;
-        classeId = user.classeId as string;
-    }
-    if (isAdmin.current) igrejaId = user.igrejaId as string;
-
     useEffect(() => {
         if (!classeId || !igrejaId || !classes.length) return;
 
@@ -135,12 +130,17 @@ function Aulas() {
 
         getLicoes(igrejaId, classeId, limite).finally(() => setIsLoading(false));
     }, [classeId, update, limite, classes]);
-
+    if (!isSuperAdmin.current && igrejaId) return <Navigate to={"/aulas"} />;
+    if (isAdmin.current) igrejaId = user.igrejaId as string;
+    if (isSecretario.current) {
+        igrejaId = user.igrejaId as string;
+        classeId = user.classeId as string;
+    }
     return (
         <>
             {isLoadingData || isLoading === true ? (
                 <Loading />
-            ) : isLoading === false ? (
+            ) : isLoading === false && classeId && igrejaId ? (
                 <LicoesGrid
                     revistas={licoes}
                     classeId={classeId!}

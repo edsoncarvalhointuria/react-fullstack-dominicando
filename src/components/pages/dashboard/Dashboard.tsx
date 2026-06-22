@@ -1,31 +1,22 @@
-import { motion } from "framer-motion";
 import "./dashboard.scss";
+import { motion } from "framer-motion";
 import Dropdown from "../../ui/Dropdown";
-import DashboardCard from "../../ui/DashboardCard";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faAddressCard,
-    faBook,
-    faBookBible,
-    faChartColumn,
-    faClipboardCheck,
-    faGhost,
-    faListCheck,
-    faPlane,
-    faSackDollar,
-} from "@fortawesome/free-solid-svg-icons";
-import React, { useEffect, useRef, useState } from "react";
+import { faChartColumn } from "@fortawesome/free-solid-svg-icons";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db, functions } from "../../../utils/firebase";
 import { useAuthContext } from "../../../context/AuthContext";
 import { httpsCallable } from "firebase/functions";
 import { useDataContext } from "../../../context/DataContext";
-import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
 import { ROLES } from "../../../roles/Roles";
+import DashboardCardSkeleton from "../../ui/DashboardCardSkeleton";
+
+const DashboardCards = lazy(() => import("./DashboardCards"));
 
 const getDashboard = httpsCallable(functions, "getDashboard");
 
-interface StateCharts {
+export interface StateCharts {
     total_matriculados: DashboardInterface[];
     total_biblias: DashboardInterface[];
     total_licoes: DashboardInterface[];
@@ -51,50 +42,6 @@ const DashboardButton = ({ buscar, disable }: { buscar: () => void; disable: boo
         </div>
     );
 };
-const ChartMembros = React.memo(
-    ({
-        value,
-    }: {
-        value: {
-            [key: string]: {
-                total_membros: number;
-                total_matriculados: number;
-                engajamento: number | string;
-            };
-        };
-    }) => {
-        const dados = Object.values(value || {});
-
-        let totalMatriculados = 0;
-        let totalMembrosCadastrados = 0;
-
-        dados.forEach((v) => {
-            totalMatriculados += v.total_matriculados;
-            totalMembrosCadastrados += v.total_membros;
-        });
-
-        const data = [
-            {
-                name: "Matriculados",
-                value: totalMatriculados,
-            },
-            {
-                name: "Não Matriculados",
-                value: totalMembrosCadastrados - totalMatriculados,
-            },
-        ];
-
-        return (
-            <DashboardCard
-                value={`${((totalMatriculados / totalMembrosCadastrados) * 100 || 0).toFixed(1)}%`}
-                title="Total Membros Matriculados"
-                icon={<FontAwesomeIcon icon={faAddressCard} />}
-                datas={data}
-                chartType="pie"
-            />
-        );
-    },
-);
 function Dashboard() {
     const [options, setOptions] = useState<ClasseInterface[] | IgrejaInterface[]>([]);
     const [currentOption, setCurrentOption] = useState<{
@@ -102,8 +49,7 @@ function Dashboard() {
         nome: string;
     } | null>(null);
     const [charts, setCharts] = useState<StateCharts | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [inicio, setInicio] = useState(true);
+    const [isLoading, setIsLoading] = useState<boolean | null>(null);
 
     const chartsRef = useRef<StateCharts>(null);
     const $dataInicio = useRef<HTMLInputElement>(null);
@@ -160,7 +106,7 @@ function Dashboard() {
         ];
 
         if (!isSuperAdmin.current) condicoes.push(where("igrejaId", "==", user.igrejaId));
-        if (!isAdmin.current) condicoes.push(where("classeId", "==", user.classeId));
+        if (isSecretario.current) condicoes.push(where("classeId", "==", user.classeId));
         const q = query(licoesCollection, ...condicoes);
         const licoes = await getDocs(q);
         const value = licoes.docs[0]?.data();
@@ -177,15 +123,7 @@ function Dashboard() {
 
         // await buscarDadosFirestone(inicio, fim);
     };
-    const sum = (array: DashboardInterface[]) => {
-        return array?.reduce(
-            (total, obj) =>
-                total + Object.values(obj).reduce((sum, acc) => (typeof acc === "number" ? sum + acc : sum), 0),
-            0,
-        );
-    };
     const buscar = () => {
-        setInicio(false);
         setIsLoading(true);
         setCurrentOption(null);
         buscarDadosFirestone($dataInicio.current!.value, $dataFim.current!.value).finally(() => {
@@ -227,7 +165,7 @@ function Dashboard() {
     }, [options]);
     useEffect(() => {
         if (classes.length) {
-            buscarDadosIniciais().finally(() => setIsLoading(false));
+            buscarDadosIniciais();
             if (isSuperAdmin.current) setOptions(igrejas);
             if (isAdmin.current) setOptions(classes);
         }
@@ -267,11 +205,11 @@ function Dashboard() {
                     </div>
                 </div>
 
-                <DashboardButton buscar={buscar} disable={isLoading} />
+                <DashboardButton buscar={buscar} disable={!!isLoading} />
             </div>
 
             <div className="dashboard-page__grid">
-                {inicio ? (
+                {isLoading === null ? (
                     <div className="dashboard-page__sem-itens">
                         <div className="dashboard-page__sem-itens-titulo">
                             <h3>Clique em pesquisar para gerar os dados</h3>
@@ -280,90 +218,14 @@ function Dashboard() {
                             </span>
                         </div>
 
-                        <DashboardButton buscar={buscar} disable={isLoading} />
+                        <DashboardButton buscar={buscar} disable={!!isLoading} />
                     </div>
                 ) : isLoading ? (
                     Array.from({ length: 6 }).map((_, i) => <DashboardCardSkeleton key={i + "skeleton"} />)
                 ) : (
-                    <>
-                        <DashboardCard
-                            withIndex={!isSecretario.current}
-                            value={sum(charts?.total_ofertas || []).toLocaleString("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                            })}
-                            title="Total Ofertas"
-                            icon={<FontAwesomeIcon icon={faSackDollar} />}
-                            datas={charts?.total_ofertas || []}
-                            chartType="bar"
-                        />
-
-                        <DashboardCard
-                            withIndex={!isSecretario.current}
-                            value={sum(charts?.total_missoes || []).toLocaleString("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                            })}
-                            title="Total Missões"
-                            icon={<FontAwesomeIcon icon={faPlane} />}
-                            datas={charts?.total_missoes || []}
-                            chartType="bar"
-                        />
-
-                        <DashboardCard
-                            withIndex={!isSecretario.current}
-                            value={Math.floor(
-                                sum(charts?.total_presentes || []) / (charts?.total_presentes || []).length,
-                            ).toString()}
-                            title="Total Presentes"
-                            icon={<FontAwesomeIcon icon={faListCheck} />}
-                            datas={charts?.total_presentes || []}
-                            chartType="area"
-                        />
-                        <DashboardCard
-                            withIndex={!isSecretario.current}
-                            value={Math.floor(
-                                sum(charts?.total_ausentes || []) / (charts?.total_ausentes || []).length,
-                            ).toString()}
-                            title="Total Ausentes"
-                            icon={<FontAwesomeIcon icon={faGhost} />}
-                            datas={charts?.total_ausentes || []}
-                            chartType="area"
-                        />
-
-                        <DashboardCard
-                            withIndex={!isSecretario.current}
-                            value={sum(charts?.total_matriculados || []).toString()}
-                            title="Total Matriculados"
-                            icon={<FontAwesomeIcon icon={faClipboardCheck} />}
-                            datas={charts?.total_matriculados || []}
-                            chartType="bar"
-                        />
-
-                        {!isSecretario.current && <ChartMembros value={charts?.total_membros_matriculados || {}} />}
-
-                        <DashboardCard
-                            withIndex={!isSecretario.current}
-                            value={Math.floor(
-                                sum(charts?.total_licoes || []) / (charts?.total_licoes || []).length,
-                            ).toString()}
-                            title="Total Revistas"
-                            icon={<FontAwesomeIcon icon={faBook} />}
-                            datas={charts?.total_licoes || []}
-                            chartType="bar"
-                        />
-
-                        <DashboardCard
-                            withIndex={!isSecretario.current}
-                            value={Math.floor(
-                                sum(charts?.total_biblias || []) / (charts?.total_biblias || []).length,
-                            ).toString()}
-                            title="Total Bíblias"
-                            icon={<FontAwesomeIcon icon={faBookBible} />}
-                            datas={charts?.total_biblias || []}
-                            chartType="bar"
-                        />
-                    </>
+                    <Suspense fallback={<DashboardCardSkeleton />}>
+                        <DashboardCards charts={charts} />
+                    </Suspense>
                 )}
             </div>
         </motion.section>

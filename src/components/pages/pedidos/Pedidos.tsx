@@ -1,3 +1,4 @@
+import "./pedidos.scss";
 import {
     faAlarmClock,
     faBagShopping,
@@ -12,16 +13,15 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import SearchInput from "../../ui/SearchInput";
 import { useEffect, useMemo, useState } from "react";
-import "./pedidos.scss";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuthContext } from "../../../context/AuthContext";
 import { collection, getDocs, limit, query, where, orderBy, getDocsFromCache } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import type { PedidosInterface } from "../../../interfaces/PedidosInterface";
-import Loading from "../../layout/loading/Loading";
 import { houveAtualizacaoMinisterio, salvarSistemaLocalStorageMinisterio } from "../../../utils/getSistema";
 import VazioDefault from "../../ui/VazioDefault";
+import Loading from "../../layout/loading/Loading";
 
 const LIMITE_DE_REVISTAS = 15;
 
@@ -202,6 +202,7 @@ function Pedidos() {
                 docs = await getDocsFromCache(q);
                 if (docs.empty || limite > LIMITE_DE_REVISTAS) docs = await getDocs(q);
             }
+            salvarSistemaLocalStorageMinisterio(houveAtualizacao);
 
             const p = docs.docs.map((v) => ({ id: v.id, ...v.data() }) as PedidosInterface);
 

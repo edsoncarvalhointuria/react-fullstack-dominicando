@@ -39,11 +39,11 @@ import AlertModal from "../../ui/AlertModal";
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
 import LicaoCard from "../../ui/LicaoCard";
-import Loading from "../../layout/loading/Loading";
 import { reduzirImagem } from "../../../utils/reduzirImagem";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import "@/components/ui/licao-modal.scss";
+import Loading from "../../layout/loading/Loading";
 
 interface FormNovoTrimestreGlobal {
     img?: any;

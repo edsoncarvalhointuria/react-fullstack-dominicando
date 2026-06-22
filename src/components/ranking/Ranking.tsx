@@ -9,9 +9,9 @@ import { Timestamp } from "firebase/firestore";
 import AlertModal from "../ui/AlertModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAward, faMedal, faStar, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
-import Loading from "../layout/loading/Loading";
 import "./ranking.scss";
 import { functions } from "../../utils/firebase";
+import Loading from "../layout/loading/Loading";
 
 const pegarRankingPublico = httpsCallable(functions, "pegarRankingPublico");
 

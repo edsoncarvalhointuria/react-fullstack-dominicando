@@ -1,7 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import "./matriculas.scss";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useAuthContext } from "../../../context/AuthContext";
 import { faAddressCard, faBookOpenReader, faFeather, faThumbsUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -22,6 +21,7 @@ import OrderInput from "../../ui/OrderInput";
 import { getOrdem } from "../../../utils/getOrdem";
 import ButtonsDefault from "../../ui/ButtonDefault";
 import { houveAtualizacaoIgreja, salvarSistemaLocalStorageIgreja } from "../../../utils/getSistema";
+import Loading from "../../layout/loading/Loading";
 
 interface Form {
     igreja: string;

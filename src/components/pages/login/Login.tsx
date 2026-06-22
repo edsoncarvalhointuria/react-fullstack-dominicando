@@ -1,43 +1,39 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import "./login.scss";
 import { useAuthContext } from "../../../context/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
-import ResetSenhaModal from "../../ui/ResetSenhaModal";
 import Footer from "../../layout/footer/Footer";
+import ModalSkeleton from "../../ui/ModalSkeleton";
+
+const ResetSenhaModal = lazy(() => import("../../ui/ResetSenhaModal"));
 
 function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [eyeKey, setEyeKey] = useState(0);
     const [isDisable, setIsDisable] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
     const [resetSenha, setResetSenha] = useState(false);
-
     const [erro, setErro] = useState(false);
     const navigate = useNavigate();
 
     const $login = useRef<HTMLInputElement>(null);
     const $password = useRef<HTMLInputElement>(null);
 
-    const { login, user } = useAuthContext();
+    const { login, user, isLoadingAuth } = useAuthContext();
 
     const enable = () => {
         if ($login.current && $password.current)
-            if (
-                $login.current.value.trim().length >= 3 &&
-                $password.current.value.trim().length >= 3
-            )
+            if ($login.current.value.trim().length >= 3 && $password.current.value.trim().length >= 3)
                 setIsDisable(false);
             else setIsDisable(true);
     };
 
     useEffect(() => {
-        setTimeout(() => setErro(false), 3000);
-    }, [erro]);
-    useEffect(() => {
-        if (user) navigate("/dashboard");
-    }, []);
-
+        const { igrejaHash, alunoHash } = JSON.parse(localStorage.getItem("login-portal-aluno") ?? "{}");
+        if (igrejaHash && alunoHash && !user && isLoadingAuth === false) {
+            navigate(`/portal-aluno/${igrejaHash}/${alunoHash}`);
+        }
+    }, [user, isLoadingAuth]);
     return (
         <>
             <motion.section
@@ -46,35 +42,36 @@ function Login() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 1 }}
             >
                 <motion.div className="login-page__container" layout>
                     <div className="login-page__logo">
-                        <img
-                            src="./logo-cor-oficial-completa.svg"
-                            alt="Logo Dominicando"
-                        />
+                        <img src="./logo-preenchida.svg" alt="Logo Dominicando" />
+                        <span>ominicando</span>
                     </div>
                     <h1 className="login-page__title">Acessar o painel</h1>
                     <div className="login-page__form">
                         <AnimatePresence>
                             {erro && (
                                 <motion.div
-                                    className="login-page__erro"
-                                    key={"erro-mensagem"}
-                                    initial={{ opacity: 0, scale: 0.3 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.3 }}
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0, transition: { delay: 2 } }}
+                                    transition={{ ease: "linear", duration: 0.5 }}
+                                    onAnimationComplete={() => setErro(false)}
                                 >
-                                    <p>Login ou senha invalidos</p>
+                                    <motion.div className="login-page__erro" key={"erro-mensagem"}>
+                                        <p>Login ou senha invalidos</p>
+                                    </motion.div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                         <div className="login-page__form-input">
                             <label htmlFor="login-input">Login:</label>
                             <input
+                                placeholder="Digite seu email"
                                 ref={$login}
-                                type="text"
+                                type="email"
                                 name="login-input"
                                 id="login-input"
                                 onKeyUp={enable}
@@ -83,21 +80,17 @@ function Login() {
                         <div className="login-page__form-input">
                             <label htmlFor="login-input">Senha:</label>
                             <div className="login-page__form-input--password">
-                                <motion.input
-                                    layout
+                                <input
                                     type={showPassword ? "text" : "password"}
                                     name="password-input"
                                     id="password-input"
                                     ref={$password}
                                     onKeyUp={enable}
+                                    placeholder="Digite sua senha"
                                 />
-                                <motion.img
-                                    layout
-                                    src={`./eye${
-                                        showPassword ? "-close" : ""
-                                    }.gif?key=${eyeKey}`}
-                                    whileHover={{ scale: 0.9 }}
-                                    onTap={() => {
+                                <img
+                                    src={`./eye${showPassword ? "-close" : ""}.gif?key=${eyeKey}`}
+                                    onClick={() => {
                                         setShowPassword((v) => !v);
                                         setEyeKey((v) => v + 1);
                                     }}
@@ -108,28 +101,20 @@ function Login() {
                         </div>
 
                         <div className="login-page__form-links">
-                            <Link to={"/cadastrar"}>
-                                Não tem conta? Cadastre-se aqui!
-                            </Link>
-                            <p onClick={() => setResetSenha(true)}>
-                                Esqueceu a senha? Clique aqui!
-                            </p>
+                            <Link to={"/cadastrar"}>Não tem conta? Cadastre-se aqui!</Link>
+                            <p onClick={() => setResetSenha(true)}>Esqueceu a senha? Clique aqui!</p>
                         </div>
 
                         <div className="login-page__form-buttons">
                             <button
-                                disabled={isDisable || isLoading}
+                                disabled={isDisable || isLoadingAuth}
                                 onClick={() => {
-                                    setIsLoading(true);
-                                    login(
-                                        $login.current?.value || "",
-                                        $password.current?.value || "",
-                                    )
-                                        .catch(() => setErro(true))
-                                        .finally(() => setIsLoading(false));
+                                    login($login.current?.value || "", $password.current?.value || "").catch(() =>
+                                        setErro(true),
+                                    );
                                 }}
                             >
-                                Login
+                                {isLoadingAuth ? "Carregando usuário" : "Login"}
                             </button>
                             {/* <p>ou</p>
                         <div className="login-page__form-buttons--google">
@@ -157,11 +142,13 @@ function Login() {
 
             <AnimatePresence>
                 {resetSenha && (
-                    <ResetSenhaModal
-                        key={"reset-senha-modal-login"}
-                        onClose={() => setResetSenha(false)}
-                        onConfirm={() => undefined}
-                    />
+                    <Suspense fallback={<ModalSkeleton />}>
+                        <ResetSenhaModal
+                            key={"reset-senha-modal-login"}
+                            onClose={() => setResetSenha(false)}
+                            onConfirm={() => undefined}
+                        />
+                    </Suspense>
                 )}
             </AnimatePresence>
         </>

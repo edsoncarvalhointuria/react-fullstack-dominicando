@@ -1,13 +1,10 @@
-import "./loading.scss";
+import { localStorageObj } from "../../../data/localStorageObj";
+import LoadingImg from "./LoadingImg";
+import LoadingVideo from "./LoadingVideo";
 
-function Loading() {
-    return (
-        <div className="loading">
-            <div className="loading-img">
-                <img src="/loading.gif" alt="Loading Img" />
-            </div>
-        </div>
-    );
+export default function Loading() {
+    const link = localStorage.getItem(localStorageObj["dominicando-loading"]) || "/loading.webp";
+    const isVideo = /.+(\.mp4)|(\.webm)/.test(link);
+
+    return isVideo ? <LoadingVideo isOpen /> : <LoadingImg />;
 }
-
-export default Loading;

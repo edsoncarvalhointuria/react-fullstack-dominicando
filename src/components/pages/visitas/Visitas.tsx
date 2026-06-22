@@ -3,7 +3,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCalendar, faCalendarWeek, faFeather, faPhone, faThumbsUp } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import "./visitas.scss";
 import { collection, getDocs, query, where } from "firebase/firestore";
@@ -19,6 +18,7 @@ import { getOrdem } from "../../../utils/getOrdem";
 import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import ButtonsDefault from "../../ui/ButtonDefault";
+import Loading from "../../layout/loading/Loading";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },

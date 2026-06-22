@@ -1,20 +1,22 @@
-import { faBookmark, faCalendarDay, faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import "./preparo.scss";
+import { faBookmark, faCalendarDay, faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import "@/components/ui/licao-card.scss";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { AnimatePresence, motion } from "framer-motion";
 import SearchInput from "../../ui/SearchInput";
 import { useAuthContext } from "../../../context/AuthContext";
-import NovoTrimestreAulasModal from "../../ui/NovoTrimestreAulasModal";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { collection, getDocs, getDocsFromCache, limit, query, where } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import type { LicaoPreparoInterface } from "../../../interfaces/LicaoPreparoInterface";
 import LicaoPreparoCard from "../../ui/LicaoPreparoCard";
 import LicaoPreparoModal from "../../ui/LicaoPreparoModal";
 import { useNavigate } from "react-router-dom";
-import Loading from "../../layout/loading/Loading";
 import { houveAtualizacaoMinisterio, salvarSistemaLocalStorageMinisterio } from "../../../utils/getSistema";
+import Loading from "../../layout/loading/Loading";
+import ModalSkeleton from "../../ui/ModalSkeleton";
+
+const NovoTrimestreAulasModal = lazy(() => import("../../ui/NovoTrimestreAulasModal"));
 
 const LIMITE_LICOES = 10;
 
@@ -184,36 +186,38 @@ function Preparo() {
                 )}
             </div>
 
-            <AnimatePresence>
-                {(novoTrimestre || editLicao) && (
-                    <NovoTrimestreAulasModal
-                        onClose={() => {
-                            setNovoTrimestre(false);
-                            setEditLicao(null);
-                        }}
-                        onSave={() => {
-                            setEditLicao(null);
-                            setUpdate((v) => !v);
-                        }}
-                        licaoPreparoRef={editLicao}
-                        key={"Novo-Trimestre-Modal"}
-                    />
-                )}
-                {openLicao && (
-                    <LicaoPreparoModal
-                        licao={openLicao}
-                        editLicao={(licao) => {
-                            setEditLicao(licao);
-                            setOpenLicao(null);
-                        }}
-                        closeModal={() => {
-                            setEditLicao(null);
-                            setOpenLicao(null);
-                        }}
-                        key={"Licao-Preparo-Modal"}
-                    />
-                )}
-            </AnimatePresence>
+            <Suspense fallback={<ModalSkeleton />}>
+                <AnimatePresence>
+                    {(novoTrimestre || editLicao) && (
+                        <NovoTrimestreAulasModal
+                            onClose={() => {
+                                setNovoTrimestre(false);
+                                setEditLicao(null);
+                            }}
+                            onSave={() => {
+                                setEditLicao(null);
+                                setUpdate((v) => !v);
+                            }}
+                            licaoPreparoRef={editLicao}
+                            key={"Novo-Trimestre-Modal"}
+                        />
+                    )}
+                    {openLicao && (
+                        <LicaoPreparoModal
+                            licao={openLicao}
+                            editLicao={(licao) => {
+                                setEditLicao(licao);
+                                setOpenLicao(null);
+                            }}
+                            closeModal={() => {
+                                setEditLicao(null);
+                                setOpenLicao(null);
+                            }}
+                            key={"Licao-Preparo-Modal"}
+                        />
+                    )}
+                </AnimatePresence>
+            </Suspense>
         </>
     );
 }

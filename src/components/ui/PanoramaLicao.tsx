@@ -69,8 +69,8 @@ import { PedidosRespostaShareModal } from "../pages/pedidos/PedidosResposta";
 import { FormProvider, useForm, useFormContext, useWatch, type UseFormRegister } from "react-hook-form";
 import { TROFEUS } from "../pages/portal_aluno/PortalAluno";
 import { httpsCallable } from "firebase/functions";
-import AlertModal from "./AlertModal";
 import { functions } from "../../utils/firebase";
+import AlertModal from "./AlertModal";
 
 interface PanoramaChamada {
     presente: number;
@@ -657,6 +657,31 @@ const ToolTipDinheiro = ({ payload, active, label }: any) => {
         </div>
     );
 };
+const TickY = (props: any) => {
+    const { x, y, payload } = props;
+    return (
+        <text
+            x={x}
+            y={y}
+            dy={4}
+            textAnchor="end"
+            fill="#111827"
+            style={{
+                fontSize: "13px",
+                textTransform: "capitalize",
+                fontFamily: "serif",
+            }}
+        >
+            {payload.value}
+        </text>
+    );
+};
+const styleX = {
+    fontSize: "11px",
+    textTransform: "capitalize",
+    fontFamily: "serif",
+    fill: "#111827",
+};
 const ResumoAula = ({
     detalhes,
     dados,
@@ -949,21 +974,18 @@ const PanoramaBarChart = ({
                 <Tooltip
                     // position={{ y: 20 }}
                     content={ToolTipDinheiro}
+                    offset={isMobile ? undefined : 30}
                 />
 
                 <Brush dataKey="name" height={15} stroke="#3B82F6" endIndex={ends} />
 
-                {!isMobile ? (
-                    <>
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                    </>
-                ) : (
-                    <>
-                        <XAxis type="number" />
-                        <YAxis dataKey="name" type="category" />
-                    </>
-                )}
+                <XAxis type={isMobile ? "number" : "category"} dataKey={isMobile ? undefined : "name"} style={styleX} />
+                <YAxis
+                    tickLine={false}
+                    dataKey={isMobile ? "name" : undefined}
+                    type={isMobile ? "category" : "number"}
+                    tick={TickY}
+                />
 
                 {keys.map((v, i) => (
                     <Bar
@@ -971,14 +993,16 @@ const PanoramaBarChart = ({
                         stackId={v.split(" ")[0]}
                         dataKey={v}
                         key={v + i}
+                        opacity={0.7}
                         fill={CORES_GRAFICO[i % CORES_GRAFICO.length]}
+                        activeBar={{ opacity: 1, strokeWidth: 1, stroke: "#000" }}
                         // radius={[4, 4, 0, 0]}
                     >
                         {v === `${v.split(" ")[0]} Dinheiro` ? (
                             <LabelList
                                 dataKey={`${v.split(" ")[0]} Total`}
                                 position={isMobile ? "right" : "top"}
-                                style={{ fontSize: "9px" }}
+                                style={{ fontSize: "11px", fill: "#282A36" }}
                                 formatter={(v) =>
                                     typeof v === "number" && v > 0 ? v.toLocaleString("pt-BR") : undefined
                                 }
@@ -997,12 +1021,13 @@ const PanoramaLineChart = ({ datas, keys, ends }: { datas: any; keys: string[]; 
                 <Tooltip
                     // position={{ y: 20 }}
                     content={ToolTipDinheiro}
+                    offset={15}
                 />
 
                 <Brush dataKey="name" height={15} stroke="#3B82F6" endIndex={ends} />
 
-                <XAxis dataKey="name" />
-                <YAxis />
+                <XAxis dataKey="name" style={styleX} />
+                <YAxis tickLine={false} tick={TickY} />
 
                 {keys.map((v, i) => (
                     <Line
@@ -1011,10 +1036,13 @@ const PanoramaLineChart = ({ datas, keys, ends }: { datas: any; keys: string[]; 
                         fill={CORES_GRAFICO[i % CORES_GRAFICO.length]}
                         stroke={CORES_GRAFICO[i % CORES_GRAFICO.length]}
                         strokeWidth={3}
+                        dot={{ r: 5 }}
+                        color="#111827"
+                        activeDot={{ stroke: "#fff" }}
                     >
                         <LabelList
                             dataKey={v}
-                            style={{ fontSize: "9px" }}
+                            style={{ fontSize: "9px", fill: "#111827", fontFamily: "serif" }}
                             formatter={(v) => (typeof v === "number" && v > 0 ? v.toLocaleString("pt-BR") : undefined)}
                         />
                     </Line>
@@ -1105,6 +1133,7 @@ const PanoramaBarELine = ({
                     <ComposedChart data={datas}>
                         <Brush dataKey="name" height={15} stroke="#3B82F6" endIndex={endIndex} />
                         <Tooltip
+                            offset={30}
                             content={({ payload, active, label }) => {
                                 if (!active || !payload.length || !payload) return null;
 
@@ -1158,8 +1187,8 @@ const PanoramaBarELine = ({
                             }}
                         />
 
-                        <XAxis dataKey="name" />
-                        <YAxis width={20} />
+                        <XAxis dataKey="name" style={styleX} />
+                        <YAxis width={20} tick={TickY} tickLine={false} />
 
                         {line.map((v) => {
                             if (visible[v.key] && !isBar)
@@ -1171,23 +1200,38 @@ const PanoramaBarELine = ({
                         {bars.map((v) => {
                             if (visible[v.key])
                                 return isBar ? (
-                                    <Bar key={v.key} dataKey={v.key} stackId={v.stackyId} fill={v.color}>
+                                    <Bar
+                                        key={v.key}
+                                        dataKey={v.key}
+                                        stackId={v.stackyId}
+                                        fill={v.color}
+                                        opacity={0.7}
+                                        activeBar={{ opacity: 1, stroke: "#282A36", strokeWidth: 1 }}
+                                    >
                                         <LabelList
                                             dataKey={v.key}
                                             style={{
                                                 fontSize: "9px",
                                                 fill: "#F9FAFB",
+                                                fontFamily: "serif",
                                             }}
                                             formatter={(v) => (typeof v === "number" && v > 0 ? v : undefined)}
                                         />
                                     </Bar>
                                 ) : (
-                                    <Line key={v.key} fill={v.color} stroke={v.color} strokeWidth={3} dataKey={v.key}>
+                                    <Line
+                                        key={v.key}
+                                        fill={v.color}
+                                        stroke={v.color}
+                                        strokeWidth={3}
+                                        dataKey={v.key}
+                                        dot={{ r: 5 }}
+                                    >
                                         <LabelList
                                             dataKey={v.key}
                                             style={{
-                                                fontSize: "9px",
-                                                fill: "#F9FAFB",
+                                                fontSize: "10px",
+                                                fill: "#282A36",
                                             }}
                                             formatter={(v) => (typeof v === "number" && v > 0 ? v : undefined)}
                                         />

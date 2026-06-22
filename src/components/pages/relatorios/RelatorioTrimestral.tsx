@@ -14,7 +14,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Dropdown from "../../ui/Dropdown";
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db, functions } from "../../../utils/firebase";
 import { useDataContext } from "../../../context/DataContext";
@@ -26,9 +26,9 @@ import AlertModal from "../../ui/AlertModal";
 import ConfirmacaoModal from "../../ui/ConfirmacaoModal";
 import type { TrimestresInterface } from "../../../interfaces/TrimestresInterface";
 import type { RelatoriosTrimestresInterface } from "../../../interfaces/RelatoriosTrimestresInterface";
-import RelatorioTrimestralDownload from "./RelatorioTrimestralDownload";
-import LoadingVideo from "../../layout/loading/LoadingVideo";
+import Loading from "../../layout/loading/Loading";
 
+const RelatorioTrimestralDownload = lazy(() => import("./RelatorioTrimestralDownload"));
 interface ResumoFinal {
     total: number;
     total_ofertas_pix: number;
@@ -1170,7 +1170,7 @@ function RelatorioTrimestral() {
                 .finally(() => setLoadingTrimestres(false));
         }
     }, [user]);
-    if (isLoadingData || isLoading) return <LoadingVideo isOpen />;
+    if (isLoadingData || isLoading) return <Loading />;
     if (isSecretario.current) return <Navigate to={"/relatorios"} />;
     if (!isSuperAdmin.current && igrejaId) <Navigate to={"/relatorios/trimestral/"} />;
     return (
@@ -1248,12 +1248,14 @@ function RelatorioTrimestral() {
 
             <AlertModal isOpen={!!mensagem} {...mensagem!} />
             {downloadRelatorio && dadosTrimestre && (
-                <RelatorioTrimestralDownload
-                    dados={dadosTrimestre}
-                    igreja={igrejaId ? igrejas.find((v) => v.id === igrejaId)!.nome : user!.igrejaNome!}
-                    onSair={() => setDownloadRelatorio(false)}
-                    trimestre={currentTrimestre!.nome.split(" (")[0]}
-                />
+                <Suspense fallback={<></>}>
+                    <RelatorioTrimestralDownload
+                        dados={dadosTrimestre}
+                        igreja={igrejaId ? igrejas.find((v) => v.id === igrejaId)!.nome : user!.igrejaNome!}
+                        onSair={() => setDownloadRelatorio(false)}
+                        trimestre={currentTrimestre!.nome.split(" (")[0]}
+                    />
+                </Suspense>
             )}
             <AnimatePresence>
                 {enviarRelatorio && currentTrimestre && (

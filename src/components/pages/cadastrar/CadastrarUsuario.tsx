@@ -7,9 +7,9 @@ import { useAuthContext } from "../../../context/AuthContext";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm, type FieldError } from "react-hook-form";
 import { httpsCallable } from "firebase/functions";
-import Loading from "../../layout/loading/Loading";
 import AlertModal from "../../ui/AlertModal";
 import { functions } from "../../../utils/firebase";
+import Loading from "../../layout/loading/Loading";
 
 interface FormCadastroUsuario {
     email: string;

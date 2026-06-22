@@ -10,7 +10,6 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "../../ui/Dropdown";
 import { useDataContext } from "../../../context/DataContext";
-import Loading from "../../layout/loading/Loading";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import "./alunos.scss";
 import type { AlunoInterface, CacheAlunoInteface } from "../../../interfaces/AlunoInterface";
@@ -28,6 +27,7 @@ import TabelaDeGestao from "../../ui/TabelaDeGestao";
 import OrderInput from "../../ui/OrderInput";
 import ImportarCSVModal from "../../ui/ImportarCSVModal";
 import ButtonsDefault from "../../ui/ButtonDefault";
+import Loading from "../../layout/loading/Loading";
 
 const variantsItem: Variants = {
     hidden: { y: -10, opacity: 0 },

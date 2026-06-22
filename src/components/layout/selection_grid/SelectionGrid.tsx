@@ -1,9 +1,10 @@
-import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
-import { useMemo, useState } from "react";
 import "./selection-grid.scss";
+import { AnimatePresence, motion, stagger, type Variants } from "framer-motion";
+import { Suspense, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import SearchInput from "../../ui/SearchInput";
+import ModalSkeleton from "../../ui/ModalSkeleton";
 
 const variantsGrid: Variants = {
     hidden: {},
@@ -106,9 +107,11 @@ function SelectionGrid({
                     )}
                 </motion.div>
             </motion.div>
-            <AnimatePresence>
-                {renderAddModal && showModal && renderAddModal(() => setShowModal(false))}
-            </AnimatePresence>
+            <Suspense fallback={<ModalSkeleton />}>
+                <AnimatePresence>
+                    {renderAddModal && showModal && renderAddModal(() => setShowModal(false))}
+                </AnimatePresence>
+            </Suspense>
         </>
     );
 }

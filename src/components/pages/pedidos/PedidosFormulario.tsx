@@ -33,10 +33,10 @@ import { db, functions } from "../../../utils/firebase";
 import { useAuthContext } from "../../../context/AuthContext";
 import AlertModal from "../../ui/AlertModal";
 import { httpsCallable } from "firebase/functions";
-import Loading from "../../layout/loading/Loading";
 import type { PedidosEstrutura, PedidosInterface, RevistaType, TextType } from "../../../interfaces/PedidosInterface";
 import RevistaView from "./RevistaView";
 import TextView from "./TextView";
+import Loading from "../../layout/loading/Loading";
 
 interface FormEstrutura {
     titulo?: string;

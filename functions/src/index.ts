@@ -5805,7 +5805,11 @@ export const salvarLicaoAulaPreparo = functions.https.onCall(async (request) => 
     const licaoPreparoRef = db.collection(Cll.LICOES_PREPARO).doc();
     const batch = db.batch();
     batch.create(licaoPreparoRef, dadosParaSalvar);
-    const licoesAnteriores = await db.collection(Cll.LICOES_PREPARO).where("ativo", "==", true).get();
+    const licoesAnteriores = await db
+        .collection(Cll.LICOES_PREPARO)
+        .where("ministerioId", "==", user.ministerioId!)
+        .where("ativo", "==", true)
+        .get();
 
     if (!licoesAnteriores.empty) {
         licoesAnteriores.docs.forEach((v) => batch.update(v.ref, { ativo: false }));
@@ -5982,7 +5986,7 @@ export const deletarAulaPreparo = functions.https.onCall(async (request) => {
         throw new functions.https.HttpsError("invalid-argument", "Dados inválidos ou ausentes");
     }
 
-    const licaoRef = db.collection("licoes_preparo").doc(licaoId);
+    const licaoRef = db.collection(Cll.LICOES_PREPARO).doc(licaoId);
     const aulaRef = licaoRef.collection("aulas").doc(aulaId);
     const [aulaSnap, licaoSnap] = await Promise.all([aulaRef.get(), licaoRef.get()]);
 
