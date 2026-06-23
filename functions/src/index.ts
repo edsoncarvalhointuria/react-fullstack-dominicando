@@ -6,7 +6,8 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import JSZip from "jszip";
 import Hashids from "hashids";
 import { DecodedIdToken, UpdateRequest } from "firebase-admin/auth";
-
+import nodemailer from "nodemailer";
+import Mail from "nodemailer/lib/mailer";
 enum Roles {
     PASTOR_PRESIDENTE = "pastor_presidente",
     SUPER_ADMIN = "super_admin",
@@ -45,6 +46,214 @@ enum Cll {
     VISITANTES = "visitantes",
     SISTEMA = "sistema",
 }
+
+const emailAlteracao = `<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+        </style>
+    </head>
+    <body
+        style="
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            font-family: &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        "
+    >
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff">
+            <tr>
+                <td align="center" valign="top" style="padding: 10px">
+                    <table
+                        width="100%"
+                        max-width="600"
+                        border="0"
+                        cellspacing="0"
+                        cellpadding="0"
+                        style="width: 100%; max-width: 600px"
+                    >
+                        <tr>
+                            <td
+                                align="center"
+                                valign="top"
+                                style="
+                                    padding: 20px;
+                                    background-color: #ffffff;
+                                    border: 1px solid #6b7280;
+                                    border-top-left-radius: 10px;
+                                    border-top-right-radius: 10px;
+                                    font-size: 11px;
+                                "
+                            >
+                                <table
+                                    width="80"
+                                    border="0"
+                                    cellspacing="0"
+                                    cellpadding="0"
+                                    style="width: 80px; max-width: 80px"
+                                >
+                                    <tr>
+                                        <td align="center">
+                                            <img
+                                                src="https://raw.githubusercontent.com/edsoncarvalhointuria/react-fullstack-dominicando/1c862087a6b1738f048a35636332e7eb0f507578/public/logo-preenchida.svg"
+                                                alt="Logo Dominicando"
+                                                width="80"
+                                                style="display: block; width: 100%; max-width: 80px; border: 0"
+                                            />
+                                        </td>
+                                    </tr>
+                                </table>
+                                <h1 style="font-size: 24px; margin: 20px 0 0 0; color: #000000">
+                                    Bem-Vindo (a) ao %APP_NAME%
+                                </h1>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td
+                                align="left"
+                                valign="top"
+                                style="
+                                    background-color: #f9fafb;
+                                    border-left: 1px solid #6b7280;
+                                    border-right: 1px solid #6b7280;
+                                    padding: 20px;
+                                    color: #6b7280;
+                                "
+                            >
+                                <p style="margin: 0 0 5px 0; font-size: 16px; line-height: 1.6; color: #4b5563">
+                                    Olá! Bem-vindo(a),
+                                </p>
+
+                                <p style="margin: 0 0 5px 0; font-size: 16px; line-height: 1.6; color: #4b5563">
+                                    Sua conta foi criada com sucesso e vinculada ao e-mail <strong>%EMAIL%</strong>.
+                                </p>
+
+                                <p style="margin: 30px 0 0px 0; font-size: 16px; line-height: 1.6; color: #4b5563">
+                                    Para acessar o sistema pela primeira vez, clique no botão abaixo para definir sua
+                                    senha de acesso de forma segura:
+                                </p>
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                    <tr>
+                                        <td align="center" style="padding: 50px 0">
+                                            <a
+                                                href="%LINK%"
+                                                style="
+                                                    background-color: #3b82f6;
+                                                    color: #ffffff;
+                                                    text-decoration: none;
+                                                    padding: 14px 28px;
+                                                    border-radius: 6px;
+                                                    font-size: 16px;
+                                                    font-weight: bold;
+                                                    display: inline-block;
+                                                    text-align: center;
+                                                "
+                                            >
+                                                Configurar minha senha
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <p style="font-size: 14px; margin: 0 0 16px 0; line-height: 1.5">
+                                    Se o botão acima não funcionar, você também pode copiar e colar o link abaixo no seu
+                                    navegador:
+                                </p>
+
+                                <p style="font-size: 13px; line-height: 1.5; margin: 0 0 16px 0; text-align: center">
+                                    <a
+                                        href="%LINK%"
+                                        style="color: #2563eb; text-decoration: underline; word-break: break-all"
+                                        >%LINK%</a
+                                    >
+                                </p>
+
+                                <p
+                                    style="
+                                        margin: 50px 0 20px 0;
+                                        font-size: 16px;
+                                        line-height: 1.6;
+                                        color: #4b5563;
+                                        background-color: #f9fafb;
+                                        padding: 15px;
+                                        border-radius: 6px;
+                                        border-left: 4px solid #2563eb;
+                                    "
+                                >
+                                    <strong>Importante:</strong> Após criar sua senha, você poderá acessar o nosso
+                                    portal a qualquer momento através do link:<br />
+                                    <a
+                                        href="https://dominicando.web.app/"
+                                        style="
+                                            color: #2563eb;
+                                            text-decoration: underline;
+                                            font-weight: bold;
+                                            font-size: 15px;
+                                            display: inline-block;
+                                            margin-top: 5px;
+                                        "
+                                    >
+                                        https://dominicando.web.app/
+                                    </a>
+                                </p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td
+                                align="center"
+                                valign="top"
+                                style="
+                                    background-color: #ffffff;
+                                    padding: 20px;
+                                    border: 1px solid #6b7280;
+                                    border-bottom-left-radius: 10px;
+                                    border-bottom-right-radius: 10px;
+                                "
+                            >
+                                <p style="margin: 0 0 10px 0; font-size: 12px; color: #9ca3af">
+                                    %APP_NAME% &copy; Todos os direitos reservados.
+                                </p>
+
+                                <table
+                                    width="40"
+                                    border="0"
+                                    cellspacing="0"
+                                    cellpadding="0"
+                                    style="width: 40px; max-width: 40px"
+                                >
+                                    <tr>
+                                        <td align="center">
+                                            <img
+                                                src="https://github.com/edsoncarvalhointuria/next-fullstack-ebo/blob/main/public/logo-igreja.png?raw=true"
+                                                alt="ADVV"
+                                                width="40"
+                                                style="display: block; width: 100%; max-width: 40px; border: 0"
+                                            />
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+`;
+const secao = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: "dominicando.site@gmail.com", pass: process.env.DOMINICANDO_KEY },
+});
 
 interface CacheDefault<T> {
     igrejaId: string;
@@ -2642,6 +2851,20 @@ export const salvarUsuario = functions.https.onCall(async (request) => {
                     },
                 }),
         ]);
+
+        const link = await admin.auth().generatePasswordResetLink(dados.email);
+        const html = emailAlteracao
+            .replace(/%APP_NAME%/g, "Dominicando")
+            .replace(/%EMAIL%/g, dados.email)
+            .replace(/%LINK%/g, link);
+
+        const mail: Mail.Options = {
+            from: '"Dominicando" <dominicando.site@gmail.com>',
+            to: dados.email,
+            subject: "Seja Bem-vindo(a)!",
+            html,
+        };
+        await secao.sendMail(mail);
 
         enviarLog(user, request, "SALVAR_USUARIO", `Usuário salvo pelo usuário ${user.uid}`, { newUser });
 

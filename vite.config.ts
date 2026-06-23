@@ -11,12 +11,7 @@ export default defineConfig({
         react(),
         VitePWA({
             registerType: "autoUpdate",
-            includeAssets: [
-                "sitemap.xml",
-                "robots.txt",
-                "favicon.svg",
-                "apple-touch-icon.png",
-            ],
+            includeAssets: ["sitemap.xml", "robots.txt", "favicon.svg", "apple-touch-icon.png"],
             // strategies: "injectManifest",
             // srcDir: "src",
             // filename: "firebase-messaging-sw.ts",
@@ -61,6 +56,7 @@ export default defineConfig({
                 cleanupOutdatedCaches: true,
                 cacheId: "dominicando-v2",
                 maximumFileSizeToCacheInBytes: 4000000,
+                navigateFallbackDenylist: [/^\/__/],
             },
         }),
     ],
