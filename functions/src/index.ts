@@ -2044,7 +2044,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
                 : undefined,
         ]);
 
-        enviarLog(user, request, "SALVAR_CLASSE", `Aluno editado pelo usuário ${user.uid}`, {
+        enviarLog(user, request, "SALVAR_CLASSE", `Classe editada pelo usuário ${user.uid}`, {
             dadosAtualizados,
             classe: classeSnap.data(),
         });
@@ -2071,7 +2071,7 @@ export const salvarClasse = functions.https.onCall(async (request) => {
             .update({ [`lista.${docRef.id}`]: { ...classe, id: docRef.id } }),
     ]);
 
-    enviarLog(user, request, "SALVAR_CLASSE", `Aluno cadastrado pelo usuário ${user.uid}`, dadosAtualizados);
+    enviarLog(user, request, "SALVAR_CLASSE", `Classe cadastrada pelo usuário ${user.uid}`, dadosAtualizados);
 
     return { id: docRef.id, ...classe };
 });
@@ -3597,7 +3597,7 @@ export const salvarNovoTrimestre = functions.https.onCall(async (request) => {
                         classeId,
                         classeNome: classe.data()!.nome,
                         classeRef: classe.ref,
-                        data_matricula: Timestamp.now(),
+                        data_matricula: Timestamp.fromDate(new Date(new Date().setHours(12, 0, 0, 0))),
                         igrejaId,
                         igrejaNome: igreja.data()!.nome,
                         licaoId: novaLicaoRef.id,
@@ -4013,6 +4013,7 @@ interface RegistroAulaInterface {
     classeId: string;
     classeNome: string;
     data: Timestamp;
+    data_realizacao: Timestamp;
     descricao: string;
     igrejaId: string;
     igrejaNome: string;
@@ -4138,6 +4139,7 @@ export const salvarChamada = functions.https.onCall(async (request) => {
         classeId,
         classeNome: classe.data()!.nome,
         data: Timestamp.fromDate(new Date(dados.data_chamada + "T12:00:00")),
+        data_realizacao: Timestamp.now(),
         descricao: dados.descricao,
         igrejaId: classe.data()!.igrejaId,
         igrejaNome: classe.data()!.igrejaNome,

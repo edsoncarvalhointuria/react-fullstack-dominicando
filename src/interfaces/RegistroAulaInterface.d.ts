@@ -7,6 +7,7 @@ export interface RegistroAulaInterface {
     classeId: string;
     classeNome: string;
     data: Timestamp;
+    data_realizacao: Timestamp;
     descricao: string;
     igrejaId: string;
     igrejaNome: string;

@@ -378,7 +378,7 @@ function ChamadaPage() {
 
             Object.entries(formReset).forEach(([key, v]) => setValue(key as any, v));
 
-            return chamada;
+            return { chamada, data_realizacao: registros.data_realizacao };
         };
 
         Promise.all([getLicao(), getMatriculas(), getAula()])
@@ -387,7 +387,13 @@ function ChamadaPage() {
                 if (a) {
                     isEdit.current = true;
                     setStatus((v) => (v === null ? "realizada" : v));
-                    const alunosMatriculados = a.map((v) => v.alunoId);
+                    const alunosMatriculados = a.chamada.map((v) => v.alunoId);
+                    const isFeitaHoje =
+                        a.data_realizacao?.toDate().toLocaleDateString("pt-BR") ===
+                        new Date().toLocaleDateString("pt-BR");
+
+                    if (isFeitaHoje) setIsDataAnterior(false);
+
                     const listaAtualizada = m.filter((v) => alunosMatriculados.includes(v.alunoId));
                     setMatriculas(listaAtualizada);
                     matriculasRef.current = listaAtualizada;
