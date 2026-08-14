@@ -2,7 +2,7 @@ import "./chamada.scss";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useDataContext } from "../../../context/DataContext";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { collection, doc, documentId, getDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, documentId, getDocFromServer, getDocsFromServer, query, where } from "firebase/firestore";
 import { db, functions } from "../../../utils/firebase";
 import type { CacheMatriculasInterface, MatriculasInterface } from "../../../interfaces/MatriculasInterface";
 import type { LicaoInterface } from "../../../interfaces/LicaoInterface";
@@ -296,7 +296,7 @@ function ChamadaPage() {
                     ? where("ministerioId", "==", user!.ministerioId)
                     : where("igrejaId", "==", user!.igrejaId),
             );
-            const licaoSnapshot = await getDocs(q);
+            const licaoSnapshot = await getDocsFromServer(q);
 
             const licoes = {
                 ...licaoSnapshot.docs[0].data(),
@@ -319,7 +319,7 @@ function ChamadaPage() {
         const getMatriculas = async () => {
             setIsLoading(true);
             const matriculasDoc = doc(db, "cache_matriculas", `${igrejaId}_${licaoId}`);
-            const matriculasSnap = await getDoc(matriculasDoc);
+            const matriculasSnap = await getDocFromServer(matriculasDoc);
 
             const matriculas = matriculasSnap.data() as CacheMatriculasInterface;
 
@@ -328,7 +328,7 @@ function ChamadaPage() {
 
         const getAula = async () => {
             const aulaDoc = doc(db, `licoes/${licaoId}/aulas/${numeroAula}`);
-            const aulaSnapshot = await getDoc(aulaDoc);
+            const aulaSnapshot = await getDocFromServer(aulaDoc);
 
             if (!aulaSnapshot.exists()) return;
 
@@ -336,7 +336,7 @@ function ChamadaPage() {
 
             if (!aula.registroRef) return;
 
-            const registrosSnap = await getDoc(aula.registroRef);
+            const registrosSnap = await getDocFromServer(aula.registroRef);
 
             if (!registrosSnap.exists()) return;
 
@@ -350,7 +350,7 @@ function ChamadaPage() {
             setVisitas(registros.visitas_lista || []);
 
             const chamadaCollection = doc(aula.registroRef, "chamada", "lista");
-            const chamadaSnap = await getDoc(chamadaCollection);
+            const chamadaSnap = await getDocFromServer(chamadaCollection);
 
             if (!chamadaSnap.exists()) return;
 

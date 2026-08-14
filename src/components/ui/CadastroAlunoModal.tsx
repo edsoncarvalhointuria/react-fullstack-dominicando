@@ -324,7 +324,7 @@ function CadastroAlunoModal({
                                     <motion.div variants={variantsItem} className="cadastro-aluno__form-item">
                                         <div className="cadastro-aluno__input">
                                             <label htmlFor="cadastro-aluno-data-nascimento">
-                                                Data Nascimento <span>*</span>
+                                                Data Nascimento {type === "aluno" && <span>*</span>}
                                             </label>
                                             <input
                                                 type="date"
